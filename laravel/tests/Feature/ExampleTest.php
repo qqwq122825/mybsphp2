@@ -2,18 +2,17 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
-    /**
-     * A basic test example.
-     */
-    public function test_the_application_returns_a_successful_response(): void
+    public function test_the_baseline_page_identifies_the_formal_project(): void
     {
-        $response = $this->get('/');
-
-        $response->assertStatus(200);
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('MyBsPHP2')
+            ->assertSee('W1 工程基线')
+            ->assertSee('查看当前后台原型')
+            ->assertDontSee('Laravel Documentation');
     }
 }
