@@ -1,0 +1,243 @@
+* {
+	font-size: 12px;
+	font-family: "宋体";
+}
+
+
+*{
+  scrollbar-3dlight-color:#D4D0C8; /*- 最外左 -*/
+  scrollbar-highlight-color:#fff; /*- 左二 -*/
+  scrollbar-face-color:#E4E4E4; /*- 面子 -*/
+  scrollbar-arrow-color:#666; /*- 箭头 -*/
+  scrollbar-shadow-color:#808080; /*- 右二 -*/
+  scrollbar-darkshadow-color:#D7DCE0; /*- 右一 -*/
+  scrollbar-base-color:#D7DCE0; /*- 基色 -*/
+  scrollbar-track-color:#;/*- 滑道 -*/
+
+}
+
+
+td {
+	line-height: 1.5;
+	border-bottom-width: 1px;
+	border-bottom-style: dotted;
+	border-bottom-color: #DEEFFB;
+	height: 33px;
+	text-align: left;
+}
+th {
+	line-height: 1.5;
+	border-bottom-width: 1px;
+	border-bottom-style: dotted;
+	border-bottom-color: #DEEFFB;
+	height: 35px;
+	text-align: left;
+}
+body {
+
+	font-size: 12px;
+	line-height: 1.5;
+	font-family: "宋体";
+	color: #183152;
+	background-image: url(../images/untitled.jpg);
+	background-repeat: repeat-x;
+}
+
+form,h1,h2,h3,ul,ol,div{
+	margin: 0;
+	padding:0;
+}
+
+.nametable {
+
+	font-size: 14px;
+	font-weight: bold;
+
+}
+.soso {
+	height: 30px;
+	margin-top: 1px;
+	margin-right: auto;
+	margin-left: auto;
+	text-align: center;
+	margin-bottom: 5px;
+}
+.soso .np {
+
+	float: right;
+}
+.Submit {
+	BORDER-RIGHT: #7b9ebd 1px solid;
+	BORDER-TOP: #7b9ebd 1px solid;
+	FONT-SIZE: 12px;
+	background-image: url(../images/ANBG.jpg);
+	background-repeat: repeat-x;
+	BORDER-LEFT: #7b9ebd 1px solid;
+	CURSOR: hand;
+	BORDER-BOTTOM: #7b9ebd 1px solid;
+	height: 30px;
+	padding-top: 2px;
+	padding-right: 10px;
+	padding-bottom: 2px;
+	padding-left: 10px;
+	
+	
+	
+	
+}
+.baocun {
+	BORDER-RIGHT: #7b9ebd 1px solid;
+	BORDER-TOP: #7b9ebd 1px solid;
+	FONT-SIZE: 12px;
+	background-image: url(../images/ANBG.jpg);
+	background-repeat: repeat-x;
+	BORDER-LEFT: #7b9ebd 1px solid;
+	CURSOR: hand;
+	BORDER-BOTTOM: #7b9ebd 1px solid;
+	width: 38px;
+	padding: 1px;
+	height: 25px;
+}
+a{
+	color: #183152;
+	text-decoration: none;
+}
+
+a:hover{
+	color: #2E5C9C;
+
+}
+.coolbg {
+	PADDING-RIGHT: 2px;
+	FONT-SIZE: 12px;
+	CURSOR: hand;
+	PADDING-TOP: 5px;
+	height: 17px;
+	padding-bottom: 5px;
+	border-top-width: 1px;
+	border-right-width: 1px;
+	border-bottom-width: 1px;
+	border-left-width: 1px;
+	border-top-style: solid;
+	border-right-style: solid;
+	border-bottom-style: solid;
+	border-left-style: solid;
+	border-top-color: #7b9ebd;
+	border-right-color: #7b9ebd;
+	border-bottom-color: #7b9ebd;
+	border-left-color: #7b9ebd;
+	background-image: url(../images/ANBG.jpg);
+	background-repeat: repeat-x;
+}
+.anzuo {
+	margin-top: 4px;
+	padding-top: 4px;
+	float: left;
+	margin-bottom: 4px;
+	padding-bottom: 4px;
+	margin-left: 3px;
+	padding-left: 3px;
+}
+#pageDiv {
+	float: right;
+	margin-top: 4px;
+	padding-top: 4px;
+	margin-bottom: 4px;
+	padding-bottom: 4px;
+	margin-right: 4px;
+	padding-right: 4px;
+	clear: right;
+}
+#pageDiv  SPAN {
+	BORDER-RIGHT: #7b9ebd 1px solid;
+	BORDER-TOP: #7b9ebd 1px solid;
+	FONT-SIZE: 12px;
+										BORDER-LEFT: #7b9ebd 1px solid;
+	CURSOR: hand;
+	BORDER-BOTTOM: #7b9ebd 1px solid;
+	margin-left: 5px;
+	height: 20px;
+	padding-right: 10px;
+	padding-left: 10px;
+	color: #B4C6DB;
+	padding-top: 5px;
+	padding-bottom: 5px;
+	background-image: url(../images/ANBG.jpg);
+	background-repeat: repeat-x;
+}
+#pageDiv  A {
+	padding-top: 5px;
+	margin-top: 5px;
+	margin-bottom: 5px;
+	padding-bottom: 5px;
+}
+#foot {
+	vertical-align: bottom;
+	text-align: center;
+	margin-top: 10px;
+	clear: both;
+}
+.t_aera
+{
+	color:#183152;
+	background-color:#FFFFFF;
+	clip:rect('20', '80', '20', '2');
+	margin:0px;
+}
+#Shortcut {
+	height: 30px;
+}
+#Shortcut ul{
+	display: block;
+	float: left;
+}
+#Shortcut li{
+	display: block;
+	float: left;
+	padding-right: 8px;
+	padding-left: 8px;
+	margin-top: 2px;
+	margin-right: 5px;
+	margin-bottom: 2px;
+	margin-left: 5px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	border-radius: 17px;
+	background-color: #E2EAF5;
+}
+
+#Shortcut a{
+	display: block;
+}
+
+#Shortcut a:hover{
+
+}
+
+.at{
+	color: #FF0000;
+}.txt {
+
+	margin-top: 3px;
+	margin-bottom: 3px;
+}
+.texttale{
+	float: left;
+	display: block;
+	font-size: 14px;
+}
+
+a.faq { background: url(../images/faq.gif) no-repeat 0 2px; padding:1px; margin-left:10px; }
+
+.atable {
+	background-position: center;
+	margin-right: auto;
+	margin-left: auto;
+	clear: both;
+	width: 100%;
+	float: right;
+}
+
+table {
+	width: 99%;
+}

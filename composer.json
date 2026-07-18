@@ -1,0 +1,21 @@
+{
+  "name": "qqwq122825/mybsphp2",
+  "description": "Open-source card issuing and agent management platform",
+  "type": "project",
+  "license": "MIT",
+  "require": {
+    "php": "^8.1",
+    "ext-pdo": "*",
+    "ext-json": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  },
+  "scripts": {
+    "serve": "php -S 127.0.0.1:8080 -t public",
+    "migrate": "php bin/migrate.php"
+  }
+}
+

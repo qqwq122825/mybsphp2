@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>充值</title>
+<!-- Tell the browser to be responsive to screen width -->
+<meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+<!-- Bootstrap 3.3.6 -->
+<link rel="stylesheet" href="/statics/default/applib/bootstrap/css/bootstrap.min.css">
+<!-- Ionicons -->
+<link rel="stylesheet" href="/statics/default/applib/css/ionicons.min.css">
+<!-- Theme style -->
+<link rel="stylesheet" href="/statics/default/applib/css/AdminLTE.min.css">
+</head>
+<body class="hold-transition skin-blue sidebar-mini">
+<div class="">
+  <div class=".col-xs-6">
+    <!-- general form elements -->
+    <div class="box box-primary">
+      <div class="box-header with-border">
+        <h3 class="box-title">续费充值</h3>
+      </div>
+      <!-- /.box-header -->
+      <!-- form start -->
+      <form id="form1" name="form1" method="post" action="">
+        <div class="box-body">
+        
+        
+          <div class="form-group">
+            <label for="exampleInputPassword1">注册账号</label>
+            <div class="input-group">
+              <div class="input-group-addon"><i class="glyphicon glyphicon-user"></i></div>
+              <input class="form-control" type="email" placeholder="充值账号">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="exampleInputPassword1">密码</label>
+            <div class="input-group">
+              <div class="input-group-addon"><i class="glyphicon glyphicon-user"></i></div>
+              <input class="form-control" type="email" placeholder="充值账号">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="exampleInputPassword1">再次确认密码</label>
+            <div class="input-group">
+              <div class="input-group-addon"><i class="glyphicon glyphicon-user"></i></div>
+              <input class="form-control" type="email" placeholder="充值账号">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="exampleInputPassword1">QQ</label>
+            <div class="input-group">
+              <div class="input-group-addon"><i class="glyphicon glyphicon-user"></i></div>
+              <input class="form-control" type="email" placeholder="充值账号">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="exampleInputPassword1">密保邮箱</label>
+            <div class="input-group">
+              <div class="input-group-addon"><i class="glyphicon glyphicon-credit-card"></i></div>
+              <input class="form-control" type="email" placeholder="充值卡卡号">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="exampleInputPassword1">验证码</label>
+            <div class="input-group">
+              <div class="input-group-addon"><i class="glyphicon glyphicon-lock"></i></div>
+              <input class="form-control" type="email" placeholder="充值卡密码,没有可空">
+            </div>
+          </div>
+          <!-- /.box-body -->
+          <div class="box-body">
+            <h4>h4. 登录账号错误Bootstrap heading</h4>
+          </div>
+          <div class="box-footer">
+            <button type="submit" class="btn btn-primary btn-lg btn-block">确认充值</button>
+          </div>
+        </div>
+      </form>
+      <!-- /.box -->
+    </div>
+  </div>
+</div>
+</body>
+</html>

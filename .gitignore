@@ -1,0 +1,17 @@
+/.env
+/vendor/
+/storage/logs/*.log
+/storage/cache/*
+/storage/installed.lock
+/storage/reinstall-token.json
+/.DS_Store
+/**/.DS_Store
+
+# 旧版样本中的服务器运行时配置、日志和本地密钥
+/示例/Data/Bsmysql.Config.php
+/示例/Data/data.php
+/示例/Data/configs/
+/示例/Data/log/
+/示例/Data/install.txt
+/示例/Plug/Security/user/
+/示例/vendor/

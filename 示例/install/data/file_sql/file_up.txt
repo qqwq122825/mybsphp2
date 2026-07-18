@@ -1,0 +1,18 @@
+﻿
+ALTER TABLE `bs_php_user` CHANGE `user_yao_User` `user_yao_User` CHAR(150) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL;
+
+ALTER TABLE`bs_php_kalei`ADD`lei_money` FLOAT( 9, 2)NOT NULL AFTER`lei_for_oid` ;
+
+ALTER TABLE`bs_php_cardseries`ADD`car_money` FLOAT( 9, 2)NOT NULL AFTER`car_div` ;
+
+ALTER TABLE `bs_php_kalei` ADD `lei_links_open` INT NULL DEFAULT '0' COMMENT '登录数' AFTER `lei_money`, ADD `lei_links` INT NULL DEFAULT '0' COMMENT '数量数量' AFTER `lei_links_open`;
+
+ALTER TABLE `bs_php_cardseries` ADD `car_links_open` INT NULL DEFAULT '0' COMMENT '账号登录数' AFTER `car_money`, ADD `car_links` INT NULL DEFAULT '0' COMMENT '机器数量' AFTER `car_links_open`;
+
+ALTER TABLE `bs_php_pattern_login` ADD `L_links_open` INT NULL DEFAULT '0' COMMENT '账号登录数' AFTER `L_login_run`, ADD `L_links` INT NULL DEFAULT '0' COMMENT '机器登录量' AFTER `L_links_open`;
+
+ALTER TABLE `bs_php_pattern_login` ADD `L_links_open_off` INT NULL DEFAULT '0' COMMENT '上限关闭模式0=直接提示 1=关闭最早的' AFTER `L_links`;
+
+ALTER TABLE `bs_php_appinfo` ADD `app_links_open_off` INT NULL DEFAULT '0' COMMENT '账号到上限操作 0=提示 1=注销最早' AFTER `app_langs`, ADD `app_links_off` INT NULL DEFAULT '0' COMMENT '机器到上限操作 0=提示 1=注销最早' AFTER `app_links_open_off`;
+
+ALTER TABLE `bs_php_user` ADD `user_is_pwd` INT NULL DEFAULT '0' COMMENT '是否禁止修改密码' AFTER `user_daili`;

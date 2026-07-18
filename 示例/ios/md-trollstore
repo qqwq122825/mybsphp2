@@ -1,0 +1,231 @@
+#!/bin/bash
+set -euo pipefail
+
+# ==== 让 Xcode 找到 Homebrew 工具 ====
+if [ -d /opt/homebrew/bin ]; then
+  export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+elif [ -d /usr/local/bin ]; then
+  export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
+fi
+
+# ====== 包信息（可用环境变量覆盖）======
+PKG_ID="${PKG_ID:-${PRODUCT_BUNDLE_IDENTIFIER:-com.example.$(echo "${TARGET_NAME:-App}" | tr '[:upper:]' '[:lower:]')}}"
+PKG_NAME="${PKG_NAME:-${TARGET_NAME:-App}}"
+PKG_VERSION="${PKG_VERSION:-${MARKETING_VERSION:-1.0.0}}"
+PKG_MAINTAINER="${PKG_MAINTAINER:-Your Name <you@example.com>}"
+PKG_DESC="${PKG_DESC:-${PKG_NAME} - Roothide-ready app}"
+PKG_DEPENDS="${PKG_DEPENDS:-firmware (>= 12.0)}"
+BUILD_DEB="0"  # 是否打包 deb：1=打包, 0=不打包（可直接修改此值）
+
+# ====== Xcode 变量校验 ======
+: "${CODESIGNING_FOLDER_PATH:?CODESIGNING_FOLDER_PATH not set}"
+: "${PROJECT_DIR:?PROJECT_DIR not set}"
+
+APP="${CODESIGNING_FOLDER_PATH}"                    # .../Build/Products/Release-iphoneos/Your.app
+INFO_PLIST="${APP}/Info.plist"
+[ -f "$INFO_PLIST" ] || { echo "[ERROR] Info.plist not found: $INFO_PLIST"; exit 1; }
+EXEC_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${INFO_PLIST}")"
+EXEC="${APP}/${EXEC_NAME}"
+PB="/usr/libexec/PlistBuddy"
+
+# ====== 依赖检查 ======
+need() { command -v "$1" >/dev/null 2>&1 || { echo "[ERROR] Missing tool: $1"; exit 1; }; }
+need ldid
+need zip
+need dpkg-deb
+need file
+command -v plutil >/dev/null 2>&1 || true
+
+echo "🏗️ Roothide packaging ${PKG_NAME} (${PKG_ID})"
+echo "[DEBUG] APP: ${APP}"
+echo "[DEBUG] EXEC: ${EXEC}"
+echo "[DEBUG] PATH: ${PATH}"
+
+# ====== 通用清理（签名/Assets/PkgInfo/图标/本地化 & Base.lproj & Storyboard 引用）======
+purge_app_bundle() {
+  local dir="$1"
+  local plist="${dir}/Info.plist"
+
+  # 0) 先删掉会导致系统校验的东西
+  rm -rf "${dir}/_CodeSignature" "${dir}/embedded.mobileprovision" 2>/dev/null || true
+  find "${dir}" -maxdepth 1 -type f -name 'PkgInfo' -delete 2>/dev/null || true
+
+  # 1) 删 Asset Catalog 产物
+  rm -f "${dir}/Assets.car" 2>/dev/null || true
+
+  # 2) 删除 Base.lproj / *.lproj / *.storyboardc（防止资源残留）
+  find "${dir}" -maxdepth 1 -type d \( -iname 'Base.lproj' -o -iname '*.lproj' -o -iname 'base.iproj' -o -iname '*.storyboardc' \) -exec rm -rf {} + 2>/dev/null || true
+
+  # 3) 清理 Info.plist 里所有会自动加载 nib/storyboard 的键，避免删 lproj 后崩溃
+  if [ -f "${plist}" ]; then
+    $PB -c "Delete :NSMainNibFile"                     "${plist}" 2>/dev/null || true
+    $PB -c "Delete :UIMainStoryboardFile"              "${plist}" 2>/dev/null || true
+    $PB -c "Delete :UIMainStoryboardFile~ipad"         "${plist}" 2>/dev/null || true
+    $PB -c "Delete :UILaunchStoryboardName"            "${plist}" 2>/dev/null || true
+    $PB -c "Delete :UILaunchStoryboardName~ipad"       "${plist}" 2>/dev/null || true
+    # iOS 13+ Scene 清单里也可能引用 storyboard，最简单：直接删除整个 Scene Manifest
+    $PB -c "Delete :UIApplicationSceneManifest"        "${plist}" 2>/dev/null || true
+  fi
+
+  # 4) 只保留一个 120x120 的图标：AppIcon60x60@2x.png
+  local base="AppIcon60x60"
+  local keep="${dir}/${base}@2x.png"
+  if [ ! -f "${keep}" ]; then
+    local cand=""
+    cand="$(find "${dir}" -maxdepth 1 -type f -name 'AppIcon60x60*.png' | head -n1 || true)"
+    if [ -z "$cand" ]; then
+      cand="$(find "${dir}" -maxdepth 1 -type f -name 'AppIcon*.png' | head -n1 || true)"
+    fi
+    if [ -z "$cand" ] && [ -f "${dir}/icon.png" ]; then
+      cand="${dir}/icon.png"
+    fi
+    if [ -n "$cand" ]; then
+      cp -f "$cand" "${keep}"
+      echo "[ICON] Copied candidate icon -> ${keep}"
+    else
+      echo "[WARN] No icon found. Creating 120x120 transparent placeholder: ${keep}"
+      /usr/bin/base64 -D > "${keep}" <<'B64'
+iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4CAYAAABQ9D8QAAAACXBIWXMAAAsSAAALEgHS3X78AAAAGXRFWHRTb2Z0d2FyZQBwYWludC5uZXQgNC4xLjJIvF+lAAABR0lEQVR4Xu3WwQ3CMBBF0aKxJ5x1k1qB2Xb1F9NwGqM5J1iM3O9o4sJw6u2k0vFe4ZcJ4R8e9Zz2tqkAAAAAAAAAAAAAALC6q9k9lQfGz5G6Qm3l9y7Jw8xjYtM5QGqz7Yx3GgF9d2X0p3Y6d7o9mQqkJqY3k8pU3n8k2bJgXgX8l3mG7Jw3H4b7s2Gm1wHkZ2m4kPp3a3nqfYcK7wB9b2rYp+oO9c7YHkq3W3l9a3XwQJq9n7p1M6V9R5S+v8U6k2y4kM1m2t6dV9R5Q+q8VtQq0u7rVfVdl0AAAAAAAAAAAAAALBzPwU1j5h2vUoAAAAASUVORK5CYII=
+B64
+    fi
+  fi
+  # 删除其它 AppIcon*.png
+  while IFS= read -r -d '' f; do
+    [ "$f" != "${keep}" ] && rm -f "$f"
+  done < <(find "${dir}" -maxdepth 1 -type f -name 'AppIcon*.png' -print0)
+
+  # 5) 将图标配置改为仅使用 CFBundleIcons/CFBundleIconFiles = [AppIcon60x60]
+  if [ -f "${plist}" ]; then
+    $PB -c "Delete :CFBundleIconFiles"                         "${plist}" 2>/dev/null || true
+    $PB -c "Delete :CFBundleIconName"                          "${plist}" 2>/dev/null || true
+    $PB -c "Delete :CFBundleIcons"                             "${plist}" 2>/dev/null || true
+    $PB -c "Delete :CFBundleIcons~ipad"                        "${plist}" 2>/dev/null || true
+    $PB -c "Delete :UIPrerenderedIcon"                         "${plist}" 2>/dev/null || true
+
+    $PB -c "Add :CFBundleIcons dict"                           "${plist}"
+    $PB -c "Add :CFBundleIcons:CFBundlePrimaryIcon dict"       "${plist}"
+    $PB -c "Add :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconFiles array" "${plist}"
+    $PB -c "Add :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconFiles:0 string ${base}" "${plist}"
+  fi
+
+  # 6) 收尾：再保守删一次 PkgInfo
+  find "${dir}" -maxdepth 1 -type f -name 'PkgInfo' -delete 2>/dev/null || true
+}
+
+# ====== 对构建产物清理 ======
+purge_app_bundle "${APP}"
+
+# ====== 签名（递归 ldid）======
+if [ -z "${CODE_SIGN_ENTITLEMENTS:-}" ]; then
+  if   [ -f "${PROJECT_DIR}/${PKG_NAME}/${PKG_NAME}.entitlements" ]; then
+    CODE_SIGN_ENTITLEMENTS="${PROJECT_DIR}/${PKG_NAME}/${PKG_NAME}.entitlements"
+  elif [ -f "${PROJECT_DIR}/${PKG_NAME}.entitlements" ]; then
+    CODE_SIGN_ENTITLEMENTS="${PROJECT_DIR}/${PKG_NAME}.entitlements"
+  else
+    echo "[ERROR] Missing entitlements. Set CODE_SIGN_ENTITLEMENTS or create ${PROJECT_DIR}/${PKG_NAME}.entitlements"
+    exit 1
+  fi
+fi
+echo "[INFO] Using entitlements: ${CODE_SIGN_ENTITLEMENTS}"
+
+sign_macho_recursively() {
+  local root="$1" ent="$2"
+  while IFS= read -r -d '' f; do
+    if file "$f" | grep -q "Mach-O"; then
+      echo "[SIGN] $f"
+      ldid -S"$ent" "$f"
+    fi
+  done < <(find "$root" -type f -print0)
+}
+[ -f "${EXEC}" ] || { echo "[ERROR] Exec not found: ${EXEC}"; exit 1; }
+sign_macho_recursively "${APP}" "${CODE_SIGN_ENTITLEMENTS}"
+
+# ====== 生成 .tipa（可选：TrollStore 安装）======
+OUTDIR="${CODESIGNING_FOLDER_PATH}/../trollbuild"
+rm -rf "${OUTDIR}/Payload" "${OUTDIR}/${PKG_NAME}.tipa"
+mkdir -p "${OUTDIR}/Payload"
+cp -a "${APP}" "${OUTDIR}/Payload/"
+
+# 再对 Payload/ 副本清理一次，确保没有残留
+purge_app_bundle "${OUTDIR}/Payload/$(basename "${APP}")"
+
+( cd "${OUTDIR}" && zip -qr "${PKG_NAME}.tipa" Payload )
+rm -rf "${OUTDIR}/Payload"
+mkdir -p "$HOME/Documents"
+cp -f "${OUTDIR}/${PKG_NAME}.tipa" "$HOME/Documents/"
+echo "[INFO] IPA ready at: $HOME/Documents/${PKG_NAME}.tipa"
+
+# ====== 生成 Roothide 版 .deb ======
+if [ "${BUILD_DEB}" = "1" ]; then
+  echo "[INFO] BUILD_DEB=1, 开始打包 deb..."
+  
+  DEBROOT="${OUTDIR}/debroot"
+  rm -rf "${DEBROOT}"
+  mkdir -p "${DEBROOT}/DEBIAN" "${DEBROOT}/Applications"
+
+  APP_DST="${DEBROOT}/Applications/$(basename "${APP}")"
+  cp -a "${APP}" "${APP_DST}"
+
+  # 在 deb 副本上也清理一次
+  purge_app_bundle "${APP_DST}"
+
+  # 为所有包含 Mach-O 的目录创建 .jbroot（供 Roothide 解析随机化越狱根）
+  while IFS= read -r -d '' f; do
+    d="$(dirname "$f")"
+    ln -sf .jbroot "$d/.jbroot" 2>/dev/null || true
+  done < <(find "${APP_DST}" -type f -print0 | xargs -0 file | grep 'Mach-O' | cut -d: -f1 | sort -u | tr '\n' '\0')
+
+  # 写 control（Roothide 关键：arm64e）
+  cat > "${DEBROOT}/DEBIAN/control" <<EOF
+Package: ${PKG_ID}
+Name: ${PKG_NAME}
+Version: ${PKG_VERSION}
+Architecture: iphoneos-arm64e
+Priority: optional
+Section: Applications
+Maintainer: ${PKG_MAINTAINER}
+Description: ${PKG_DESC}
+Depends: ${PKG_DEPENDS}
+EOF
+
+  # postinst：刷新图标缓存
+  cat > "${DEBROOT}/DEBIAN/postinst" <<'EOF'
+#!/bin/sh
+set -e
+for P in /Applications/*.app /var/jb/Applications/*.app; do
+  [ -d "$P" ] || continue
+  chmod -R 755 "$P" || true
+  chown -R root:wheel "$P" || true
+  if command -v uicache >/dev/null 2>&1; then
+    uicache -p "$P" || uicache -a
+  fi
+done
+if command -v sbreload >/dev/null 2>&1; then sbreload || true; fi
+exit 0
+EOF
+  chmod 0755 "${DEBROOT}/DEBIAN/postinst"
+
+  # prerm：卸载时从缓存移除图标
+  cat > "${DEBROOT}/DEBIAN/prerm" <<'EOF'
+#!/bin/sh
+set -e
+for P in /Applications/*.app /var/jb/Applications/*.app; do
+  [ -e "$P" ] || continue
+  if command -v uicache >/dev/null 2>&1; then uicache -u "$P" || true; fi
+done
+exit 0
+EOF
+  chmod 0755 "${DEBROOT}/DEBIAN/prerm"
+
+  # 构建 deb
+  DEB_OUT="${OUTDIR}/${PKG_NAME}_${PKG_VERSION}_iphoneos-arm64e.deb"
+  echo "[DEB] Building (dpkg-deb) → ${DEB_OUT}"
+  dpkg-deb -bZxz "${DEBROOT}" "${DEB_OUT}"
+
+  cp -f "${DEB_OUT}" "$HOME/Documents/"
+  echo "[INFO] DEB ready at: $HOME/Documents/$(basename "${DEB_OUT}")"
+  echo "[SUCCESS] Done. Install on Roothide and it will show without Convert."
+else
+  echo "[INFO] BUILD_DEB=0, 跳过 deb 打包"
+  echo "[SUCCESS] Done. Only TIPA package created."
+fi

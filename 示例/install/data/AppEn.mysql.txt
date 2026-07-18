@@ -1,0 +1,558 @@
+;
+CREATE TABLE IF NOT EXISTS `bs_php_add` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `add_leix` char(50) NOT NULL,
+  `add_table` char(150) NOT NULL,
+  `add_qq` char(100) NOT NULL,
+  `add_txt` text NOT NULL,
+  `add_uid` varchar(15) NOT NULL,
+  `add_date` date NOT NULL,
+  `add_daihao` int(8) DEFAULT '0',
+  UNIQUE KEY `id` (`id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_admin` (
+  `Admin_ID` int(11) NOT NULL AUTO_INCREMENT,
+  `Admin_AdminUserName` varchar(15) NOT NULL,
+  `Admin_AdminPassWord` varchar(32) NOT NULL,
+  `Admin_MiBao` varchar(15) NOT NULL,
+  `Admin_CaoShi` int(11) DEFAULT '0',
+  `Admin_LoGinIP` varchar(20) DEFAULT NULL,
+  `Admin_LoGinNum` int(11) DEFAULT '0',
+  `Admin_LoGDaTe` datetime DEFAULT NULL,
+  `Admin_IsLock` tinyint(1) DEFAULT '0',
+  `Admin_Permission` varchar(50) NOT NULL,
+  PRIMARY KEY (`Admin_ID`),
+  UNIQUE KEY `Admin_AdminUserName` (`Admin_AdminUserName`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_appen_log` (
+  `log_id` int(11) NOT NULL AUTO_INCREMENT,
+  `log_uid` char(25) NOT NULL,
+  `log_ip` char(20) NOT NULL,
+  `log_date` datetime NOT NULL,
+  `log_md5` char(32) NOT NULL,
+  `log_api` char(50) NOT NULL,
+  `log_datd` text NOT NULL,
+  `log_daihao` int(8) NOT NULL,
+  `log_url_date` int(6) NOT NULL,
+  `log_leix` char(100) NOT NULL,
+  `log_beizhu` char(200) NOT NULL,
+  `log_dengji` tinyint(1) NOT NULL,
+  UNIQUE KEY `log_id` (`log_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_appinfo` (
+  `app_daihao` int(8) NOT NULL,
+  `app_name` varchar(50) DEFAULT NULL,
+  `app_off` tinyint(1) DEFAULT '0',
+  `app_off_name` varchar(180) DEFAULT NULL,
+  `app_set` tinyint(1) DEFAULT '0',
+  `app_set_date` varchar(50) DEFAULT NULL,
+  `app_WEB_URL` varchar(300) DEFAULT NULL,
+  `app_URL` varchar(300) DEFAULT NULL,
+  `app_v` varchar(50) DEFAULT NULL,
+  `app_key_zhong` tinyint(1) DEFAULT NULL,
+  `app_gg` varchar(500) DEFAULT NULL,
+  `app_LogicA` tinyint(1) DEFAULT '0',
+  `app_LogicB` tinyint(1) DEFAULT '0',
+  `app_LogicinfoA` varchar(500) DEFAULT NULL,
+  `app_LogicinfoB` varchar(500) DEFAULT NULL,
+  `app_logininfo` text,
+  `app_md5` text,
+  `app_MoShi` varchar(100) NOT NULL,
+  `app_miaoshu` varchar(500) DEFAULT NULL,
+  `app_info` varchar(255) DEFAULT NULL,
+  `app_re_date` int(10) DEFAULT '0',
+  `app_zhuang_date` int(10) DEFAULT '0',
+  `app_links` int(11) DEFAULT NULL,
+  `app_coode` text,
+  `app_chaoshi` int(11) DEFAULT NULL,
+  `app_pwd` varchar(32) DEFAULT NULL,
+  `app_get` int(1) DEFAULT NULL,
+  `app_breaking` int(1) DEFAULT NULL,
+  `app_links_chaoshi` int(11) DEFAULT '0',
+  `app_chargeset` int(1) DEFAULT NULL,
+  `app_links_open` int(11) DEFAULT NULL,
+  `app_point_open` int(1) DEFAULT NULL,
+  `app_api_pwd` varchar(255) DEFAULT NULL,
+  `app_api_dir` varchar(100) DEFAULT NULL,
+  `app_get_encryption` varchar(100) DEFAULT NULL,
+  `app_show_encryption` varchar(100) DEFAULT NULL,
+  `app_output` varchar(100) DEFAULT NULL,
+  `app_langs` varchar(100) NOT NULL,
+  UNIQUE KEY `app_daihao` (`app_daihao`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `bs_php_appini` (
+  `ap_id` varchar(20) NOT NULL,
+  `ap_pwd` varchar(50) DEFAULT NULL,
+  `ap_ChaoShi` int(9) DEFAULT '0',
+  `ap_get` tinyint(1) DEFAULT '0',
+  `ap_data_pwd` tinyint(1) DEFAULT '0',
+  `ap_apipwd` varchar(32) DEFAULT NULL,
+  PRIMARY KEY (`ap_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `bs_php_cardseries` (
+  `car_id` int(11) NOT NULL AUTO_INCREMENT,
+  `car_name` varchar(40) NOT NULL,
+  `car_pwd` varchar(40) NOT NULL,
+  `car_IsLock` tinyint(1) DEFAULT '0',
+  `car_DaiHao` int(10) NOT NULL,
+  `car_reDATE` datetime NOT NULL,
+  `car_TianShu` int(11) NOT NULL,
+  `car_Lei` varchar(60) DEFAULT '0',
+  `car_admin` char(15) DEFAULT NULL,
+  `car_BaoJi` tinyint(1) DEFAULT '0',
+  `car_JiFen` int(10) DEFAULT '0',
+  `car_Rmb` float(9,2) DEFAULT '0.00',
+  `car_DaoLi_Rmb` float(9,2) DEFAULT '0.00',
+  `car_RuKu` tinyint(1) DEFAULT '0',
+  `car_zhuangtai` tinyint(1) DEFAULT '0',
+  `car_chong_uid` int(11) DEFAULT '0',
+  `car_pur_date` datetime NOT NULL,
+  `car_cong_user` varchar(15) NOT NULL,
+  `car_type` int(1) NOT NULL,
+  `car_weight` int(11) NOT NULL,
+  `car_class` int(11) NOT NULL,
+  `car_for` int(11) NOT NULL,
+  `lei_for_id` int(11) NOT NULL,
+  `car_for_oid` text NOT NULL,
+  `car_div` varchar(250) NOT NULL,
+  PRIMARY KEY (`car_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_ini` (
+  `ini` varchar(20) NOT NULL,
+  `ini_name` char(100) DEFAULT NULL,
+  `ini_url` char(150) DEFAULT NULL,
+  `ini_pass_key` char(20) DEFAULT NULL,
+  `ini_cook_key` char(20) DEFAULT NULL,
+  `ini_off` tinyint(1) DEFAULT '0',
+  `ini_off_name` char(100) DEFAULT NULL,
+  `ini_settest` char(255) DEFAULT NULL,
+  `ini_date` int(11) DEFAULT '0',
+  `ini_imgs_re` varchar(10) DEFAULT NULL,
+  `ini_imgs_login` varchar(10) DEFAULT NULL,
+  `ini_imgs_add` varchar(10) DEFAULT NULL,
+  `ini_imgs_zhao` varchar(10) DEFAULT NULL,
+  `ini_applogin_ings_re` varchar(10) DEFAULT NULL,
+  `ini_applogin_ings_login` varchar(10) DEFAULT NULL,
+  `ini_applogin_ings_zhaohui` varchar(10) DEFAULT NULL,
+  `ini_ka_ids` int(11) NOT NULL,
+  `ini_ka_pwds` int(11) NOT NULL,
+  `ini_ka_car_ids` int(11) NOT NULL,
+  `ini_ka_id_set` int(11) NOT NULL,
+  `ini_ka_pwd_set` int(11) NOT NULL,
+  `ini_ka_car_set` int(11) DEFAULT NULL,
+  `ini_user_set_out` int(11) NOT NULL,
+  `ini_re_user_mail` varchar(10) DEFAULT NULL,
+  `ini_re_mail_set` varchar(10) DEFAULT NULL,
+  `ini_re_mail_not` varchar(10) DEFAULT NULL,
+  `ini_er_qq_not` varchar(10) DEFAULT NULL,
+  `ini_mail_host` varchar(80) DEFAULT NULL,
+  `ini_mail_host_roet` varchar(80) DEFAULT NULL,
+  `ini_mail_post_user` varchar(80) NOT NULL,
+  `ini_mail_user` varchar(80) NOT NULL,
+  `ini_mail_pwd` varchar(80) NOT NULL,
+  `ini_api_pwd` varchar(32) NOT NULL,
+  PRIMARY KEY (`ini`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `bs_php_kalei` (
+  `lei_id` int(11) NOT NULL AUTO_INCREMENT,
+  `lei_name` char(20) NOT NULL,
+  `lei_date` int(5) NOT NULL,
+  `lei_jiage` int(5) NOT NULL,
+  `lei_daili` int(5) NOT NULL,
+  `lei_daihao` int(8) NOT NULL,
+  `lei_ktzf` varchar(10) DEFAULT NULL COMMENT '开头字符',
+  `lei_type` int(1) DEFAULT NULL,
+  `lei_weight` int(11) NOT NULL,
+  `lei_class` int(11) NOT NULL,
+  `lei_cardint` int(11) NOT NULL,
+  `lei_cardset` int(11) NOT NULL,
+  `lei_pwdint` int(11) NOT NULL,
+  `lei_pwdset` int(11) NOT NULL,
+  `lei_for` int(11) NOT NULL,
+  `lei_for_id` int(11) NOT NULL,
+  `lei_for_oid` text NOT NULL,
+  UNIQUE KEY `lei_id` (`lei_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_links_session` (
+  `links_id` int(11) NOT NULL AUTO_INCREMENT,
+  `links_session_id` varchar(255) NOT NULL,
+  `links_bs_set` varchar(20) NOT NULL,
+  `links_user_id` int(11) NOT NULL,
+  `links_user_name` varchar(255) NOT NULL,
+  `links_daihao` int(11) NOT NULL,
+  `links_key` varchar(255) NOT NULL,
+  `links_biaoji` varchar(255) NOT NULL,
+  `links_session` varchar(255) NOT NULL,
+  `links_add_time` int(11) NOT NULL,
+  `links_out_time` int(11) NOT NULL,
+  `links_addip` varchar(255) NOT NULL,
+  `links_chaoshi` int(11) NOT NULL,
+  `links_data` varchar(3000) NOT NULL,
+  `links_set` int(11) NOT NULL,
+  PRIMARY KEY (`links_id`),
+  UNIQUE KEY `links_session_id` (`links_session_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=474 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_list_admin` (
+  `list_admin_id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'id',
+  `list_admin_sorting` int(11) NOT NULL,
+  `list_admin_m` varchar(30) NOT NULL COMMENT '模块',
+  `list_admin_c` varchar(30) NOT NULL COMMENT '文件',
+  `list_admin_a` varchar(30) NOT NULL COMMENT '函数',
+  `list_admin_show` int(11) NOT NULL COMMENT '是否显示',
+  `list_admin_diction` int(11) NOT NULL COMMENT '权限',
+  `list_admin_list_top` int(30) NOT NULL COMMENT '1=顶级',
+  `list_admin_list_top_tree` varchar(30) NOT NULL COMMENT '二级导航',
+  `list_admin_list_name` varchar(50) NOT NULL COMMENT '名称',
+  `list_admin_set` int(11) NOT NULL COMMENT '1=代理 0=后台',
+  PRIMARY KEY (`list_admin_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `leixing` varchar(50) NOT NULL COMMENT '日志类型',
+  `date` int(11) NOT NULL COMMENT '时间',
+  `ip` varchar(20) NOT NULL COMMENT 'ip',
+  `test` text NOT NULL COMMENT '内容',
+  `user` varchar(20) NOT NULL COMMENT '用户',
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_moshi` (
+  `S_Name` varchar(150) NOT NULL,
+  `S_MoShi` int(4) NOT NULL,
+  `S_MoShiInfo` varchar(500) NOT NULL,
+  `S_APIinfo` varchar(10) NOT NULL,
+  `s_zhi` varchar(10) NOT NULL,
+  UNIQUE KEY `S_MoShi` (`S_MoShi`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `bs_php_pattern_car` (
+  `ic_id` int(11) NOT NULL AUTO_INCREMENT,
+  `ic_name` varchar(150) NOT NULL,
+  `ic_pwd` varchar(150) NOT NULL,
+  `ic_IsLock` tinyint(1) NOT NULL,
+  `ic_daihao` int(8) NOT NULL,
+  `ic_re_date` datetime NOT NULL,
+  `ic_vip_date` datetime NOT NULL,
+  `ic_key_info` varchar(500) NOT NULL,
+  `ic_info` varchar(200) NOT NULL,
+  `ic_login_tinme` datetime NOT NULL,
+  `ic_ChaoShi` int(11) NOT NULL,
+  `ic_login_ip` varchar(20) NOT NULL,
+  `ic_re_ip` varchar(20) DEFAULT NULL,
+  `L_links_info` text,
+  `ic_class` int(1) NOT NULL,
+  `ic_timing` int(11) NOT NULL,
+  `ic_vip_unix` int(11) NOT NULL,
+  UNIQUE KEY `ic_id` (`ic_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_pattern_login` (
+  `L_id` int(11) NOT NULL AUTO_INCREMENT,
+  `L_User_uid` char(150) NOT NULL,
+  `L_daihao` int(8) NOT NULL,
+  `L_re_date` datetime NOT NULL,
+  `L_vip_date` datetime NOT NULL,
+  `L_IsLock` tinyint(1) DEFAULT '0',
+  `L_key_info` varchar(500) DEFAULT NULL,
+  `L_links_info` text,
+  `L_login_time` datetime DEFAULT NULL,
+  `L_class` int(1) NOT NULL,
+  `L_timing` int(11) NOT NULL,
+  `L_vip_unix` int(11) NOT NULL,
+  `L_ic_name` varchar(150) DEFAULT NULL,
+  `L_ic_pwd` varchar(150) DEFAULT NULL,
+  `L_ic_info` int(11) NOT NULL,
+  `L_login_ip` varchar(50) NOT NULL,
+  `L_re_ip` varchar(50) NOT NULL,
+  `L_login_run` int(11) NOT NULL,
+  PRIMARY KEY (`L_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_paydata` (
+  `pay_id` int(11) NOT NULL,
+  `pay_date` double NOT NULL,
+  `pay_uid` varchar(15) NOT NULL,
+  `pay_rmb` float(9,2) NOT NULL,
+  `pay_uid_rbm` float(9,2) NOT NULL,
+  `pay_uid_rmb2` float(9,2) NOT NULL,
+  `pay_fanshi` varchar(10) NOT NULL,
+  `pay_zhuangtai` tinyint(1) NOT NULL,
+  PRIMARY KEY (`pay_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `bs_php_pay_log` (
+  `pay_id` varchar(32) NOT NULL,
+  `ali_id` int(11) NOT NULL AUTO_INCREMENT,
+  `pay_uid` char(15) NOT NULL,
+  `pay_date` datetime NOT NULL,
+  `pay_qian_rmb` float(9,2) NOT NULL,
+  `pay_rmb` float(9,2) NOT NULL,
+  `pay_ka_shuliang` int(11) NOT NULL,
+  `pay_zhuangtai` tinyint(1) NOT NULL,
+  `ka_shijia` float(9,2) NOT NULL,
+  `ka_zhe_jia` float(9,2) NOT NULL,
+  `ali_ka_name` char(255) NOT NULL,
+  `ali_ka_jiage` float(9,2) NOT NULL,
+  `ali_ka_zhe` float(2,1) NOT NULL,
+  `ali_ka_date` int(11) NOT NULL,
+  `pay_daihao` int(8) NOT NULL,
+  `pay_app_name` varchar(50) DEFAULT NULL,
+  `pay_type` int(1) NOT NULL,
+  KEY `ali_id` (`ali_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_rmb_pay_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `pay_id` varchar(32) NOT NULL,
+  `pay_uid` int(11) NOT NULL,
+  `pay_lei` varchar(50) NOT NULL,
+  `pay_rbm` float(9,2) NOT NULL,
+  `pay_zhuangtai` tinyint(1) NOT NULL,
+  `pay_info1` varchar(32) DEFAULT NULL,
+  `pay_info2` varchar(32) DEFAULT NULL,
+  `pay_date` datetime NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_shuoshuo` (
+  `wei_id` int(11) NOT NULL AUTO_INCREMENT,
+  `wei_name` char(255) NOT NULL,
+  `wei_uid` char(60) NOT NULL,
+  `wei_date` datetime NOT NULL,
+  `wei_ip` char(20) NOT NULL,
+  `wei_da` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`wei_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_shuoshuo_ini` (
+  `wei_ini` char(60) NOT NULL,
+  `wei_ini_off` tinyint(1) NOT NULL,
+  `wei_ini_jin` text NOT NULL,
+  PRIMARY KEY (`wei_ini`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `bs_php_today_appuser_ka` (
+  `buy_id` int(11) NOT NULL AUTO_INCREMENT,
+  `daihao` int(8) NOT NULL,
+  `date` date NOT NULL,
+  `date_time` int(11) NOT NULL,
+  `suntady` tinyint(1) NOT NULL,
+  `ka_tady_add_all` int(9) NOT NULL,
+  `ka_tady_add_all_rmb` int(9) NOT NULL,
+  `ka_tady_add_all_d_rmb` int(9) NOT NULL,
+  `ka_tady_out_all` int(9) NOT NULL,
+  `ka_tady_out_all_rmb` int(9) NOT NULL,
+  `ka_tady_out_all_d_rmb` int(9) NOT NULL,
+  `ka_tady_die_all` int(9) NOT NULL,
+  `ka_tady_die_all_rmb` int(9) NOT NULL,
+  `ka_tady_die_all_d_rmb` int(9) NOT NULL,
+  `ka_add_all` int(9) NOT NULL,
+  `ka_add_all_rmb` int(9) NOT NULL,
+  `ka_add_all_d_rmb` int(9) NOT NULL,
+  `ka_out_all` int(9) NOT NULL,
+  `ka_out_all_rmb` int(9) NOT NULL,
+  `ka_out_all_d_rmb` int(9) NOT NULL,
+  `ka_die_all` int(9) NOT NULL,
+  `ka_die_all_rmb` int(9) NOT NULL,
+  `ka_die_all_d_rmb` int(9) NOT NULL,
+  `app_user_all` int(9) NOT NULL,
+  `app_vip_die` int(9) NOT NULL,
+  `app_vip_ok` int(9) NOT NULL,
+  `app_today_add` int(9) NOT NULL,
+  `app_today_login` int(9) NOT NULL,
+  `app_today_vip_die` int(9) NOT NULL,
+  `app_asunday_not_login` int(9) NOT NULL,
+  PRIMARY KEY (`buy_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_user` (
+  `user_uid` int(11) NOT NULL AUTO_INCREMENT,
+  `user_user` varchar(50) NOT NULL,
+  `user_pwd` varchar(32) NOT NULL,
+  `user_IsLock` tinyint(1) DEFAULT '0',
+  `user_email` varchar(45) DEFAULT NULL,
+  `user_mail_ok` tinyint(1) DEFAULT '0',
+  `user_qq` varchar(15) DEFAULT NULL,
+  `user_Mobile` varchar(11) DEFAULT NULL,
+  `user_mibao_wenti` char(20) DEFAULT NULL,
+  `user_mibao_daan` char(20) DEFAULT NULL,
+  `user_rmb` float(9,2) DEFAULT '0.00',
+  `user_jifen` int(11) DEFAULT '0',
+  `user_re_ip` varchar(20) DEFAULT NULL,
+  `user_re_date` datetime DEFAULT NULL,
+  `user_Login_ip` char(20) DEFAULT NULL,
+  `user_Login_date` datetime DEFAULT NULL,
+  `user_CaoShi` int(11) DEFAULT '0',
+  `user_yao_User` char(15) DEFAULT NULL,
+  `user_yao_Shu` int(10) DEFAULT '0',
+  `user_Zhe` float(2,1) DEFAULT '0.0',
+  `user_LoGinNum` int(11) DEFAULT '0',
+  `user_DenJi_tmp` int(11) DEFAULT '0',
+  `user_DenJi` int(11) DEFAULT '0',
+  `user_daili` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`user_uid`),
+  UNIQUE KEY `user_user` (`user_user`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_userclass` (
+  `class_id` int(11) NOT NULL AUTO_INCREMENT,
+  `class_name` varchar(255) NOT NULL,
+  `calss_mark` varchar(255) NOT NULL,
+  `class_daihao` int(11) NOT NULL,
+  UNIQUE KEY `class_id` (`class_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_user_ka_all_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `date` date NOT NULL,
+  `date_time` int(11) NOT NULL,
+  `suntady` tinyint(1) NOT NULL,
+  `user_tady_all` int(11) NOT NULL,
+  `user_tady_rmb_all` int(11) NOT NULL,
+  `user_tady_re` int(11) NOT NULL,
+  `user_tady_re_yao` int(11) NOT NULL,
+  `user_tady_login` int(11) NOT NULL,
+  `user_tady_pay_rmb` int(11) NOT NULL,
+  `user_tady_buy_ka_rmb` int(11) NOT NULL,
+  `ka_all` int(11) NOT NULL,
+  `ka_all_rmb` int(11) NOT NULL,
+  `ka_all_d_rmb` int(11) NOT NULL,
+  `ka_aut` int(11) NOT NULL,
+  `ka_aut_rmb` int(11) NOT NULL,
+  `ka_aut_d_rmb` int(11) NOT NULL,
+  `ka_die` int(11) NOT NULL,
+  `ka_die_rmb` int(11) NOT NULL,
+  `ka_die_d_rmb` int(11) NOT NULL,
+  `ka_tady_all` int(11) NOT NULL,
+  `ka_tady_all_rmb` int(11) NOT NULL,
+  `ka_tady_all_d_rmb` int(11) NOT NULL,
+  `ka_tady_out_all` int(11) NOT NULL,
+  `ka_tady_out_all_rmb` int(11) NOT NULL,
+  `ka_tady_out_all_d_rmb` int(11) NOT NULL,
+  `ka_tady_die_all` int(11) NOT NULL,
+  `ka_tady_die_all_rmb` int(11) NOT NULL,
+  `ka_tady_die_all_d_rmb` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `date` (`date`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `bs_php_user_yaoqing_ini` (
+  `ini` varchar(10) CHARACTER SET latin1 NOT NULL,
+  `yaoqing_off` tinyint(1) NOT NULL,
+  `yaoqing_jifen` tinyint(4) NOT NULL,
+  `yaoqing_today_RenShu` tinyint(4) NOT NULL,
+  `ticheng_oof` tinyint(1) NOT NULL,
+  `ticheng_baifenbi_1` tinyint(4) NOT NULL,
+  `ticheng_baifenbi_2` tinyint(4) NOT NULL,
+  `ticheng_baifenbi_3` tinyint(4) NOT NULL,
+  `ticheng_time` int(11) NOT NULL,
+  `you_weizi` tinyint(1) NOT NULL,
+  UNIQUE KEY `ini` (`ini`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `plug_bsphp_news` (
+  `news_id` int(11) NOT NULL AUTO_INCREMENT COMMENT '自动ID',
+  `news_table` varchar(200) NOT NULL COMMENT '标题',
+  `news_test` text NOT NULL COMMENT '内容',
+  `news_class` int(8) NOT NULL COMMENT '分类id',
+  `news_unix` int(11) NOT NULL COMMENT 'UNIX时间',
+  UNIQUE KEY `news_id` (`news_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+
+CREATE TABLE IF NOT EXISTS `plug_bsphp_news_class` (
+  `class_id` int(11) NOT NULL COMMENT '文章分类ID',
+  `class_name` varchar(50) NOT NULL COMMENT '文章分类名称',
+  UNIQUE KEY `class_id` (`class_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `plug_bsphp_style_set` (
+  `set` varchar(20) NOT NULL,
+  `off` int(2) NOT NULL,
+  `qq1` varchar(110) NOT NULL,
+  `qq2` varchar(110) NOT NULL,
+  `dianhua` varchar(110) NOT NULL,
+  `maill` varchar(110) NOT NULL,
+  `cnzz` varchar(110) NOT NULL,
+  `ipc` varchar(110) NOT NULL,
+  `table` varchar(110) NOT NULL,
+  `keywords` varchar(110) NOT NULL,
+  `description` varchar(110) NOT NULL,
+  `p1` varchar(110) NOT NULL,
+  `p1url` varchar(110) NOT NULL,
+  `p2` varchar(110) NOT NULL,
+  `p2url` varchar(110) NOT NULL,
+  `p3` varchar(110) NOT NULL,
+  `p3url` varchar(110) NOT NULL,
+  `p4` varchar(110) NOT NULL,
+  `p4url` varchar(110) NOT NULL,
+  `p5` varchar(110) NOT NULL,
+  `p5url` varchar(110) NOT NULL,
+  `app1` varchar(110) NOT NULL,
+  `app1url` varchar(110) NOT NULL,
+  `app1table` varchar(110) NOT NULL,
+  `app2` varchar(110) NOT NULL,
+  `app2url` varchar(110) NOT NULL,
+  `app2table` varchar(110) NOT NULL,
+  `app3` varchar(110) NOT NULL,
+  `app3url` varchar(110) NOT NULL,
+  `app3table` varchar(110) NOT NULL,
+  `app4` varchar(110) NOT NULL,
+  `app4url` varchar(110) NOT NULL,
+  `app4table` varchar(110) NOT NULL,
+  `app5` varchar(110) NOT NULL,
+  `app5url` varchar(110) NOT NULL,
+  `app5table` varchar(110) NOT NULL,
+  `Rewrite_off` int(1) NOT NULL,
+  UNIQUE KEY `set` (`set`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8; 
+
+CREATE TABLE IF NOT EXISTS `bs_php_sysconfig` (
+  `sys_ini` varchar(32) NOT NULL,
+  `sys_val` varchar(2000) DEFAULT NULL,
+  PRIMARY KEY (`sys_ini`),
+  KEY `sys_ini` (`sys_ini`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COMMENT='数据配置';
+
+ALTER TABLE `bs_php_user` CHANGE `user_yao_User` `user_yao_User` CHAR(150) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL;
+
+ALTER TABLE`bs_php_kalei`ADD`lei_money` FLOAT( 9, 2)NOT NULL AFTER`lei_for_oid` ;
+
+ALTER TABLE`bs_php_cardseries`ADD`car_money` FLOAT( 9, 2)NOT NULL AFTER`car_div` ;
+
+
+
+
+ALTER TABLE `bs_php_kalei` ADD `lei_links_open` INT NULL DEFAULT '0' COMMENT '登录数' AFTER `lei_money`, ADD `lei_links` INT NULL DEFAULT '0' COMMENT '数量数量' AFTER `lei_links_open`;
+
+ALTER TABLE `bs_php_cardseries` ADD `car_links_open` INT NULL DEFAULT '0' COMMENT '账号登录数' AFTER `car_money`, ADD `car_links` INT NULL DEFAULT '0' COMMENT '机器数量' AFTER `car_links_open`;
+
+ALTER TABLE `bs_php_pattern_login` ADD `L_links_open` INT NULL DEFAULT '0' COMMENT '账号登录数' AFTER `L_login_run`, ADD `L_links` INT NULL DEFAULT '0' COMMENT '机器登录量' AFTER `L_links_open`;
+
+ALTER TABLE `bs_php_pattern_login` ADD `L_links_open_off` INT NULL DEFAULT '0' COMMENT '上限关闭模式0=直接提示 1=关闭最早的' AFTER `L_links`;
+
+ALTER TABLE `bs_php_appinfo` ADD `app_links_open_off` INT NULL DEFAULT '0' COMMENT '账号到上限操作 0=提示 1=注销最早' AFTER `app_langs`, ADD `app_links_off` INT NULL DEFAULT '0' COMMENT '机器到上限操作 0=提示 1=注销最早' AFTER `app_links_open_off`;
+
+ALTER TABLE `bs_php_user` ADD `user_is_pwd` INT NULL DEFAULT '0' COMMENT '是否禁止修改密码' AFTER `user_daili`;
+
+ALTER TABLE `bs_php_user`  ADD `user_beizhu` VARCHAR(200) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '用户备注' AFTER `user_is_pwd`;
+
+ALTER TABLE `bs_php_user`  ADD `user_anget_carid` VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '代理卡串' AFTER `user_beizhu`;
+
+ALTER TABLE  `bs_php_cardseries` ADD  `car_admin_beizhu` VARCHAR( 255 ) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL  COMMENT  '管理员备注' AFTER  `car_links`;
+ALTER TABLE  `bs_php_cardseries` ADD  `car_agnet_beizhu` VARCHAR( 255 ) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL  COMMENT  '代理备注' AFTER  `car_admin_beizhu`;
+
+ALTER TABLE `bs_php_pattern_login`  ADD `L_beizhu` VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '用户备注'  AFTER `L_links_open_off`;
+
+ALTER TABLE  `bs_php_user` ADD  `user_anget_beizhu` VARCHAR( 255 ) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT  '代理商备注' AFTER  `user_anget_carid`;
+
+ALTER TABLE  `bs_php_user` CHANGE  `user_Zhe`  `user_Zhe` FLOAT( 9, 1 ) NULL DEFAULT  '0.0';

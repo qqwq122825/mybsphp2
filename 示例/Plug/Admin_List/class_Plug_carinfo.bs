@@ -1,0 +1,2 @@
+'bsphp_carinfoa' : ['充值卡统计A','index.php?m=applib&c=admin_addloginuser&a=carinfo',''],
+'bsphp_carinfob' : ['充值卡统计B','index.php?m=applib&c=admin_addloginuser&a=carinfob',''],

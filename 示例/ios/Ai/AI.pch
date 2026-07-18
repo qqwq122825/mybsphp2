@@ -1,0 +1,39 @@
+//
+//  Ai.h
+//  Ai
+//
+//  Created by a on 2025/8/20.
+//
+
+#ifdef __OBJC__
+    #if __has_include(<TargetConditionals.h>)
+        #import <TargetConditionals.h>
+    #endif
+
+    #import <Foundation/Foundation.h>
+    #import <UIKit/UIKit.h>
+    #import "rootless.h"
+
+#endif
+
+#ifndef Ai_h
+#define Ai_h
+
+
+#define FADE_OUT_DURATION 0.25
+// HUD -> APP: Notify APP that the HUD's view is appeared.
+#define NOTIFY_LAUNCHED_HUD "com.mtx.hud.launched"
+
+// APP -> HUD: Notify HUD to dismiss itself.
+#define NOTIFY_DISMISSAL_HUD "ch.xxtou.notification.hud.dismissal"
+
+// APP -> HUD: Notify HUD that the user defaults has been changed by APP.
+#define NOTIFY_RELOAD_HUD "com.mtx.notification.hud.reload"
+
+
+#define USER_DEFAULTS_PATH @"/var/mobile/Library/Preferences/com.tencent.ai.plist"
+
+#define NOTIFY_UNCLOSE "com.mtx.hud.unclose"
+
+
+#endif /* Ai_h */
