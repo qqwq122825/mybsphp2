@@ -279,7 +279,8 @@
                 <li><span>PHP 环境</span><strong>PHP 8.3</strong></li>
                 <li><span>数据环境</span><strong>MySQL 已隔离</strong></li>
                 <li><span>接口基线</span><strong>REST v2 Ready</strong></li>
-                <li><span>下一任务</span><strong>W1-5 日志与审计</strong></li>
+                <li><span>日志与审计</span><strong>W1-5 Ready</strong></li>
+                <li><span>下一任务</span><strong>W1-6 工程检查</strong></li>
             </ul>
             <p class="note">
                 8091 是正式 Laravel 工程；8090 暂时保留现有后台原型，

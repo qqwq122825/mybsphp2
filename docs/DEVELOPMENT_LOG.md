@@ -328,3 +328,20 @@ W1-0：冻结当前原型，建立正式 Laravel 目录。本次没有继续扩�
 - 浏览器控制台无 error/warn；PHPUnit 9 tests / 39 assertions 通过。
 
 任务日志：`docs/logs/PREVIEW-7.md`。
+
+---
+
+## 2026-07-19 · W1-5
+
+完成日志、审计和敏感字段脱敏基础：
+
+- HTTP 日志共享 26 位 `request_id`、Method、无查询参数路径和 IP 哈希。
+- 请求完成/失败日志记录状态、耗时和异常类别，不记录请求或响应正文。
+- Monolog 通道增加递归脱敏处理器。
+- 密码、二级密码、Token、Cookie、应用密钥、完整卡密和设备标识自动遮蔽。
+- 新增不可变 `audit_logs` 表、审计事件对象和统一写入服务。
+- 审计前后快照及原因字段使用同一脱敏器。
+- 独立测试库完成迁移创建、回滚和重新创建验证。
+- PHPUnit 15 tests / 69 assertions、Pint 和本机实际日志扫描通过。
+
+任务日志：`docs/logs/W1-5.md`。
