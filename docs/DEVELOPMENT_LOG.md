@@ -228,3 +228,76 @@ W1-0：冻结当前原型，建立正式 Laravel 目录。本次没有继续扩�
 
 根据界面反馈移除登录页语言选择，首版固定使用简体中文。登录表单只保留管理员账号、
 主密码和二级密码。
+
+---
+
+## 2026-07-18 · W1-0
+
+冻结 W0 调研成果和现有 PHP 原型，建立正式开发回滚基线：
+
+- 创建开发分支 `codex/w1-foundation`。
+- 生成基线提交 `6246c97`。
+- 保留当前 8090 原型，供原版 BSPHP 与新系统 UI 并排对照。
+- 将旧版示例中的数据库凭据、运行日志、安装锁和用户态配置排除出版本库。
+- 下一任务切换 PHP 8.3；Laravel 正式目录归入 W1-2 创建。
+
+任务日志：`docs/logs/W1-0.md`。
+
+---
+
+## 2026-07-18 · W1-1
+
+完成 Laravel 正式环境基线：
+
+- Homebrew 并行安装 PHP 8.3.32，保留现有 PHP 8.1 以维持 8090 原型。
+- Composer 2.9.2 已在 PHP 8.3 下运行。
+- Laravel 所需核心扩展及 `pdo_mysql` 全部通过检查。
+- 正式工程命令固定使用 `/opt/homebrew/opt/php@8.3/bin/php`，避免改变系统全局链接。
+
+任务日志：`docs/logs/W1-1.md`。
+
+---
+
+## 2026-07-18 · W1-2
+
+创建并验证 Laravel 正式工程：
+
+- 正式目录为 `laravel/`，框架版本 Laravel 13.20.0。
+- 当前根目录原型继续运行在 8090；Laravel 基线运行在 8091。
+- 应用名称设为 MyBsPHP2，时区为 Asia/Shanghai，语言为简体中文。
+- 新建独立开发库 `mybsphp_laravel`，未复用或覆盖原型数据库。
+- 初始迁移、4 个测试、8 个断言、Pint 检查和 8091 HTTP 首页检查全部通过。
+- 浏览器已读取原版 BSPHP 与当前原型菜单结构，后续 W3 保留业务入口习惯，
+  使用现代路由与响应式布局重写。
+
+任务日志：`docs/logs/W1-2.md`。
+
+---
+
+## 2026-07-18 · W1-3
+
+完成 PHPUnit、测试数据库与 Fixture 基线：
+
+- 创建独立 MySQL 测试库 `mybsphp_test`，与开发库和旧原型库隔离。
+- 增加可提交的 `.env.testing.example`，本机凭据只写入被忽略的 `.env.testing`。
+- PHPUnit 不再强制使用 SQLite 内存库，正式验证 MySQL 行为。
+- 新增 `tests/Fixtures/UserFixture.php` 和数据库隔离 Feature 测试。
+- 新增 `docs/TESTING_GUIDE.md`，明确 Unit、Feature、Factory、Fixture 和 Seeder 分工。
+- 验收结果为 5 tests / 10 assertions，Pint 和 Composer 锁文件检查通过。
+
+任务日志：`docs/logs/W1-3.md`。
+
+---
+
+## 2026-07-18 · W1-4
+
+完成 REST v2 响应与异常基线：
+
+- 新增统一成功/失败 JSON 响应，结构与 `docs/API_CATALOG.md` 一致。
+- 全局生成 26 位 ULID 请求 ID，同时写入响应 `meta` 与 `X-Request-ID`。
+- 对合法的上游请求 ID 原样传递，对异常格式重新生成。
+- API 统一映射校验、认证、权限、资源不存在、HTTP 和系统异常。
+- 新增 `/api/v2/ping` 基线接口。
+- 9 tests / 35 assertions、Pint 与 8091 实际 HTTP 响应检查通过。
+
+任务日志：`docs/logs/W1-4.md`。
