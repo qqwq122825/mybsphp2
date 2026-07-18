@@ -345,3 +345,21 @@ W1-0：冻结当前原型，建立正式 Laravel 目录。本次没有继续扩�
 - PHPUnit 15 tests / 69 assertions、Pint 和本机实际日志扫描通过。
 
 任务日志：`docs/logs/W1-5.md`。
+
+---
+
+## 2026-07-19 · W1-6
+
+完成代码规范、静态分析和统一工程检查：
+
+- 安装 Larastan 3.10.0 与 PHPStan 2.2.5。
+- 新增 PHPStan 6 级配置，覆盖应用、路由、迁移和测试代码。
+- 新增 `format`、`lint`、`analyse`、`test:unit`、`test:feature` 与 `check`
+  Composer 命令。
+- 修复日志处理器类型、审计 JSON 访问和 Mockery Spy 调用等静态分析问题。
+- 不建立错误基线，不增加忽略规则。
+- `composer check` 全链路通过：Pint 通过、PHPStan 0 错误、
+  PHPUnit 14 tests / 72 assertions。
+- 独立 MySQL 测试库的 4 个迁移均为 Ran。
+
+任务日志：`docs/logs/W1-6.md`。W1 工程基线至此完成，下一任务为 W2-0。

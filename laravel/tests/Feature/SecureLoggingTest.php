@@ -47,7 +47,7 @@ class SecureLoggingTest extends TestCase
 
     public function test_http_completion_log_contains_the_response_request_id(): void
     {
-        Log::spy();
+        $log = Log::spy();
         $requestId = '01J00000000000000000000003';
 
         $this->withHeader('X-Request-ID', $requestId)
@@ -55,12 +55,13 @@ class SecureLoggingTest extends TestCase
             ->assertOk()
             ->assertHeader('X-Request-ID', $requestId);
 
-        Log::shouldHaveReceived('info')
-            ->once()
-            ->with('http.request.completed', \Mockery::on(
+        $log->shouldHaveReceived('info', [
+            'http.request.completed',
+            \Mockery::on(
                 fn (array $context): bool => $context['request_id'] === $requestId
                     && $context['status'] === 200
                     && is_int($context['duration_ms']),
-            ));
+            ),
+        ]);
     }
 }

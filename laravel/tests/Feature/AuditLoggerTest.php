@@ -36,9 +36,16 @@ class AuditLoggerTest extends TestCase
             actorRole: 'super_admin',
         ), $request);
 
+        $before = $audit->getAttribute('before_data');
+        $after = $audit->getAttribute('after_data');
+        $this->assertIsArray($before);
+        $this->assertIsArray($after);
+        $nested = $after['nested'] ?? null;
+        $this->assertIsArray($nested);
+
         $this->assertSame('01J00000000000000000000000', $audit->request_id);
-        $this->assertSame('[REDACTED]', $audit->before_data['app_key']);
-        $this->assertSame('[REDACTED]', $audit->after_data['nested']['secondary_password']);
+        $this->assertSame('[REDACTED]', $before['app_key']);
+        $this->assertSame('[REDACTED]', $nested['secondary_password']);
         $this->assertStringNotContainsString('reason-secret', $audit->reason);
         $this->assertSame(hash('sha256', 'MyBsPHP2 Test Browser'), $audit->user_agent_hash);
         $this->assertDatabaseHas('audit_logs', [

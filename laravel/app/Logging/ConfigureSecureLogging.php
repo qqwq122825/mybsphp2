@@ -4,6 +4,8 @@ namespace App\Logging;
 
 use App\Support\SensitiveDataRedactor;
 use Illuminate\Log\Logger;
+use LogicException;
+use Monolog\Logger as MonologLogger;
 
 final class ConfigureSecureLogging
 {
@@ -13,7 +15,13 @@ final class ConfigureSecureLogging
 
     public function __invoke(Logger $logger): void
     {
-        $logger->getLogger()->pushProcessor(
+        $monolog = $logger->getLogger();
+
+        if (! $monolog instanceof MonologLogger) {
+            throw new LogicException('Secure logging requires a Monolog logger.');
+        }
+
+        $monolog->pushProcessor(
             new RedactSensitiveContext($this->redactor),
         );
     }

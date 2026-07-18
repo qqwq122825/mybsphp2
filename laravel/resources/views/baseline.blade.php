@@ -259,10 +259,10 @@
             </div>
 
             <p class="eyebrow">FORMAL LARAVEL BASELINE</p>
-            <h1 id="page-title">正式工程已经开始承接业务。</h1>
+            <h1 id="page-title">W1 工程基线已经完成。</h1>
             <p class="lead">
                 当前页面用于区分 Laravel 正式工程与 8090 旧原型。
-                安装器、后台认证及管理界面将按照任务计划逐步迁入这里。
+                下一阶段从 W2 安装器开始，将后台认证及管理界面逐步迁入这里。
             </p>
 
             <div class="actions">
@@ -273,14 +273,15 @@
 
         <aside class="status-panel" aria-label="工程状态">
             <p class="status-label">CURRENT STATUS</p>
-            <h2>W1 工程基线</h2>
+            <h2>W1 基线完成</h2>
             <ul class="status-list">
                 <li><span>运行框架</span><strong>Laravel 13.20</strong></li>
                 <li><span>PHP 环境</span><strong>PHP 8.3</strong></li>
                 <li><span>数据环境</span><strong>MySQL 已隔离</strong></li>
                 <li><span>接口基线</span><strong>REST v2 Ready</strong></li>
                 <li><span>日志与审计</span><strong>W1-5 Ready</strong></li>
-                <li><span>下一任务</span><strong>W1-6 工程检查</strong></li>
+                <li><span>工程检查</span><strong>W1-6 Ready</strong></li>
+                <li><span>下一任务</span><strong>W2-0 安装器调研</strong></li>
             </ul>
             <p class="note">
                 8091 是正式 Laravel 工程；8090 暂时保留现有后台原型，
