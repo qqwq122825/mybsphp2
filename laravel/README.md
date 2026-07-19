@@ -46,7 +46,7 @@ cp .env.example .env
 /opt/homebrew/opt/php@8.3/bin/php artisan test
 ```
 
-当前验收基线：44 tests / 333 assertions，PHPStan 0 错误。
+当前验收基线：46 tests / 358 assertions，PHPStan 0 错误。
 
 ## 安装状态
 
@@ -62,7 +62,8 @@ cp .env.example .env
 ```
 
 也可以按 BSPHP 的习惯直接访问 `/install`。页面会提示删除
-`storage/installed.lock`；删除后刷新 `/install` 即可重新进入安装向导。继续使用原数据库时，
-需要勾选覆盖并在最后一步输入完整数据库名二次确认。
+`storage/installed.lock`；删除后刷新 `/install` 即可重新进入安装向导。数据库已有数据时默认
+保留应用、卡种、卡密、批次和发卡记录，只重置后台管理员与权限。选择“清空全部数据”时，
+最后一步仍需输入完整数据库名二次确认。
 
 开发计划和任务日志位于上级目录的 `docs/`。

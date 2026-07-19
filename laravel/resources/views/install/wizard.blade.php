@@ -142,11 +142,22 @@
                                @checked(old('create_database', $database['create_database'] ?? true))>
                         <span><strong>数据库不存在时自动创建</strong><small>数据库账号需要具备创建权限。</small></span>
                     </label>
-                    <label class="choice-row choice-danger">
-                        <input name="overwrite_database" type="checkbox" value="1"
-                               @checked(old('overwrite_database', $database['overwrite_database'] ?? false))>
-                        <span><strong>覆盖现有数据库</strong><small>最终安装前还需输入数据库名并再次确认。</small></span>
-                    </label>
+                    <fieldset class="existing-data-choices">
+                        <legend>如果数据库已有数据</legend>
+                        <label class="choice-row">
+                            <input name="existing_data_action" type="radio" value="preserve_business"
+                                   @checked(old('existing_data_action', $database['existing_data_action'] ?? 'preserve_business') === 'preserve_business')>
+                            <span>
+                                <strong>保留应用和卡密 <em>默认</em></strong>
+                                <small>保留应用、卡种、卡密、批次和发卡记录，只重置后台管理员、角色权限与系统日志。</small>
+                            </span>
+                        </label>
+                        <label class="choice-row choice-danger">
+                            <input name="existing_data_action" type="radio" value="reset_all"
+                                   @checked(old('existing_data_action', $database['existing_data_action'] ?? '') === 'reset_all')>
+                            <span><strong>清空全部数据</strong><small>删除整个数据库并重新创建，应用和卡密也会一起清除。</small></span>
+                        </label>
+                    </fieldset>
                     <div class="form-actions">
                         <a class="button button-secondary" href="{{ route('install.show') }}">上一步</a>
                         <button class="button button-primary" type="submit">测试连接并继续 <span>→</span></button>
@@ -247,19 +258,27 @@
                         </label>
                     </div>
 
-                    @if (($database['overwrite_database'] ?? false) === true)
+                    @if (($database['table_count'] ?? 0) > 0 && ($database['existing_data_action'] ?? 'preserve_business') === 'reset_all')
                         <section class="danger-panel">
-                            <h2>覆盖安装最终确认</h2>
-                            <p>数据库 <code>{{ $database['database'] }}</code> 中的现有数据表将被清除。</p>
+                            <h2>清空全部数据确认</h2>
+                            <p>数据库 <code>{{ $database['database'] }}</code> 将被删除并重建，应用和卡密也会清除。</p>
                             <label class="field">
                                 <span>输入完整数据库名称</span>
-                                <input name="overwrite_database_name" required autocomplete="off">
+                                <input name="reset_database_name" required autocomplete="off">
                             </label>
                             <label class="choice-row choice-danger">
-                                <input name="confirm_overwrite" type="checkbox" value="1" required>
-                                <span><strong>确认清除并重新安装</strong></span>
+                                <input name="confirm_reset_all" type="checkbox" value="1" required>
+                                <span><strong>确认清空全部数据并重新安装</strong></span>
                             </label>
                         </section>
+                    @elseif (($database['table_count'] ?? 0) > 0)
+                        <aside class="info-panel preserve-data-panel">
+                            <span aria-hidden="true">✓</span>
+                            <div>
+                                <strong>默认保留业务数据</strong>
+                                <p>当前应用、卡种、卡密、批次和发卡记录保持不变；安装完成后使用新创建的超级管理员登录。</p>
+                            </div>
+                        </aside>
                     @endif
 
                     <label class="choice-row">
@@ -269,7 +288,7 @@
                     <div class="form-actions">
                         <a class="button button-secondary" href="{{ route('install.show', ['step' => 'site']) }}">上一步</a>
                         <button class="button button-primary" type="submit">
-                            {{ ($database['overwrite_database'] ?? false) ? '确认覆盖并安装' : '完成安装' }}
+                            {{ (($database['existing_data_action'] ?? '') === 'reset_all') ? '确认清空并安装' : '保留业务数据并安装' }}
                             <span>✓</span>
                         </button>
                     </div>

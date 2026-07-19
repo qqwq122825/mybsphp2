@@ -312,6 +312,38 @@ button {
     background: #fffafb;
 }
 
+.existing-data-choices {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.existing-data-choices legend {
+    margin-bottom: 10px;
+    color: #35405c;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.existing-data-choices .choice-row strong em {
+    display: inline-flex;
+    margin-left: 6px;
+    border-radius: 999px;
+    padding: 2px 7px;
+    color: #147b5b;
+    background: #eaf9f3;
+    font-size: 10px;
+    font-style: normal;
+    vertical-align: 1px;
+}
+
+.preserve-data-panel {
+    border-color: #ccebdd;
+    background: #f5fcf9;
+}
+
 .form-alert {
     display: flex;
     gap: 13px;

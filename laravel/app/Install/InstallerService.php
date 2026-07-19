@@ -18,6 +18,7 @@ final class InstallerService
         private readonly InstallationManager $manager,
         private readonly EnvironmentFileWriter $environment,
         private readonly SystemAccessSynchronizer $access,
+        private readonly SystemAccountResetter $accounts,
     ) {}
 
     /**
@@ -76,12 +77,11 @@ final class InstallerService
         $this->validateAdministrator($admin);
         $probe = $this->testDatabase($database);
 
-        if ($probe['table_count'] > 0 && ! $database['overwrite_database']) {
-            throw new InstallationException('数据库已包含数据表，请选择其他数据库或确认覆盖安装。');
-        }
-
-        if ($database['overwrite_database']) {
-            $this->validateOverwrite($database, $admin);
+        if (
+            $probe['table_count'] > 0
+            && $database['existing_data_action'] === ExistingDataAction::ResetAll->value
+        ) {
+            $this->validateResetAll($database, $admin);
             $pdo = $this->serverConnection($database);
             $pdo->exec('DROP DATABASE IF EXISTS `'.$database['database'].'`');
             $this->createDatabase($pdo, $database['database']);
@@ -98,6 +98,13 @@ final class InstallerService
 
             if ($exitCode !== 0) {
                 throw new InstallationException('数据库迁移执行失败，请根据请求 ID 检查服务端日志。');
+            }
+
+            if (
+                $probe['table_count'] > 0
+                && $database['existing_data_action'] === ExistingDataAction::PreserveBusiness->value
+            ) {
+                $this->accounts->reset('install');
             }
 
             $this->access->sync('install');
@@ -276,7 +283,7 @@ final class InstallerService
 
     /**
      * @param  array<string, mixed>  $database
-     * @return array{host:string,port:int,database:string,username:string,password:string,create_database:bool,overwrite_database:bool}
+     * @return array{host:string,port:int,database:string,username:string,password:string,create_database:bool,existing_data_action:string}
      */
     private function normalizeDatabase(array $database): array
     {
@@ -297,6 +304,11 @@ final class InstallerService
             throw new InstallationException('请填写数据库用户名。');
         }
 
+        $actionValue = $database['existing_data_action'] ?? null;
+        $action = is_string($actionValue)
+            ? ExistingDataAction::tryFrom($actionValue)
+            : null;
+
         return [
             'host' => $host,
             'port' => $port,
@@ -304,12 +316,14 @@ final class InstallerService
             'username' => $username,
             'password' => (string) ($database['password'] ?? ''),
             'create_database' => filter_var($database['create_database'] ?? false, FILTER_VALIDATE_BOOL),
-            'overwrite_database' => filter_var($database['overwrite_database'] ?? false, FILTER_VALIDATE_BOOL),
+            'existing_data_action' => $action === null
+                ? ExistingDataAction::PreserveBusiness->value
+                : $action->value,
         ];
     }
 
     /**
-     * @param  array{host:string,port:int,database:string,username:string,password:string,create_database:bool,overwrite_database:bool}  $database
+     * @param  array{host:string,port:int,database:string,username:string,password:string,create_database:bool,existing_data_action:string}  $database
      */
     private function serverConnection(array $database): PDO
     {
@@ -354,7 +368,7 @@ final class InstallerService
     }
 
     /**
-     * @param  array{host:string,port:int,database:string,username:string,password:string,create_database:bool,overwrite_database:bool}  $database
+     * @param  array{host:string,port:int,database:string,username:string,password:string,create_database:bool,existing_data_action:string}  $database
      */
     private function configureInstallConnection(array $database): void
     {
@@ -378,17 +392,17 @@ final class InstallerService
     }
 
     /**
-     * @param  array{host:string,port:int,database:string,username:string,password:string,create_database:bool,overwrite_database:bool}  $database
+     * @param  array{host:string,port:int,database:string,username:string,password:string,create_database:bool,existing_data_action:string}  $database
      * @param  array<string, mixed>  $admin
      */
-    private function validateOverwrite(array $database, array $admin): void
+    private function validateResetAll(array $database, array $admin): void
     {
-        if (! ($admin['confirm_overwrite'] ?? false)) {
-            throw new InstallationException('覆盖安装前需要完成最终确认。');
+        if (! ($admin['confirm_reset_all'] ?? false)) {
+            throw new InstallationException('清空全部数据前需要完成最终确认。');
         }
 
-        if (! hash_equals($database['database'], (string) ($admin['overwrite_database_name'] ?? ''))) {
-            throw new InstallationException('请输入完整数据库名称以确认覆盖安装。');
+        if (! hash_equals($database['database'], (string) ($admin['reset_database_name'] ?? ''))) {
+            throw new InstallationException('请输入完整数据库名称以确认清空全部数据。');
         }
     }
 }

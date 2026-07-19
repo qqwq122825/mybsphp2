@@ -53,6 +53,20 @@ class InstallationFlowTest extends TestCase
         $this->get('/admin/dashboard')->assertRedirect('/install');
     }
 
+    public function test_database_step_defaults_to_preserving_applications_and_cards(): void
+    {
+        $this->get('/install/database')
+            ->assertOk()
+            ->assertSee('如果数据库已有数据')
+            ->assertSee('保留应用和卡密')
+            ->assertSee('默认')
+            ->assertSee('清空全部数据')
+            ->assertSee('只重置后台管理员、角色权限与系统日志')
+            ->assertSee('name="existing_data_action"', false)
+            ->assertSee('value="preserve_business"', false)
+            ->assertSee('checked', false);
+    }
+
     public function test_installed_site_shows_lock_file_and_deleting_it_reopens_installer(): void
     {
         app(InstallationManager::class)->writeLock([
@@ -105,7 +119,8 @@ class InstallationFlowTest extends TestCase
         $this->get('/install')->assertRedirect('/install/database');
         $this->get('/install/database')
             ->assertOk()
-            ->assertSee('覆盖现有数据库');
+            ->assertSee('保留应用和卡密')
+            ->assertSee('清空全部数据');
 
         $this->flushSession();
         $this->get('/install/reinstall?token='.$token)->assertNotFound();

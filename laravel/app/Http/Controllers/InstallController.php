@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Install\EnvironmentChecker;
+use App\Install\ExistingDataAction;
 use App\Install\InstallationException;
 use App\Install\InstallationManager;
 use App\Install\InstallerService;
@@ -11,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 final class InstallController extends Controller
@@ -126,24 +128,21 @@ final class InstallController extends Controller
             'username' => ['required', 'string', 'max:255'],
             'password' => ['nullable', 'string', 'max:512'],
             'create_database' => ['nullable', 'boolean'],
-            'overwrite_database' => ['nullable', 'boolean'],
+            'existing_data_action' => ['nullable', Rule::enum(ExistingDataAction::class)],
         ]);
 
         $database = [
             ...$validated,
             'password' => (string) ($validated['password'] ?? ''),
             'create_database' => $request->boolean('create_database'),
-            'overwrite_database' => $request->boolean('overwrite_database'),
+            'existing_data_action' => (string) (
+                $validated['existing_data_action'] ?? ExistingDataAction::PreserveBusiness->value
+            ),
         ];
 
         try {
             $probe = $this->installer->testDatabase($database);
-
-            if ($probe['table_count'] > 0 && ! $database['overwrite_database']) {
-                return back()
-                    ->withErrors(['database' => '数据库已包含数据表，请选择其他数据库或勾选覆盖现有数据库。'])
-                    ->withInput($request->except('password'));
-            }
+            $database['table_count'] = $probe['table_count'];
         } catch (InstallationException $exception) {
             Log::warning('install.database.failed', [
                 'exception' => $exception::class,
@@ -205,8 +204,8 @@ final class InstallController extends Controller
             'secondary_password_enabled' => ['nullable', 'boolean'],
             'secondary_password' => ['nullable', 'string', 'min:6', 'max:128', 'confirmed'],
             'confirm_install' => ['accepted'],
-            'confirm_overwrite' => ['nullable', 'boolean'],
-            'overwrite_database_name' => ['nullable', 'string', 'max:64'],
+            'confirm_reset_all' => ['nullable', 'boolean'],
+            'reset_database_name' => ['nullable', 'string', 'max:64'],
         ]);
 
         $admin = [
@@ -215,8 +214,8 @@ final class InstallController extends Controller
             'secondary_password_enabled' => $request->boolean('secondary_password_enabled'),
             'secondary_password' => (string) ($validated['secondary_password'] ?? ''),
             'secondary_password_confirmation' => (string) $request->input('secondary_password_confirmation', ''),
-            'confirm_overwrite' => $request->boolean('confirm_overwrite'),
-            'overwrite_database_name' => (string) ($validated['overwrite_database_name'] ?? ''),
+            'confirm_reset_all' => $request->boolean('confirm_reset_all'),
+            'reset_database_name' => (string) ($validated['reset_database_name'] ?? ''),
         ];
 
         if ($admin['secondary_password_enabled'] && $admin['secondary_password'] === '') {
