@@ -1,6 +1,8 @@
 @extends('admin.layout')
 
-@php($editing = $application !== null)
+@php
+    $editing = $application !== null;
+@endphp
 @section('title', $editing ? '软件配置' : '添加新软件')
 
 @section('content')
@@ -65,13 +67,35 @@
             </div>
         </form>
     @else
-        <form class="admin-form-grid" method="post"
+        @php
+            $communicationError = collect(['encryption_mode', 'login_api_name', 'max_clock_skew_seconds', 'legacy_enabled'])
+                ->contains(fn (string $field): bool => $errors->has($field));
+            $limitError = collect(['bind_device_enabled', 'max_bound_devices', 'max_concurrent_sessions'])
+                ->contains(fn (string $field): bool => $errors->has($field));
+            $defaultConfigTab = $communicationError ? 'communication' : ($limitError ? 'limits' : 'basic');
+        @endphp
+        <form class="software-config-form" method="post" data-config-form
+              data-default-config-tab="{{ $defaultConfigTab }}"
               action="{{ route('admin.applications.update', ['adminPath' => $adminPath, 'application' => $application]) }}">
             @csrf
             @method('PUT')
 
+            <nav class="software-config-tabs" role="tablist" aria-label="软件配置分类">
+                <button type="button" role="tab" data-config-tab="basic" aria-controls="software-panel-basic">
+                    <span>01</span><strong>基本配置</strong><small>名称、状态和验证数据</small>
+                </button>
+                <button type="button" role="tab" data-config-tab="communication" aria-controls="software-panel-communication">
+                    <span>02</span><strong>通信安全</strong><small>地址、密钥和接口参数</small>
+                </button>
+                <button type="button" role="tab" data-config-tab="limits" aria-controls="software-panel-limits">
+                    <span>03</span><strong>限开控制</strong><small>设备绑定和并发限制</small>
+                </button>
+            </nav>
+
+            <div class="admin-form-grid software-config-panel" id="software-panel-communication"
+                 role="tabpanel" data-config-panel="communication" hidden>
             <section class="dashboard-panel form-panel form-panel-wide communication-panel">
-                <header><div><span>CONNECTION</span><h2>通信配置</h2></div><em>创建时自动生成</em></header>
+                <header><div><span>CONNECTION SECURITY</span><h2>通信安全</h2></div><em>创建时自动生成</em></header>
                 <div class="panel-body stack-form">
                     <div class="connection-row">
                         <div><span>软件代号</span><strong>{{ $application->code }}</strong></div>
@@ -116,7 +140,10 @@
                     </details>
                 </div>
             </section>
+            </div>
 
+            <div class="admin-form-grid software-config-panel" id="software-panel-basic"
+                 role="tabpanel" data-config-panel="basic">
             <section class="dashboard-panel form-panel form-panel-wide">
                 <header><div><span>BASIC SETTINGS</span><h2>基本配置</h2></div><em>{{ $application->code }}</em></header>
                 <div class="panel-body stack-form">
@@ -166,9 +193,12 @@
                     </label>
                 </div>
             </section>
+            </div>
 
-            <section class="dashboard-panel form-panel">
-                <header><div><span>DEVICE</span><h2>设备设置</h2></div><em>可选</em></header>
+            <div class="admin-form-grid software-config-panel" id="software-panel-limits"
+                 role="tabpanel" data-config-panel="limits" hidden>
+            <section class="dashboard-panel form-panel form-panel-wide">
+                <header><div><span>DEVICE & SESSION LIMITS</span><h2>限开控制</h2></div><em>设备与并发</em></header>
                 <div class="panel-body stack-form">
                     <input type="hidden" name="bind_device_enabled" value="0">
                     <label class="choice-row">
@@ -190,9 +220,12 @@
                     </div>
                 </div>
             </section>
+            </div>
 
-            <section class="dashboard-panel form-panel">
-                <header><div><span>APPEN</span><h2>接口兼容配置</h2></div><em>login.ic</em></header>
+            <div class="admin-form-grid software-config-panel" role="tabpanel"
+                 data-config-panel="communication" hidden>
+            <section class="dashboard-panel form-panel form-panel-wide">
+                <header><div><span>APPEN SETTINGS</span><h2>接口参数</h2></div><em>login.ic</em></header>
                 <div class="panel-body stack-form">
                     <label class="field">
                         <span>登录 API 名称</span>
@@ -211,9 +244,10 @@
                     </label>
                 </div>
             </section>
+            </div>
 
             <div class="form-submit-bar">
-                <span>验证数据修改后会立即用于新的成功响应。</span>
+                <span>保存后立即应用当前软件的全部配置。</span>
                 <button class="button button-primary" type="submit">确认保存</button>
             </div>
         </form>

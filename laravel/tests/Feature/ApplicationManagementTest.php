@@ -47,6 +47,9 @@ class ApplicationManagementTest extends TestCase
 
         $this->get('/private-console/applications/create')
             ->assertOk()
+            ->assertSee('页面标签导航')
+            ->assertSee('软件管理')
+            ->assertSee('添加新软件')
             ->assertSee('软件模式')
             ->assertSee('软件名称')
             ->assertSee('软件代号')
@@ -105,7 +108,15 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('通信认证 Key')
             ->assertSee('BSPHP_MUTUALKEY')
             ->assertSee('/AppEn.php?appid=10000001&amp;md5=', false)
-            ->assertSee('现代混合加密');
+            ->assertSee('现代混合加密')
+            ->assertSee('10000001-软件配置')
+            ->assertSee('role="tablist"', false)
+            ->assertSee('data-config-tab="basic"', false)
+            ->assertSee('data-config-tab="communication"', false)
+            ->assertSee('data-config-tab="limits"', false)
+            ->assertSee('基本配置')
+            ->assertSee('通信安全')
+            ->assertSee('限开控制');
 
         $this->put('/private-console/applications/'.$application->public_id, [
             'name' => '游戏 iOS 正式版',

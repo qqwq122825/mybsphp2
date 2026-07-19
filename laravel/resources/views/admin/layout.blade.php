@@ -34,26 +34,30 @@
     </aside>
     <div class="sidebar-overlay" data-sidebar-overlay></div>
 
-    <main class="dashboard-content">
-        @if (session('success'))
-            <div class="notice notice-success">{{ session('success') }}</div>
-        @endif
-        @if ($errors->any())
-            <div class="form-alert" role="alert" tabindex="-1" data-error-summary>
-                <span>!</span>
-                <div>
-                    <strong>请检查以下内容</strong>
-                    <ul>
-                        @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            </div>
-        @endif
+    <div class="admin-workspace">
+        @include('admin.partials.workspace-tabs')
 
-        @yield('content')
-    </main>
+        <main class="dashboard-content">
+            @if (session('success'))
+                <div class="notice notice-success">{{ session('success') }}</div>
+            @endif
+            @if ($errors->any())
+                <div class="form-alert" role="alert" tabindex="-1" data-error-summary>
+                    <span>!</span>
+                    <div>
+                        <strong>请检查以下内容</strong>
+                        <ul>
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            @endif
+
+            @yield('content')
+        </main>
+    </div>
 </div>
 
 <nav class="mobile-bottom-nav" aria-label="手机快捷导航">
