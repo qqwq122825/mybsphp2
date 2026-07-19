@@ -63,14 +63,14 @@ class CardIssueAndActivationTest extends TestCase
             ->assertJsonPath('data.application.code', $application->code)
             ->assertJsonPath('data.card.status', 'active')
             ->assertJsonPath('data.appsafecode', 'SAFE-123')
-            ->assertJsonPath('data.payload', 'A1B2C3D4E5');
+            ->assertJsonPath('data.payload', '0x100000');
 
         $legacy = $response->json('data.legacy_response');
         $this->assertIsString($legacy);
         $fields = explode('|', $legacy);
         $this->assertSame('01', $fields[0]);
         $this->assertSame('xx', $fields[1]);
-        $this->assertSame('A1B2C3D4E5', $fields[2]);
+        $this->assertSame('0x100000', $fields[2]);
         $this->assertSame('SAFE-123', $fields[3]);
         $this->assertSame(10, strlen($fields[4]));
         $this->assertSame('IOS-DEVICE-001', $fields[8]);
@@ -145,7 +145,7 @@ class CardIssueAndActivationTest extends TestCase
             'entitlement_kind' => 'duration',
             'status' => 'active',
             'payload_mode' => 'constant',
-            'payload_value_ciphertext' => 'A1B2C3D4E5',
+            'payload_value_ciphertext' => '0x100000',
             'client_secret_hash' => 'not-used-in-fixture',
             'bind_device_enabled' => true,
             'max_bound_devices' => 1,

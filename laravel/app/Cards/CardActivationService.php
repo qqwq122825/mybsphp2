@@ -99,9 +99,7 @@ final class CardActivationService
     private function result(Card $card, string $appsafecode): array
     {
         $application = $card->application;
-        $payload = $application->payload_mode === 'empty'
-            ? ''
-            : (string) ($application->payload_value_ciphertext ?? '');
+        $payload = $application->verificationData();
         $signature = strtoupper(substr(hash_hmac(
             'sha256',
             $application->code.'|'.now()->utc()->format('Y-m-d'),

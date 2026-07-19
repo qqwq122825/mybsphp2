@@ -45,27 +45,29 @@ class ApplicationManagementTest extends TestCase
         $administrator = $this->administrator();
         $this->actingAs($administrator, 'admin');
 
+        $this->get('/private-console/applications/create')
+            ->assertOk()
+            ->assertSee('软件模式')
+            ->assertSee('软件名称')
+            ->assertSee('软件代号')
+            ->assertDontSee('授权返回与设备')
+            ->assertDontSee('启用设备绑定')
+            ->assertDontSee('验证数据');
+
         $response = $this->post('/private-console/applications', [
-            'code' => 'game_ios',
+            'code' => '10000001',
             'name' => '游戏 iOS',
-            'description' => '卡密登录演示',
             'mode' => 'card_login',
-            'entitlement_kind' => 'duration',
-            'status' => 'active',
-            'payload_mode' => 'constant',
-            'payload_value_ciphertext' => 'A1B2C3D4E5',
-            'bind_device_enabled' => '1',
-            'max_bound_devices' => 1,
-            'max_concurrent_sessions' => 1,
-            'version_name' => '1.0.0',
         ]);
 
-        $application = Application::query()->where('code', 'game_ios')->sole();
+        $application = Application::query()->where('code', '10000001')->sole();
         $response
             ->assertRedirect('/private-console/applications/'.$application->public_id.'/edit')
             ->assertSessionHas('client_secret');
 
-        $this->assertSame('A1B2C3D4E5', $application->payload_value_ciphertext);
+        $this->assertSame('active', $application->status);
+        $this->assertSame('constant', $application->payload_mode);
+        $this->assertSame('', $application->verificationData());
         $this->assertDatabaseHas('application_legacy_configs', [
             'application_id' => $application->getKey(),
             'login_api_name' => 'login.ic',
@@ -78,17 +80,19 @@ class ApplicationManagementTest extends TestCase
         $this->get('/private-console/applications')
             ->assertOk()
             ->assertSee('游戏 iOS')
-            ->assertSee('卡密登录');
+            ->assertSee('卡密验证限时模式')
+            ->assertSee('配置软件');
+
+        $this->get('/private-console/applications/'.$application->public_id.'/edit')
+            ->assertOk()
+            ->assertSee('验证数据')
+            ->assertSee('客户端返回数组 a[2]');
 
         $this->put('/private-console/applications/'.$application->public_id, [
-            'code' => 'game_ios',
             'name' => '游戏 iOS 正式版',
             'description' => '已更新',
-            'mode' => 'card_login',
-            'entitlement_kind' => 'duration',
             'status' => 'active',
-            'payload_mode' => 'empty',
-            'payload_value_ciphertext' => '',
+            'verification_data' => "0x100000\nworld-server=gwrold.example",
             'bind_device_enabled' => '0',
             'max_bound_devices' => 1,
             'max_concurrent_sessions' => 2,
@@ -100,7 +104,8 @@ class ApplicationManagementTest extends TestCase
 
         $application->refresh();
         $this->assertSame('游戏 iOS 正式版', $application->name);
-        $this->assertSame('empty', $application->payload_mode);
+        $this->assertSame("0x100000\nworld-server=gwrold.example", $application->verificationData());
+        $this->assertSame('constant', $application->payload_mode);
         $this->assertFalse($application->bind_device_enabled);
 
         $this->post('/private-console/applications/'.$application->public_id.'/toggle')

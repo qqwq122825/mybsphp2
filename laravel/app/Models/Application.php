@@ -30,6 +30,11 @@ class Application extends Model
 {
     use SoftDeletes;
 
+    public function verificationData(): string
+    {
+        return (string) ($this->payload_value_ciphertext ?? '');
+    }
+
     public function getRouteKeyName(): string
     {
         return 'public_id';

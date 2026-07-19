@@ -27,7 +27,11 @@ final class AdminApplicationController extends Controller
     public function index(string $adminPath): View
     {
         $applications = Application::query()
-            ->withCount(['cardTypes', 'cards'])
+            ->withCount([
+                'cardTypes',
+                'cards',
+                'cards as activated_cards_count' => fn ($query) => $query->whereNotNull('activated_at'),
+            ])
             ->latest()
             ->paginate(20);
 
@@ -53,15 +57,23 @@ final class AdminApplicationController extends Controller
 
     public function store(Request $request, string $adminPath): RedirectResponse
     {
-        $validated = $this->validateApplication($request);
+        $validated = $this->validateNewApplication($request);
         $administrator = $this->administrator();
         $clientSecret = Str::password(40, symbols: false);
 
         $application = Application::query()->create([
-            ...$validated,
             'public_id' => (string) Str::ulid(),
             'code' => strtolower((string) $validated['code']),
+            'name' => $validated['name'],
+            'mode' => $validated['mode'],
+            'entitlement_kind' => 'duration',
+            'status' => 'active',
+            'payload_mode' => 'constant',
+            'payload_value_ciphertext' => null,
             'client_secret_hash' => Hash::make($clientSecret),
+            'bind_device_enabled' => true,
+            'max_bound_devices' => 1,
+            'max_concurrent_sessions' => 1,
             'created_by_administrator_id' => $administrator->getKey(),
         ]);
         $application->legacyConfig()->create();
@@ -85,7 +97,7 @@ final class AdminApplicationController extends Controller
                 'adminPath' => $adminPath,
                 'application' => $application,
             ])
-            ->with('success', '应用创建成功。客户端密钥仅展示本次，请立即保存。')
+            ->with('success', '软件创建成功。客户端密钥仅展示本次，请立即保存。')
             ->with('client_secret', $clientSecret);
     }
 
@@ -108,13 +120,12 @@ final class AdminApplicationController extends Controller
             'name',
             'description',
             'status',
-            'payload_mode',
             'bind_device_enabled',
             'max_bound_devices',
             'max_concurrent_sessions',
             'version_name',
         ]);
-        $validated = $this->validateApplication($request, $application);
+        $validated = $this->validateApplicationConfiguration($request);
 
         if (
             isset($validated['status'])
@@ -124,7 +135,10 @@ final class AdminApplicationController extends Controller
             abort(403);
         }
 
-        unset($validated['code'], $validated['mode'], $validated['entitlement_kind']);
+        $validated['payload_mode'] = 'constant';
+        $validated['payload_value_ciphertext'] = $validated['verification_data'] ?? null;
+        $validated['bind_device_enabled'] = (bool) ($validated['bind_device_enabled'] ?? false);
+        unset($validated['verification_data']);
 
         $application->fill($validated)->save();
 
@@ -153,7 +167,7 @@ final class AdminApplicationController extends Controller
             actorRole: $administrator->role,
         ), $request);
 
-        return back()->with('success', '应用配置已保存。');
+        return back()->with('success', '软件配置已保存，验证数据将作为 a[2] 返回。');
     }
 
     public function toggle(
@@ -183,34 +197,32 @@ final class AdminApplicationController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validateApplication(Request $request, ?Application $application = null): array
+    private function validateNewApplication(Request $request): array
     {
-        $immutable = $application instanceof Application;
-
         return $request->validate([
             'code' => [
                 'required',
                 'string',
-                'min:2',
+                'min:1',
                 'max:40',
-                'regex:/^[A-Za-z][A-Za-z0-9_-]+$/',
-                Rule::unique('applications', 'code')->ignore($application?->getKey()),
+                'regex:/^[A-Za-z0-9][A-Za-z0-9_-]*$/',
+                Rule::unique('applications', 'code'),
             ],
             'name' => ['required', 'string', 'min:2', 'max:120'],
+            'mode' => ['required', Rule::in(['card_login', 'account_recharge'])],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validateApplicationConfiguration(Request $request): array
+    {
+        return $request->validate([
+            'name' => ['required', 'string', 'min:2', 'max:120'],
             'description' => ['nullable', 'string', 'max:500'],
-            'mode' => [$immutable ? 'sometimes' : 'required', Rule::in(['card_login', 'account_recharge'])],
-            'entitlement_kind' => [
-                $immutable ? 'sometimes' : 'required',
-                Rule::in(['duration', 'points', 'fixed_expiry']),
-            ],
             'status' => ['required', Rule::in(['draft', 'active', 'suspended', 'archived'])],
-            'payload_mode' => ['required', Rule::in(['constant', 'empty'])],
-            'payload_value_ciphertext' => [
-                Rule::requiredIf($request->input('payload_mode') === 'constant'),
-                'nullable',
-                'string',
-                'max:255',
-            ],
+            'verification_data' => ['nullable', 'string', 'max:262144'],
             'bind_device_enabled' => ['nullable', 'boolean'],
             'max_bound_devices' => ['required', 'integer', 'min:1', 'max:20'],
             'max_concurrent_sessions' => ['required', 'integer', 'min:1', 'max:100'],

@@ -44,12 +44,12 @@
 
 | 编号 | 状态 | 任务 | 测试 |
 |---|---|---|---|
-| G3-01 | TODO | 应用管理 | Feature |
-| G3-02 | TODO | 卡种和批次 | Feature |
+| G3-01 | DONE | 应用管理 | Feature |
+| G3-02 | DONE | 卡种和批次 | Feature |
 | G3-03 | TODO | 卡密生成与导入 | Unit + Feature |
-| G3-04 | TODO | 单张/批量手动发卡 | Transaction |
+| G3-04 | DONE | 单张/批量手动发卡 | Transaction |
 | G3-05 | TODO | TXT/CSV 导出 | Feature |
-| G3-06 | TODO | 发卡记录 | Feature |
+| G3-06 | DONE | 发卡记录 | Feature |
 
 ## G4 Legacy 协议
 

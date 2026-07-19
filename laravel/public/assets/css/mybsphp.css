@@ -1661,6 +1661,197 @@ button {
     background: #f0f6ff;
 }
 
+/* Software management */
+.software-card-list {
+    display: grid;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.software-card {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(42, 58, 93, .04);
+}
+
+.software-card > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 20px 22px 14px;
+}
+
+.software-card-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.software-card-title > b {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 11px;
+    color: var(--primary);
+    background: var(--primary-soft);
+    font-size: 18px;
+}
+
+.software-card-title h2,
+.software-card-title p {
+    margin: 0;
+}
+
+.software-card-title h2 {
+    color: var(--navy);
+    font-size: 17px;
+}
+
+.software-card-title p {
+    margin-top: 4px;
+    color: #929caf;
+    font-size: 10px;
+}
+
+.software-card-title p strong {
+    color: #5a6781;
+}
+
+.software-mode-line {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 22px;
+    padding: 11px 13px;
+    border-radius: 10px;
+    color: #7d899f;
+    background: #f7f9fc;
+    font-size: 11px;
+}
+
+.software-mode-line strong {
+    color: #44516b;
+}
+
+.software-stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    padding: 14px 22px 18px;
+}
+
+.software-stats div {
+    min-height: 70px;
+    padding: 13px 14px;
+    border: 1px solid #e8ebf2;
+    border-radius: 11px;
+    background: #fbfcfe;
+}
+
+.software-stats span,
+.software-stats strong {
+    display: block;
+}
+
+.software-stats span {
+    color: #8c96a9;
+    font-size: 10px;
+}
+
+.software-stats strong {
+    margin-top: 6px;
+    color: #4a5873;
+    font-size: 16px;
+}
+
+.software-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 14px 22px;
+    border-top: 1px solid #edf0f6;
+}
+
+.software-card-actions a,
+.software-card-actions button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    border: 1px solid #dce3ef;
+    border-radius: 999px;
+    padding: 7px 13px;
+    color: #53627f;
+    background: #fff;
+    font-size: 10px;
+    font-weight: 760;
+    cursor: pointer;
+}
+
+.software-card-actions .software-action-primary {
+    border-color: #a9c5ff;
+    color: #2e64c8;
+    background: #f3f7ff;
+}
+
+.software-pager {
+    padding-right: 0;
+}
+
+.software-create-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, .8fr);
+    gap: 30px;
+}
+
+.software-mode-guide {
+    padding: 18px;
+    border: 1px solid #e5eaf3;
+    border-radius: 13px;
+    background: #f8faff;
+}
+
+.software-mode-guide > span {
+    color: var(--primary);
+    font-size: 10px;
+    font-weight: 850;
+    letter-spacing: .08em;
+}
+
+.software-mode-guide article {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #e4e9f3;
+}
+
+.software-mode-guide b {
+    color: #34415c;
+    font-size: 12px;
+}
+
+.software-mode-guide p {
+    margin: 6px 0 0;
+    color: #8490a6;
+    font-size: 11px;
+    line-height: 1.75;
+}
+
+.verification-data-field textarea {
+    min-height: 190px;
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    line-height: 1.65;
+}
+
+.verification-data-field > span small {
+    margin-left: 6px;
+    color: var(--primary);
+    font-size: 9px;
+}
+
 .secret-panel div {
     min-width: 0;
 }
@@ -1828,6 +2019,10 @@ button {
     .metric-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .software-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 860px) {
@@ -1910,6 +2105,10 @@ button {
 
     .admin-form-grid,
     .management-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .software-create-body {
         grid-template-columns: 1fr;
     }
 
@@ -2168,6 +2367,32 @@ button {
 
     .page-heading-actions .button {
         width: 100%;
+    }
+
+    .software-card > header,
+    .software-card-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .software-mode-line {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .software-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .software-card-actions a,
+    .software-card-actions button,
+    .software-card-actions form {
+        width: 100%;
+    }
+
+    .software-card-actions a,
+    .software-card-actions button {
+        justify-content: center;
     }
 
     .three-columns {
