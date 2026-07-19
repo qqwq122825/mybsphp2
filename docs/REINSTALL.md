@@ -6,7 +6,7 @@
 |---|---|
 | 新数据库 | 正常创建表、管理员和安装锁 |
 | 数据库已有表、站点尚未安装完成 | 停止继续，提示选择新数据库或勾选覆盖安装 |
-| 已存在 `installed.lock` 或 `.env` 中 `APP_INSTALLED=true` | 后台登录保持可用，普通访问 `/install` 跳回后台 |
+| 已存在 `installed.lock` 或 `.env` 中 `APP_INSTALLED=true` | 后台登录保持可用，普通访问 `/install` 返回安装锁定页且不展示后台入口 |
 
 仅删除 `storage/installed.lock` 不是完整重装方式，因为 `.env` 和数据库仍保留安装状态。
 
@@ -38,7 +38,7 @@ php bin/enable-reinstall.php
 4. 安装成功后令牌立即删除，新的安装锁覆盖旧锁。
 
 令牌文件只保存 SHA-256 摘要，权限为 `0600`；URL 首次成功授权 Session 后立即消费，
-普通 `/install` 请求仍会跳回后台登录。
+普通 `/install` 请求仍返回安装锁定页。
 
 ## 4. 数据保护
 

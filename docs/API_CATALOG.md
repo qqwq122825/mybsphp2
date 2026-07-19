@@ -149,10 +149,11 @@
 | W2-3 | `POST /install/database/test` | Install | 测试 MySQL；可选检查建库权限 | 相同请求可重试 / `install-write` | 成功、拒绝、库不存在、错误不回显密码 |
 | W2-4 | `POST /install/site/validate` | Install | 校验站点名、URL、时区和后台路径 | 相同请求可重试 / `install-write` | 默认 `admin`、自定义路径、保留字、非法字符 |
 | W2-6 | `POST /install/admin/validate` | Install | 校验超级管理员账号、密码及可选二级密码策略 | 相同请求可重试 / `install-write` | 弱密码、两密码相同、二级密码关闭 |
-| W2-10 | `POST /install/complete` | Install | 原子写配置、迁移、管理员、安装锁 | 必须 `Idempotency-Key` / `install-write` | 成功、迁移回滚、重复提交、并发安装、锁生效 |
+| W2-10 | `POST /install/complete` | Install | 分阶段完成迁移、管理员、配置和安装锁 | 必须 `Idempotency-Key` / `install-write` | 成功、失败重试、重复提交、并发安装、锁生效 |
 
-`/install/complete` 只在全部步骤通过后提交；失败必须回滚数据库初始化和临时配置，
-不得留下“半安装”状态。
+`/install/complete` 只在全部步骤通过后提交。管理员与角色绑定使用事务；失败时清理临时
+配置且不写安装完成信号。MySQL Migration 允许保留为可重试状态，下次提交先核对已执行
+版本，页面始终将其识别为“安装未完成”。
 
 ## 4. 管理员认证、RBAC 与系统 API
 

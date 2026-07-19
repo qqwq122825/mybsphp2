@@ -11,10 +11,11 @@ class ExampleTest extends TestCase
         $this->get('/')
             ->assertOk()
             ->assertSee('MyBsPHP2')
-            ->assertSee('W1 工程基线已经完成')
+            ->assertSee('W2 安装与登录规格已冻结')
             ->assertSee('W1-5 Ready')
             ->assertSee('W1-6 Ready')
-            ->assertSee('W2-0 安装器调研')
+            ->assertSee('W2-0 Ready')
+            ->assertSee('W2-1 安装状态')
             ->assertSee('查看当前后台原型')
             ->assertDontSee('Laravel Documentation');
     }
