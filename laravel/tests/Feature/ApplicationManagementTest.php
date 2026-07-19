@@ -51,6 +51,8 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('快捷入口指引')
             ->assertSee('切换侧栏显示')
             ->assertSee('data-quick-entry', false)
+            ->assertSee('mybsphp.css?v=20260719-w414-motion', false)
+            ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
             ->assertSee('软件模式')

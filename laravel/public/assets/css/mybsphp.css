@@ -1,4 +1,5 @@
 :root {
+    interpolate-size: allow-keywords;
     --primary: #3867e8;
     --primary-dark: #244fc7;
     --primary-soft: #edf2ff;
@@ -1037,6 +1038,23 @@ button {
     box-shadow: 0 16px 38px rgba(18, 32, 65, .22);
 }
 
+.quick-entry-menu[open] .quick-entry-dropdown {
+    transform-origin: top right;
+    animation: quick-entry-in .18s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+@keyframes quick-entry-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
 .quick-entry-dropdown header {
     display: grid;
     gap: 3px;
@@ -1138,6 +1156,7 @@ button {
     min-height: calc(100vh - 68px);
     display: grid;
     grid-template-columns: 226px minmax(0, 1fr);
+    transition: grid-template-columns .24s cubic-bezier(.4, 0, .2, 1);
 }
 
 .admin-workspace {
@@ -1276,6 +1295,10 @@ button {
     padding: 24px 16px 18px;
     border-right: 1px solid var(--line);
     background: #fff;
+    transition: width .24s cubic-bezier(.4, 0, .2, 1),
+                padding .24s cubic-bezier(.4, 0, .2, 1),
+                transform .22s ease,
+                box-shadow .22s ease;
 }
 
 .admin-sidebar nav {
@@ -1336,8 +1359,11 @@ button {
 }
 
 .nav-group summary strong {
+    overflow: hidden;
     font-size: 13px;
     font-weight: 780;
+    white-space: nowrap;
+    transition: max-width .16s ease, opacity .14s ease, transform .16s ease, visibility .16s ease;
 }
 
 .nav-group summary i {
@@ -1346,7 +1372,7 @@ button {
     border-top: 5px solid #8e96a5;
     border-right: 5px solid transparent;
     border-left: 5px solid transparent;
-    transition: transform .18s ease;
+    transition: border-color .18s ease, opacity .14s ease, transform .18s ease, visibility .16s ease;
 }
 
 .nav-group[open] summary i {
@@ -1360,6 +1386,25 @@ button {
     padding: 7px 8px;
     border-radius: 11px;
     background: #f7f8fa;
+}
+
+@supports selector(details::details-content) {
+    .nav-group::details-content {
+        overflow: hidden;
+        block-size: 0;
+        content-visibility: hidden;
+        opacity: 0;
+        transition: block-size .22s cubic-bezier(.4, 0, .2, 1),
+                    opacity .16s ease,
+                    content-visibility .22s allow-discrete;
+        transition-behavior: allow-discrete;
+    }
+
+    .nav-group[open]::details-content {
+        block-size: auto;
+        content-visibility: visible;
+        opacity: 1;
+    }
 }
 
 .admin-sidebar .nav-children a {
@@ -1381,24 +1426,6 @@ button {
 .admin-sidebar .nav-children a.is-active {
     color: #3978e7;
     background: #e1ecfb;
-}
-
-.sidebar-foot {
-    display: grid;
-    gap: 5px;
-    padding: 13px;
-    border-radius: 11px;
-    color: var(--muted);
-    background: #f5f7fc;
-    font-size: 10px;
-}
-
-.sidebar-foot code {
-    overflow: hidden;
-    color: #3e4b69;
-    font-size: 11px;
-    font-weight: 700;
-    text-overflow: ellipsis;
 }
 
 .sidebar-overlay {
@@ -1448,10 +1475,26 @@ button {
 }
 
 .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group summary strong,
-.dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group summary i,
-.dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-children,
-.dashboard-page.is-sidebar-collapsed .admin-sidebar .sidebar-foot {
+.dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-children {
     display: none;
+}
+
+.dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group summary strong,
+.dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group summary i {
+    max-width: 0;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateX(-6px);
+}
+
+.topbar-desktop-tools [data-workspace-sidebar-toggle] svg,
+.workspace-controls [data-workspace-sidebar-toggle] span {
+    transition: transform .24s cubic-bezier(.4, 0, .2, 1);
+}
+
+.dashboard-page.is-sidebar-collapsed .topbar-desktop-tools [data-workspace-sidebar-toggle] svg,
+.dashboard-page.is-sidebar-collapsed .workspace-controls [data-workspace-sidebar-toggle] span {
+    transform: rotate(180deg);
 }
 
 .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group[open] summary::before {
@@ -2779,8 +2822,7 @@ button {
         display: inline;
     }
 
-    .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-children,
-    .dashboard-page.is-sidebar-collapsed .admin-sidebar .sidebar-foot {
+    .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-children {
         display: grid;
     }
 
@@ -3201,6 +3243,8 @@ button {
     *::before,
     *::after {
         scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
         transition-duration: .01ms !important;
     }
 }
