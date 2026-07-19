@@ -18,6 +18,7 @@ final class AuditLogger
         $request ??= request();
         $requestId = $request->attributes->get('request_id');
         $userAgent = $request->userAgent();
+        $actor = $request->user('admin') ?? $request->user();
 
         if (! is_string($requestId) || ! preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/', $requestId)) {
             $requestId = (string) Str::ulid();
@@ -25,7 +26,7 @@ final class AuditLogger
 
         return AuditLog::query()->create([
             'public_id' => (string) Str::ulid(),
-            'actor_user_id' => $request->user()?->getAuthIdentifier(),
+            'actor_user_id' => $actor?->getAuthIdentifier(),
             'actor_role_snapshot' => $event->actorRole,
             'action' => $event->action,
             'target_type' => $event->targetType,

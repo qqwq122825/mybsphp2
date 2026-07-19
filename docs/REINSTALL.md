@@ -27,17 +27,25 @@
 先在服务器项目目录运行：
 
 ```bash
-php bin/enable-reinstall.php
+cd laravel
+/opt/homebrew/opt/php@8.3/bin/php artisan mybsphp:reinstall-link
 ```
 
-命令生成一个 30 分钟有效的一次性 URL。使用该 URL 进入安装向导后：
+Linux 服务器上 PHP 8.3 已作为默认命令时，也可以运行：
+
+```bash
+php artisan mybsphp:reinstall-link --ttl=30
+```
+
+命令生成一个默认 30 分钟有效的一次性 URL，有效期可在 1～120 分钟间设置。使用该
+URL 进入安装向导后：
 
 1. 页面显示“重装维护模式已授权”。
 2. 选择数据库并勾选覆盖。
 3. 最后输入数据库名并再次确认。
 4. 安装成功后令牌立即删除，新的安装锁覆盖旧锁。
 
-令牌文件只保存 SHA-256 摘要，权限为 `0600`；URL 首次成功授权 Session 后立即消费，
+令牌文件名只保存 SHA-256 摘要，文件权限为 `0600`；URL 首次成功授权 Session 后立即消费，
 普通 `/install` 请求仍返回安装锁定页。
 
 ## 4. 数据保护
@@ -46,4 +54,4 @@ php bin/enable-reinstall.php
 - 覆盖数据库名需要手动输入，避免误选。
 - 管理员创建与 `super_admin` 角色绑定在同一事务中，失败会一起回滚。
 - 数据库迁移、管理员、环境文件和安装锁全部成功后才显示安装完成。
-- `storage/installed.lock` 和 `storage/reinstall-token.json` 已加入 `.gitignore`。
+- `storage/installed.lock` 和 `storage/framework/reinstall-tokens/` 已加入 `.gitignore`。

@@ -381,3 +381,32 @@ W1-0：冻结当前原型，建立正式 Laravel 目录。本次没有继续扩�
 页面规格：`docs/W2_INSTALL_AUTH_PAGE_SPEC.md`。
 
 任务日志：`docs/logs/W2-0.md`。下一任务为 W2-1。
+
+---
+
+## 2026-07-19 · W2-1～W2-11 / W3-0～W3-1
+
+完成 8091 Laravel 正式工程的首次安装、动态后台认证与动态管理首页：
+
+- 新增五步安装向导、运行环境检查、MySQL 连接/建库和非空库确认。
+- 新增 `administrators`、`system_settings` 表、原子安装锁和一次性重装维护链接。
+- 默认后台入口为 `/admin`，本次实际安装改写为自定义路径；旧 `/admin` 实测返回 404。
+- 管理员使用独立 `admin` Guard，支持登录、退出、可选二级密码、账号/IP 限流、
+  失败延迟、Session 轮换和审计。
+- 动态首页展示真实管理员数量、登录次数、操作次数、失败登录、环境状态和最近审计。
+- 完成 Modern BSPHP Blue 桌面布局、窄屏抽屉和底部导航。
+- 首次浏览器安装暴露的确认密码丢失与完成页 Session 驱动切换问题已修正。
+
+验收：
+
+- Composer 清单有效，Pint 通过，PHPStan 0 错误。
+- PHPUnit 26 tests / 163 assertions 全部通过。
+- 实际 MySQL 库完成 1 个超级管理员与审计记录写入。
+- 8091 实测动态入口 200、旧 `/admin` 404、站点首页 200。
+- Chrome 1470px 无横向溢出、控制台 0 error；窄屏 693px 无横向溢出并显示移动导航。
+- 截图：`docs/assets/qa/W2-7-login-desktop.jpg`、
+  `docs/assets/qa/W3-0-dashboard-desktop.jpg`、
+  `docs/assets/qa/W3-0-dashboard-responsive.jpg`。
+
+任务日志：`docs/logs/W2-1.md` 至 `W2-11.md`、`W3-0.md`、`W3-1.md`。
+下一任务为 W3-2。

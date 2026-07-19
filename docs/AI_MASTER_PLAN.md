@@ -2,7 +2,7 @@
 
 > 项目目标：参考并重构新版 BSPHP，而不是在旧版 PHP 5 代码上继续修改。  
 > 工作方式：按 `W阶段-任务号` 逐项实施；一项完成、测试、记录后再进入下一项。  
-> 当前阶段：W0、W1、W2-0 已完成；下一任务为 W2-1。
+> 当前阶段：W0、W1、W2 已完成；W3-0、W3-1 已完成，下一任务为 W3-2。
 
 ## 1. 项目基线
 
@@ -124,34 +124,45 @@ W0-0
 
 ## 6. 阶段 W2：首次安装与管理员登录
 
-| 编号 | 内容 | 测试/验收 |
-|---|---|---|
-| W2-0 | 调研旧安装器和在线登录页的交互 | [`W2_INSTALL_AUTH_PAGE_SPEC.md`](W2_INSTALL_AUTH_PAGE_SPEC.md) |
-| W2-1 | 未安装状态与 `/install` 中间件 | Feature |
-| W2-2 | PHP/扩展/目录环境检查 | Unit + Feature |
-| W2-3 | MySQL 连接测试和数据库创建 | Feature |
-| W2-4 | 站点名称、URL、默认 `admin` 路径 | Feature |
-| W2-5 | 安装时修改后台路径 | Feature + 路由测试 |
-| W2-6 | 创建超级管理员 | Feature |
-| W2-7 | 管理员登录/退出 | Feature |
-| W2-8 | 可选二级密码策略 | 依赖 W0-8 |
-| W2-9 | 登录限流、失败延迟、Session 轮换 | Security |
-| W2-10 | 安装锁与重复安装保护 | Feature |
-| W2-11 | 桌面/手机安装和登录页面 | Browser 390/768/1280 |
+| 编号 | 状态 | 内容 | 测试/验收 |
+|---|---|---|---|
+| W2-0 | DONE | 调研旧安装器和在线登录页的交互 | [`W2_INSTALL_AUTH_PAGE_SPEC.md`](W2_INSTALL_AUTH_PAGE_SPEC.md) |
+| W2-1 | DONE | 未安装状态与 `/install` 中间件 | Feature |
+| W2-2 | DONE | PHP/扩展/目录环境检查 | Unit + Feature |
+| W2-3 | DONE | MySQL 连接测试和数据库创建 | 实际 MySQL + Feature |
+| W2-4 | DONE | 站点名称、URL、默认 `admin` 路径 | Feature |
+| W2-5 | DONE | 安装时修改后台路径 | Feature + 路由测试 |
+| W2-6 | DONE | 创建超级管理员 | Migration + 实际 MySQL |
+| W2-7 | DONE | 管理员登录/退出 | Feature + Browser |
+| W2-8 | DONE | 可选二级密码策略 | Feature |
+| W2-9 | DONE | 登录限流、失败延迟、Session 轮换 | Security Feature |
+| W2-10 | DONE | 安装锁与重复安装保护 | Unit + Feature |
+| W2-11 | DONE | 桌面/手机安装和登录页面 | Browser + 响应式巡检 |
+
+### W2 验收门
+
+- 五步安装可在 8091 完整执行。
+- 自定义后台入口生效，旧 `/admin` 返回 404。
+- 管理员登录、退出、二级密码、限流和 Session 轮换通过。
+- 安装锁阻止普通重复安装。
+- 桌面与窄屏页面无横向溢出。
+
+**验收结果：已于 2026-07-19 全部通过。** 本机实际安装库为
+`mybsphp_dynamic`，动态后台入口按安装输入生成；账号凭据不写入任务日志。
 
 ## 7. 阶段 W3：后台框架、角色与权限
 
-| 编号 | 内容 | 测试/验收 |
-|---|---|---|
-| W3-0 | 后台 Layout、顶栏、侧栏、面包屑 | Browser |
-| W3-1 | 手机抽屉和底部导航 | Browser 390px |
-| W3-2 | 用户、角色、权限表 | Migration |
-| W3-3 | Laravel Gate/Policy 权限层 | Unit |
-| W3-4 | 超级管理员、管理员、代理角色 | Seeder |
-| W3-5 | 代理默认权限模板 | Permission |
-| W3-6 | 默认禁止删卡、解绑、管理账户 | Permission |
-| W3-7 | 管理操作审计日志 | Feature |
-| W3-8 | 后台管理员管理页面 | Feature + Browser |
+| 编号 | 状态 | 内容 | 测试/验收 |
+|---|---|---|---|
+| W3-0 | DONE | 后台 Layout、顶栏、侧栏、管理首页 | Browser |
+| W3-1 | DONE | 手机抽屉和底部导航 | Browser + 响应式巡检 |
+| W3-2 | TODO | 用户、角色、权限表 | Migration |
+| W3-3 | TODO | Laravel Gate/Policy 权限层 | Unit |
+| W3-4 | TODO | 超级管理员、管理员、代理角色 | Seeder |
+| W3-5 | TODO | 代理默认权限模板 | Permission |
+| W3-6 | TODO | 默认禁止删卡、解绑、管理账户 | Permission |
+| W3-7 | TODO | 管理操作审计日志 | Feature |
+| W3-8 | TODO | 后台管理员管理页面 | Feature + Browser |
 
 ## 8. 阶段 W4：应用与协议配置
 

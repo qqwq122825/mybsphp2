@@ -1,58 +1,64 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# MyBsPHP2 Laravel 正式工程
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+PHP 8.3、Laravel 13 和 MySQL 8 的正式业务工程。根目录中的旧 PHP 页面只作为历史
+协议与 UI 参考。
 
-## About Laravel
+## 本地环境
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.3，包含 `pdo_mysql`、OpenSSL、Mbstring、JSON、Ctype、Tokenizer、XML。
+- Composer 2。
+- MySQL 8。
+- macOS 使用 Homebrew PHP/MySQL 即可。
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+本项目固定使用 PHP 8.3 可执行文件，避免系统 PHP 版本不同：
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+/opt/homebrew/opt/php@8.3/bin/php -v
+/opt/homebrew/opt/php@8.3/bin/php "$(which composer)" install
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## 首次启动
 
-## Contributing
+```bash
+cp .env.example .env
+/opt/homebrew/opt/php@8.3/bin/php artisan key:generate
+/opt/homebrew/opt/php@8.3/bin/php artisan serve --host=127.0.0.1 --port=8091
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+打开 `http://127.0.0.1:8091/` 后进入五步安装：
 
-## Code of Conduct
+1. 环境检测。
+2. MySQL 连接与建库。
+3. 站点名称、URL、时区和后台入口。
+4. 超级管理员与可选二级密码。
+5. 安装完成并进入动态后台。
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+后台入口默认 `/admin`，安装步骤 3 可以改写。修改后旧入口返回 404。
 
-## Security Vulnerabilities
+## 质量检查
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+测试使用独立 MySQL 库 `mybsphp_test`。本机测试凭据写入被 Git 忽略的
+`.env.testing`，可从 `.env.testing.example` 创建。
 
-## License
+```bash
+/opt/homebrew/opt/php@8.3/bin/php vendor/bin/pint --test
+/opt/homebrew/opt/php@8.3/bin/php -d memory_limit=1G vendor/bin/phpstan analyse --debug
+/opt/homebrew/opt/php@8.3/bin/php artisan test
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+当前验收基线：26 tests / 163 assertions，PHPStan 0 错误。
+
+## 安装状态
+
+- 安装锁：`storage/installed.lock`，不提交到 Git。
+- 环境标记：`APP_INSTALLED=true`。
+- 动态入口：`ADMIN_PATH` 与安装锁元数据共同决定。
+- 管理员密码、数据库密码和二级密码不写入安装锁或任务日志。
+
+已安装站点需要重新安装时，先备份数据库，再在服务器生成一次性维护链接：
+
+```bash
+/opt/homebrew/opt/php@8.3/bin/php artisan mybsphp:reinstall-link --ttl=30
+```
+
+开发计划和任务日志位于上级目录的 `docs/`。

@@ -1,7 +1,10 @@
 <?php
 
+use App\Console\Commands\IssueReinstallationLink;
 use App\Http\ApiResponse;
 use App\Http\Middleware\AttachRequestId;
+use App\Http\Middleware\EnsureAdministratorAuthenticated;
+use App\Http\Middleware\EnsureAdminPath;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -20,8 +23,13 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([IssueReinstallationLink::class])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AttachRequestId::class);
+        $middleware->alias([
+            'admin.auth' => EnsureAdministratorAuthenticated::class,
+            'admin.path' => EnsureAdminPath::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

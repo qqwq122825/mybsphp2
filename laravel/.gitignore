@@ -20,6 +20,9 @@
 /public/hot
 /public/storage
 /storage/*.key
+/storage/installed.lock
+/storage/installed.lock.tmp
+/storage/framework/reinstall-tokens
 /storage/pail
 /vendor
 _ide_helper.php
