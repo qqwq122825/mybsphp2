@@ -3,6 +3,7 @@
 namespace App\Install;
 
 use App\Models\Administrator;
+use App\Models\Role;
 use App\Models\SystemSetting;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -111,6 +112,21 @@ final class InstallerService
                     'status' => 'active',
                 ]);
                 $administrator->save();
+
+                $superAdministratorRole = Role::on('install')
+                    ->where('code', 'super_admin')
+                    ->first();
+
+                if ($superAdministratorRole === null) {
+                    throw new InstallationException('超级管理员角色尚未初始化。');
+                }
+
+                DB::connection('install')->table('administrator_roles')->insert([
+                    'administrator_id' => $administrator->getKey(),
+                    'role_id' => $superAdministratorRole->getKey(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
 
                 $now = now();
                 $settings = [

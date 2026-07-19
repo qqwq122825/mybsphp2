@@ -46,7 +46,7 @@ cp .env.example .env
 /opt/homebrew/opt/php@8.3/bin/php artisan test
 ```
 
-当前验收基线：26 tests / 163 assertions，PHPStan 0 错误。
+当前验收基线：31 tests / 184 assertions，PHPStan 0 错误。
 
 ## 安装状态
 

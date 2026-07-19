@@ -216,9 +216,11 @@ Modern BSPHP Blue / 现代蓝白管理台
 ## 12. 首批实施结果
 
 - 管理员登录页已切换为蓝白左右分栏。
-- 后台已切换为深蓝顶栏、白色分组侧栏和浅灰蓝内容区。
+- 后台已切换为白色顶栏、白色分组侧栏和浅灰蓝内容区。
 - 首页已实现指标卡、应用空状态、快捷操作和最近动态。
 - 手机端已实现抽屉导航、两列指标和底部快捷导航。
+- 侧栏参考原版一级/二级层级，使用可折叠一级分类和单层二级页面；范围见
+  [`W3_NAVIGATION_SCOPE.md`](W3_NAVIGATION_SCOPE.md)。
 - 桌面视觉预览：
   - `docs/assets/mybsphp-login-blue-preview.png`
   - `docs/assets/mybsphp-dashboard-blue-preview.png`

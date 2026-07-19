@@ -70,7 +70,14 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('管理首页')
             ->assertSee('以下数据来自当前数据库')
             ->assertSee('admin')
-            ->assertSee('系统运行正常');
+            ->assertSee('系统运行正常')
+            ->assertSee('应用与授权')
+            ->assertSee('卡密与发卡')
+            ->assertSee('账户与代理')
+            ->assertSee('安全与系统')
+            ->assertDontSee('用户反馈')
+            ->assertDontSee('邮件设置')
+            ->assertDontSee('在线支付');
 
         $this->post('/private-console/logout')
             ->assertRedirect('/private-console');

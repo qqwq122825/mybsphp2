@@ -27,17 +27,50 @@
 <div class="dashboard-layout">
     <aside class="admin-sidebar" data-sidebar>
         <nav aria-label="管理后台导航">
-            <p>工作台</p>
-            <a class="is-active" href="{{ route('admin.dashboard', ['adminPath' => $adminPath]) }}"><span>⌂</span>概览</a>
-            <p>业务管理</p>
-            <a href="#applications"><span>◫</span>应用</a>
-            <a href="#cards"><span>◇</span>卡密</a>
-            <a href="#accounts"><span>♙</span>账户</a>
-            <a href="#agents"><span>♧</span>代理</a>
-            <p>安全与系统</p>
-            <a href="#risk"><span>△</span>在线与风险</a>
-            <a href="#audit"><span>≡</span>日志与审计</a>
-            <a href="#settings"><span>⚙</span>系统设置</a>
+            <details class="nav-group" open>
+                <summary><span>⌂</span><strong>工作台</strong><i>⌄</i></summary>
+                <div class="nav-children">
+                    <a class="is-active" href="{{ route('admin.dashboard', ['adminPath' => $adminPath]) }}">管理首页</a>
+                    <a href="#risk">在线与风险</a>
+                    <a href="#audit">操作审计</a>
+                </div>
+            </details>
+            <details class="nav-group">
+                <summary><span>◫</span><strong>应用与授权</strong><i>⌄</i></summary>
+                <div class="nav-children">
+                    <a href="#applications">应用管理</a>
+                    <a href="#applications">创建应用</a>
+                    <a href="#applications">授权协议配置</a>
+                </div>
+            </details>
+            <details class="nav-group">
+                <summary><span>◇</span><strong>卡密与发卡</strong><i>⌄</i></summary>
+                <div class="nav-children">
+                    <a href="#cards">卡密管理</a>
+                    <a href="#cards">卡种与批次</a>
+                    <a href="#cards">手动发卡</a>
+                    <a href="#cards">发卡记录</a>
+                </div>
+            </details>
+            <details class="nav-group">
+                <summary><span>♧</span><strong>账户与代理</strong><i>⌄</i></summary>
+                <div class="nav-children">
+                    <a href="#accounts">用户账户</a>
+                    <a href="#agents">代理管理</a>
+                    <a href="#agents">代理等级与定价</a>
+                    <a href="#agents">余额流水</a>
+                </div>
+            </details>
+            <details class="nav-group">
+                <summary><span>⚙</span><strong>安全与系统</strong><i>⌄</i></summary>
+                <div class="nav-children">
+                    <a href="#administrators">后台管理员</a>
+                    <a href="#permissions">角色与权限</a>
+                    <a href="#devices">设备解绑</a>
+                    <a href="#settings">系统设置</a>
+                    <a href="#api">API 与 Legacy 配置</a>
+                </div>
+            </details>
         </nav>
         <div class="sidebar-foot">
             <span>后台入口</span><code>/{{ $adminPath }}</code>

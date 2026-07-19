@@ -168,6 +168,15 @@ erDiagram
 | `role_permissions` | `role_id`、`permission_id`，复合主键/唯一 |
 | `user_permission_overrides` | `user_id`、`permission_id`、`effect allow/deny`、`application_id NULL`、`card_type_id NULL`、`expires_at NULL`；唯一覆盖范围 |
 
+W3-2 正式实现说明：
+
+- 后台身份已由独立 `administrators` 表承载，因此后台角色关联表落地为
+  `administrator_roles`。
+- `administrator_roles` 使用 `(administrator_id, role_id)` 复合主键，并记录分配人。
+- `permissions` 额外记录 `risk_level` 与 `agent_assignable`，供后续代理模板和高影响权限
+  规则使用。
+- `user_roles` 与用户级覆盖保留到应用账户/代理身份阶段实施。
+
 权限判定优先级：
 
 ```text

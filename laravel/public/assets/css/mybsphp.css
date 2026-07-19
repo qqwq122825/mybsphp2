@@ -965,53 +965,95 @@ button {
 
 .admin-sidebar nav {
     display: grid;
-    gap: 4px;
+    gap: 7px;
 }
 
-.admin-sidebar nav p {
-    margin: 17px 10px 7px;
-    color: #a0a9ba;
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: .12em;
+.nav-group {
+    overflow: hidden;
+    border-radius: 11px;
 }
 
-.admin-sidebar nav p:first-child {
-    margin-top: 0;
-}
-
-.admin-sidebar nav a {
-    display: flex;
+.nav-group summary {
+    min-height: 42px;
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 11px;
-    min-height: 40px;
-    padding: 0 12px;
+    gap: 9px;
+    padding: 0 11px;
     border-radius: 10px;
-    color: #59647e;
-    font-size: 13px;
-    font-weight: 650;
+    color: #56617a;
+    cursor: pointer;
+    list-style: none;
+    transition: color .18s ease, background-color .18s ease;
 }
 
-.admin-sidebar nav a span {
-    width: 19px;
-    color: #8994aa;
+.nav-group summary::-webkit-details-marker {
+    display: none;
+}
+
+.nav-group summary:hover,
+.nav-group[open] summary {
+    color: #294fae;
+    background: #f4f7fe;
+}
+
+.nav-group summary span {
+    color: #8793aa;
     font-size: 17px;
     text-align: center;
 }
 
-.admin-sidebar nav a:hover {
+.nav-group summary strong {
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.nav-group summary i {
+    color: #9ca6b8;
+    font-size: 11px;
+    font-style: normal;
+    transition: transform .18s ease;
+}
+
+.nav-group[open] summary i {
+    transform: rotate(180deg);
+}
+
+.nav-children {
+    position: relative;
+    display: grid;
+    gap: 2px;
+    margin: 4px 0 6px 21px;
+    padding-left: 14px;
+}
+
+.nav-children::before {
+    position: absolute;
+    inset: 4px auto 4px 0;
+    width: 1px;
+    background: #e2e8f4;
+    content: "";
+}
+
+.admin-sidebar .nav-children a {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: 8px;
+    color: #737e95;
+    font-size: 11px;
+    font-weight: 650;
+}
+
+.admin-sidebar .nav-children a:hover {
     color: var(--primary);
     background: #f5f7fc;
 }
 
-.admin-sidebar nav a.is-active {
-    color: #fff;
-    background: linear-gradient(135deg, #426fe9, #315edc);
-    box-shadow: 0 9px 19px rgba(56, 103, 232, .2);
-}
-
-.admin-sidebar nav a.is-active span {
-    color: #fff;
+.admin-sidebar .nav-children a.is-active {
+    color: #2f5cd5;
+    background: #eaf0ff;
 }
 
 .sidebar-foot {
