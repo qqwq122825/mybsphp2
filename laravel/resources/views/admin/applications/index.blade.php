@@ -69,10 +69,10 @@
                             <a href="{{ route('admin.cards.index', ['adminPath' => $adminPath, 'application' => $application->getKey()]) }}">▣ 充值卡列表</a>
                         @endcan
                         @can('card_types.manage')
-                            <a href="{{ route('admin.cards.index', ['adminPath' => $adminPath, 'application' => $application->getKey()]) }}#card-types">☷ 卡串类型</a>
+                            <a href="{{ route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application]) }}">☷ 卡串类型</a>
                         @endcan
                         @can('batches.create')
-                            <a class="software-action-warn" href="{{ route('admin.applications.cards.make', ['adminPath' => $adminPath, 'application' => $application]) }}">＋ 现卡制作</a>
+                            <a class="software-action-warn" href="{{ route('admin.software-card-making.show', ['adminPath' => $adminPath, 'application' => $application]) }}">＋ 现卡制作</a>
                         @endcan
                     </footer>
                 </article>

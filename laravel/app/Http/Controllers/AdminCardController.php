@@ -98,6 +98,18 @@ final class AdminCardController extends Controller
         ]);
     }
 
+    public function types(string $adminPath, Application $application): View
+    {
+        return view('admin.cards.types', [
+            ...$this->layout($adminPath),
+            'application' => $application,
+            'cardTypes' => $application->cardTypes()
+                ->withCount('cards')
+                ->orderBy('name')
+                ->get(),
+        ]);
+    }
+
     public function storeType(Request $request, string $adminPath): RedirectResponse
     {
         $validated = $request->validate([
@@ -163,10 +175,10 @@ final class AdminCardController extends Controller
         ), $request);
 
         return redirect()
-            ->to(route('admin.cards.index', [
+            ->route('admin.software-card-types.index', [
                 'adminPath' => $adminPath,
-                'application' => $application->getKey(),
-            ]).'#card-types')
+                'application' => $application,
+            ])
             ->with('success', '充值卡类型创建成功。');
     }
 
@@ -203,7 +215,7 @@ final class AdminCardController extends Controller
         ), $request);
 
         return redirect()
-            ->route('admin.applications.cards.make', [
+            ->route('admin.software-card-making.show', [
                 'adminPath' => $adminPath,
                 'application' => $cardType->application,
             ])

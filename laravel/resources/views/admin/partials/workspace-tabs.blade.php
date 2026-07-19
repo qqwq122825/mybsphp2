@@ -10,7 +10,16 @@
     </div>
 
     <div class="workspace-tabs" role="list">
-        @if (request()->routeIs('admin.applications.*'))
+        @if (request()->routeIs('admin.software-card-types.*', 'admin.software-card-making.*'))
+            <a class="workspace-tab" href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">
+                <span>软件管理</span><i aria-hidden="true">×</i>
+            </a>
+            @if(isset($application) && $application)
+                <span class="workspace-tab is-active" aria-current="page">
+                    <span>{{ $application->code }}-{{ request()->routeIs('admin.software-card-types.*') ? '卡串类型' : '现卡制作' }}</span><i aria-hidden="true">×</i>
+                </span>
+            @endif
+        @elseif (request()->routeIs('admin.applications.*'))
             <a class="workspace-tab {{ request()->routeIs('admin.applications.index') ? 'is-active' : '' }}"
                href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">
                 <span>软件管理</span><i aria-hidden="true">×</i>
@@ -28,10 +37,6 @@
             @elseif (request()->routeIs('admin.applications.users.index') && isset($application) && $application)
                 <span class="workspace-tab is-active" aria-current="page">
                     <span>{{ $application->code }}-用户管理</span><i aria-hidden="true">×</i>
-                </span>
-            @elseif (request()->routeIs('admin.applications.cards.make') && isset($application) && $application)
-                <span class="workspace-tab is-active" aria-current="page">
-                    <span>{{ $application->code }}-现卡制作</span><i aria-hidden="true">×</i>
                 </span>
             @endif
         @elseif (request()->routeIs('admin.cards.*'))

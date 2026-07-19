@@ -76,7 +76,10 @@ Route::prefix('{adminPath}')
                 ->name('admin.applications.users.index');
             Route::get('/applications/{application}/cards/make', [AdminCardController::class, 'make'])
                 ->middleware('can:'.AdminPermission::BatchesCreate->value)
-                ->name('admin.applications.cards.make');
+                ->name('admin.software-card-making.show');
+            Route::get('/applications/{application}/card-types', [AdminCardController::class, 'types'])
+                ->middleware('can:'.AdminPermission::CardTypesManage->value)
+                ->name('admin.software-card-types.index');
             Route::put('/applications/{application}', [AdminApplicationController::class, 'update'])
                 ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
                 ->name('admin.applications.update');

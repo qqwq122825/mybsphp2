@@ -26,7 +26,7 @@
                 <b>!</b>
                 <strong>请先添加充值卡类型</strong>
                 <p>当前软件还没有卡串类型，建立类型后再进行现卡制作。</p>
-                <a class="button button-primary" href="{{ route('admin.cards.index', ['adminPath' => $adminPath, 'application' => $application->getKey()]) }}#card-types">添加充值卡类型</a>
+                <a class="button button-primary" href="{{ route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application]) }}">添加充值卡类型</a>
             </div>
         </section>
     @else

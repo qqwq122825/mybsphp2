@@ -2639,7 +2639,18 @@ button {
 }
 
 .single-management-grid {
-    grid-template-columns: minmax(0, 760px);
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.card-type-page-form,
+.card-type-list-panel {
+    margin-bottom: 18px;
+}
+
+.embedded-submit-bar {
+    margin: 4px -20px -20px;
+    border-top: 1px solid #e8ebf1;
+    border-radius: 0;
 }
 
 .prerequisite-panel .empty-activity {

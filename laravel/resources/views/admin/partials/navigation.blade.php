@@ -48,7 +48,7 @@
         </details>
     @endcanany
 
-    @canany(['cards.view', 'card_types.manage', 'cards.import', 'cards.issue', 'card_issues.view'])
+    @canany(['cards.view', 'cards.import', 'cards.issue', 'card_issues.view'])
         <details class="nav-group" {{ request()->routeIs('admin.cards.*', 'admin.card-*') ? 'open' : '' }}>
             <summary title="卡密管理">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -60,9 +60,6 @@
                 @can('cards.view')
                     <a class="{{ request()->routeIs('admin.cards.index') ? 'is-active' : '' }}"
                        href="{{ route('admin.cards.index', ['adminPath' => $adminPath]) }}">卡密列表</a>
-                @endcan
-                @can('card_types.manage')
-                    <a href="{{ route('admin.cards.index', ['adminPath' => $adminPath]) }}#card-types">卡种与批次</a>
                 @endcan
                 @can('cards.import')<a href="#cards">卡密批量维护</a>@endcan
                 @can('cards.issue')

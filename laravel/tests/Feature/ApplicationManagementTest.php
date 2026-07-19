@@ -51,7 +51,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('快捷入口指引')
             ->assertSee('切换侧栏显示')
             ->assertSee('data-quick-entry', false)
-            ->assertSee('mybsphp.css?v=20260719-w416-software-actions', false)
+            ->assertSee('mybsphp.css?v=20260719-w417-card-types', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -120,10 +120,12 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('请先添加充值卡类型')
             ->assertDontSee('确认制作');
 
-        $this->get('/private-console/cards?application='.$application->getKey())
+        $this->get('/private-console/applications/'.$application->public_id.'/card-types')
             ->assertOk()
-            ->assertSee('新建充值卡类型')
+            ->assertSee('添加充值卡类型')
             ->assertSee('代号 '.$application->code)
+            ->assertDontSee('全部卡密')
+            ->assertDontSee('累计生成')
             ->assertDontSee('用户分组')
             ->assertDontSee('卡类图片');
 
