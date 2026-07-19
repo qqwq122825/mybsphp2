@@ -39,6 +39,16 @@ class InstallationManagerTest extends TestCase
         $this->assertFalse($manager->secondaryPasswordEnabled());
     }
 
+    public function test_lock_file_is_the_only_installation_switch(): void
+    {
+        config(['mybsphp.installed' => true]);
+
+        $manager = app(InstallationManager::class);
+
+        $this->assertFalse($manager->isInstalled());
+        $this->assertSame('storage/framework/testing/installation-manager.lock', $manager->lockFilePath());
+    }
+
     public function test_it_atomically_persists_and_reads_installation_metadata(): void
     {
         $manager = app(InstallationManager::class);

@@ -53,7 +53,7 @@ class InstallationFlowTest extends TestCase
         $this->get('/admin/dashboard')->assertRedirect('/install');
     }
 
-    public function test_installed_site_hides_installer_and_only_accepts_saved_admin_path(): void
+    public function test_installed_site_shows_lock_file_and_deleting_it_reopens_installer(): void
     {
         app(InstallationManager::class)->writeLock([
             'admin_path' => 'private-console',
@@ -61,10 +61,15 @@ class InstallationFlowTest extends TestCase
             'secondary_password_enabled' => false,
         ]);
 
-        $this->get('/install')->assertNotFound();
+        $this->get('/install')
+            ->assertOk()
+            ->assertSee('系统已安装成功')
+            ->assertSee('需要删除的文件')
+            ->assertSee('storage/framework/testing/installation-flow.lock')
+            ->assertSee('/private-console');
         $this->get('/install/complete')
             ->assertOk()
-            ->assertSee('安装成功')
+            ->assertSee('系统已安装成功')
             ->assertSee('/private-console');
         $this->get('/admin')->assertNotFound();
         $this->get('/private-console')
@@ -72,6 +77,16 @@ class InstallationFlowTest extends TestCase
             ->assertSee('管理员登录')
             ->assertSee('动态授权平台');
         $this->get('/')->assertOk()->assertSee('动态授权平台');
+
+        config(['mybsphp.installed' => true]);
+        @unlink($this->lockPath);
+
+        $this->get('/install')
+            ->assertOk()
+            ->assertSee('环境检测')
+            ->assertSee('步骤 1 / 5')
+            ->assertDontSee('系统已安装成功');
+        $this->get('/private-console')->assertRedirect('/install');
     }
 
     public function test_one_time_link_opens_a_reinstallation_session_without_exposing_the_token_in_path(): void

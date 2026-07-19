@@ -8,8 +8,17 @@ final class InstallationManager
 {
     public function isInstalled(): bool
     {
-        return is_file($this->lockPath())
-            || config('mybsphp.installed') === true;
+        return is_file($this->lockPath());
+    }
+
+    public function lockFilePath(): string
+    {
+        $path = $this->lockPath();
+        $basePath = rtrim(base_path(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+
+        return str_starts_with($path, $basePath)
+            ? str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($basePath)))
+            : $path;
     }
 
     public function adminPath(): string

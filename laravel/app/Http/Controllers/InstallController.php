@@ -34,8 +34,13 @@ final class InstallController extends Controller
                 return redirect()->route('install.show', ['step' => 'database']);
             }
 
-            if (! $reinstallationAuthorized && $step !== 'complete') {
-                abort(404);
+            if (! $reinstallationAuthorized && ($step !== 'complete' || ! is_array($summary))) {
+                return view('install.locked', [
+                    'appName' => $this->installation->applicationName(),
+                    'adminPath' => $this->installation->adminPath(),
+                    'lockFilePath' => $this->installation->lockFilePath(),
+                    'installedAt' => $this->installation->metadata()['installed_at'] ?? null,
+                ]);
             }
 
             if (! is_array($summary)) {

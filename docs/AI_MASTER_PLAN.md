@@ -142,6 +142,7 @@ W0-0
 | W2-10 | DONE | 安装锁与重复安装保护 | Unit + Feature |
 | W2-11 | DONE | 桌面/手机安装和登录页面 | Browser + 响应式巡检 |
 | W2-12 | DONE | 账号级二级密码设置与新版登录 UI | Feature + Browser |
+| W2-13 | DONE | BSPHP 风格安装锁提示与删锁重装 | Feature + Browser |
 
 ### W2 验收门
 
