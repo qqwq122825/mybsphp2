@@ -123,4 +123,187 @@
         });
         activateConfigTab(defaultTab, false);
     }
+
+    const workspaceContent = document.querySelector('[data-workspace-content]');
+    const workspaceTabs = document.querySelector('[data-workspace-tabs]');
+    if (workspaceContent instanceof HTMLElement && workspaceTabs instanceof HTMLElement) {
+        const baseContent = workspaceContent.innerHTML;
+        const baseTitle = document.title;
+        const baseTabs = [...workspaceTabs.children];
+        const initiallyActiveTab = baseTabs.find((tab) => tab.classList.contains('is-active'));
+        const temporaryTabs = new Map();
+        let activeKey = null;
+
+        const setBaseTabState = (active) => {
+            baseTabs.forEach((tab) => tab.classList.remove('is-active'));
+            if (active && initiallyActiveTab instanceof HTMLElement) {
+                initiallyActiveTab.classList.add('is-active');
+            }
+        };
+
+        const renderWorkspace = (key) => {
+            const tab = temporaryTabs.get(key);
+            if (!tab) return;
+            activeKey = key;
+            setBaseTabState(false);
+            temporaryTabs.forEach((item, itemKey) => {
+                item.element.classList.toggle('is-active', itemKey === key);
+            });
+            workspaceContent.innerHTML = tab.content;
+            document.title = tab.documentTitle || baseTitle;
+            tab.element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            window.scrollTo({ top: 0, behavior: 'auto' });
+        };
+
+        const renderBaseWorkspace = () => {
+            activeKey = null;
+            temporaryTabs.forEach((item) => item.element.classList.remove('is-active'));
+            setBaseTabState(true);
+            workspaceContent.innerHTML = baseContent;
+            document.title = baseTitle;
+            window.scrollTo({ top: 0, behavior: 'auto' });
+        };
+
+        const parseWorkspaceResponse = async (response) => {
+            const html = await response.text();
+            const parsed = new DOMParser().parseFromString(html, 'text/html');
+            const incomingContent = parsed.querySelector('[data-workspace-content]');
+            if (!(incomingContent instanceof HTMLElement)) {
+                throw new Error('工作页内容格式错误');
+            }
+            return {
+                content: incomingContent.innerHTML,
+                documentTitle: parsed.title || baseTitle,
+                url: response.url,
+            };
+        };
+
+        const requestWorkspace = async (url, options = {}) => {
+            workspaceContent.classList.add('is-workspace-loading');
+            try {
+                const response = await fetch(url, {
+                    credentials: 'same-origin',
+                    ...options,
+                    headers: {
+                        Accept: 'text/html',
+                        'X-Workspace-Request': '1',
+                        ...(activeKey && temporaryTabs.get(activeKey)
+                            ? { 'X-Workspace-Url': temporaryTabs.get(activeKey).url }
+                            : {}),
+                        ...(options.headers || {}),
+                    },
+                });
+                if (!response.ok) throw new Error(`工作页请求失败：${response.status}`);
+                return await parseWorkspaceResponse(response);
+            } finally {
+                workspaceContent.classList.remove('is-workspace-loading');
+            }
+        };
+
+        const addTemporaryTab = (key, title, page) => {
+            const existing = temporaryTabs.get(key);
+            if (existing) {
+                existing.content = page.content;
+                existing.documentTitle = page.documentTitle;
+                existing.url = page.url || existing.url;
+                renderWorkspace(key);
+                return;
+            }
+
+            const element = document.createElement('button');
+            element.type = 'button';
+            element.className = 'workspace-tab';
+            element.dataset.workspaceTab = key;
+            element.innerHTML = '<span></span><i data-workspace-tab-close aria-label="关闭标签" title="关闭标签">×</i>';
+            element.querySelector('span').textContent = title;
+            workspaceTabs.append(element);
+            temporaryTabs.set(key, {
+                element,
+                title,
+                content: page.content,
+                documentTitle: page.documentTitle,
+                url: page.url || key,
+            });
+            renderWorkspace(key);
+        };
+
+        document.addEventListener('click', async (event) => {
+            const closeButton = event.target instanceof Element
+                ? event.target.closest('[data-workspace-tab-close]')
+                : null;
+            if (closeButton) {
+                const tabElement = closeButton.closest('[data-workspace-tab]');
+                const key = tabElement?.dataset.workspaceTab;
+                if (!key || !temporaryTabs.has(key)) return;
+                event.preventDefault();
+                temporaryTabs.get(key).element.remove();
+                temporaryTabs.delete(key);
+                if (activeKey === key) {
+                    const remainingKeys = [...temporaryTabs.keys()];
+                    if (remainingKeys.length > 0) renderWorkspace(remainingKeys.at(-1));
+                    else renderBaseWorkspace();
+                }
+                return;
+            }
+
+            const tabButton = event.target instanceof Element
+                ? event.target.closest('[data-workspace-tab]')
+                : null;
+            if (tabButton) {
+                const key = tabButton.dataset.workspaceTab;
+                if (key && temporaryTabs.has(key)) {
+                    event.preventDefault();
+                    renderWorkspace(key);
+                }
+                return;
+            }
+
+            const link = event.target instanceof Element
+                ? event.target.closest('a[data-workspace-open]')
+                : null;
+            if (!(link instanceof HTMLAnchorElement)) return;
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            const key = new URL(link.href, window.location.href).href;
+            const title = link.dataset.workspaceTitle || link.textContent.trim();
+            try {
+                const page = await requestWorkspace(key);
+                addTemporaryTab(key, title, page);
+            } catch (error) {
+                window.alert(error instanceof Error ? error.message : '工作页加载失败');
+            }
+        });
+
+        document.addEventListener('submit', async (event) => {
+            if (!activeKey || !(event.target instanceof HTMLFormElement)) return;
+            if (!workspaceContent.contains(event.target) || event.target.dataset.workspaceNative !== undefined) return;
+            event.preventDefault();
+            const form = event.target;
+            if (!form.reportValidity()) return;
+            const submissionKey = activeKey;
+            const tab = temporaryTabs.get(submissionKey);
+            if (!tab) return;
+            const method = (form.method || 'get').toUpperCase();
+            const formData = new FormData(form);
+            let requestUrl = form.action || tab.url;
+            const options = { method };
+            if (method === 'GET') {
+                const targetUrl = new URL(requestUrl, window.location.href);
+                formData.forEach((value, name) => targetUrl.searchParams.append(name, String(value)));
+                requestUrl = targetUrl.href;
+            } else {
+                options.body = formData;
+            }
+
+            try {
+                const page = await requestWorkspace(requestUrl, options);
+                tab.content = page.content;
+                tab.documentTitle = page.documentTitle;
+                tab.url = page.url || tab.url;
+                if (activeKey === submissionKey) renderWorkspace(submissionKey);
+            } catch (error) {
+                window.alert(error instanceof Error ? error.message : '表单提交失败');
+            }
+        });
+    }
 })();

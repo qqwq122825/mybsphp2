@@ -1243,6 +1243,28 @@ button {
     font-weight: 650;
 }
 
+button.workspace-tab {
+    height: 100%;
+    border-top: 0;
+    border-bottom: 0;
+    border-left: 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.workspace-tab i[data-workspace-tab-close] {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    place-items: center;
+    border-radius: 6px;
+}
+
+.workspace-tab i[data-workspace-tab-close]:hover {
+    color: #ef5b64;
+    background: #fff0f1;
+}
+
 .workspace-tab::before {
     position: absolute;
     top: 0;
@@ -1280,6 +1302,12 @@ button {
     flex: 0 0 54px;
     border-right: 0;
     border-left: 1px solid #e8ebf1;
+}
+
+.dashboard-content.is-workspace-loading {
+    opacity: .55;
+    pointer-events: none;
+    transition: opacity 140ms ease;
 }
 
 .admin-sidebar {
@@ -2647,8 +2675,80 @@ button {
     margin-bottom: 18px;
 }
 
+.card-type-form-rows {
+    padding: 6px 28px 0;
+}
+
+.card-type-form-row {
+    min-height: 72px;
+    display: grid;
+    grid-template-columns: minmax(130px, 180px) minmax(260px, 520px) minmax(220px, 1fr);
+    align-items: center;
+    gap: 18px;
+    border-bottom: 1px solid #edf0f5;
+}
+
+.card-type-form-row > strong {
+    color: #26314a;
+    text-align: right;
+    font-size: 14px;
+}
+
+.card-type-form-row > input,
+.card-type-form-row > select,
+.inline-unit-input input {
+    width: 100%;
+    height: 46px;
+    border: 1px solid #d7deeb;
+    border-radius: 10px;
+    padding: 0 14px;
+    color: var(--text);
+    background: #fff;
+    outline: 0;
+}
+
+.card-type-form-row > input:focus,
+.card-type-form-row > select:focus,
+.inline-unit-input input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(56, 103, 232, .1);
+}
+
+.card-type-form-row > small,
+.card-type-context-row span {
+    color: #8b94a7;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.55;
+}
+
+.card-type-context-row > div {
+    color: #2d3954;
+    font-size: 14px;
+}
+
+.inline-unit-input {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 66px;
+}
+
+.inline-unit-input input {
+    border-radius: 10px 0 0 10px;
+}
+
+.inline-unit-input span {
+    display: grid;
+    place-items: center;
+    border: 1px solid #d7deeb;
+    border-left: 0;
+    border-radius: 0 10px 10px 0;
+    color: #65718b;
+    background: #f6f8fc;
+    font-size: 13px;
+}
+
 .embedded-submit-bar {
-    margin: 4px -20px -20px;
+    margin: 12px -28px 0;
     border-top: 1px solid #e8ebf1;
     border-radius: 0;
 }
@@ -3251,6 +3351,29 @@ button {
 
     .three-columns {
         grid-template-columns: 1fr;
+    }
+
+    .card-type-form-rows {
+        padding: 8px 17px 0;
+    }
+
+    .card-type-form-row {
+        grid-template-columns: 1fr;
+        gap: 7px;
+        padding: 14px 0;
+    }
+
+    .card-type-form-row > strong {
+        text-align: left;
+    }
+
+    .card-type-form-row > small {
+        margin-top: -1px;
+    }
+
+    .embedded-submit-bar {
+        margin-right: -17px;
+        margin-left: -17px;
     }
 
     .form-submit-bar,

@@ -51,7 +51,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('快捷入口指引')
             ->assertSee('切换侧栏显示')
             ->assertSee('data-quick-entry', false)
-            ->assertSee('mybsphp.css?v=20260719-w417-card-types', false)
+            ->assertSee('mybsphp.css?v=20260719-w418-ephemeral-tabs', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -108,7 +108,9 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('用户管理')
             ->assertSee('充值卡列表')
             ->assertSee('卡串类型')
-            ->assertSee('现卡制作');
+            ->assertSee('现卡制作')
+            ->assertSee('data-workspace-open', false)
+            ->assertSee($application->code.'-卡串类型');
 
         $this->get('/private-console/applications/'.$application->public_id.'/users')
             ->assertOk()
@@ -196,6 +198,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('余额')
             ->assertSee('点数')
             ->assertDontSee('用户分组');
+
     }
 
     private function administrator(): Administrator

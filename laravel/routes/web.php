@@ -42,7 +42,7 @@ Route::prefix('{adminPath}')
         Route::get('/', [AdminAuthController::class, 'show'])->name('admin.entry');
         Route::post('/login', [AdminAuthController::class, 'login'])->name('admin.login');
 
-        Route::middleware('admin.auth')->group(function (): void {
+        Route::middleware(['admin.auth', 'admin.workspace'])->group(function (): void {
             Route::get('/dashboard', AdminDashboardController::class)
                 ->middleware('can:'.AdminPermission::DashboardView->value)
                 ->name('admin.dashboard');

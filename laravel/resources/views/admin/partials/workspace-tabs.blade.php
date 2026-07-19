@@ -9,7 +9,7 @@
         </a>
     </div>
 
-    <div class="workspace-tabs" role="list">
+    <div class="workspace-tabs" role="list" data-workspace-tabs>
         @if (request()->routeIs('admin.software-card-types.*', 'admin.software-card-making.*'))
             <a class="workspace-tab" href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">
                 <span>软件管理</span><i aria-hidden="true">×</i>
@@ -24,12 +24,12 @@
                href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">
                 <span>软件管理</span><i aria-hidden="true">×</i>
             </a>
-            @can('applications.create')
+            @if(request()->routeIs('admin.applications.create'))
                 <a class="workspace-tab {{ request()->routeIs('admin.applications.create') ? 'is-active' : '' }}"
                    href="{{ route('admin.applications.create', ['adminPath' => $adminPath]) }}">
                     <span>添加新软件</span><i aria-hidden="true">×</i>
                 </a>
-            @endcan
+            @endif
             @if (request()->routeIs('admin.applications.edit') && isset($application) && $application)
                 <span class="workspace-tab is-active" aria-current="page">
                     <span>{{ $application->code }}-软件配置</span><i aria-hidden="true">×</i>

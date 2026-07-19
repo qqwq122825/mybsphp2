@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1b3473">
     <title>@yield('title', '管理后台') · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260719-w417-card-types">
-    <script src="/assets/js/mybsphp.js?v=20260719-w417-card-types" defer></script>
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260719-w418-ephemeral-tabs">
+    <script src="/assets/js/mybsphp.js?v=20260719-w418-ephemeral-tabs" defer></script>
     @stack('head')
 </head>
 <body class="dashboard-page">
@@ -56,7 +56,7 @@
     <div class="admin-workspace">
         @include('admin.partials.workspace-tabs')
 
-        <main class="dashboard-content">
+        <main class="dashboard-content" data-workspace-content>
             @if (session('success'))
                 <div class="notice notice-success">{{ session('success') }}</div>
             @endif
