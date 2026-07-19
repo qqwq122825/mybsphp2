@@ -81,7 +81,6 @@ final class InstallerService
             $probe['table_count'] > 0
             && $database['existing_data_action'] === ExistingDataAction::ResetAll->value
         ) {
-            $this->validateResetAll($database, $admin);
             $pdo = $this->serverConnection($database);
             $pdo->exec('DROP DATABASE IF EXISTS `'.$database['database'].'`');
             $this->createDatabase($pdo, $database['database']);
@@ -389,20 +388,5 @@ final class InstallerService
             ],
         ]);
         DB::purge('install');
-    }
-
-    /**
-     * @param  array{host:string,port:int,database:string,username:string,password:string,create_database:bool,existing_data_action:string}  $database
-     * @param  array<string, mixed>  $admin
-     */
-    private function validateResetAll(array $database, array $admin): void
-    {
-        if (! ($admin['confirm_reset_all'] ?? false)) {
-            throw new InstallationException('清空全部数据前需要完成最终确认。');
-        }
-
-        if (! hash_equals($database['database'], (string) ($admin['reset_database_name'] ?? ''))) {
-            throw new InstallationException('请输入完整数据库名称以确认清空全部数据。');
-        }
     }
 }

@@ -258,20 +258,7 @@
                         </label>
                     </div>
 
-                    @if (($database['table_count'] ?? 0) > 0 && ($database['existing_data_action'] ?? 'preserve_business') === 'reset_all')
-                        <section class="danger-panel">
-                            <h2>清空全部数据确认</h2>
-                            <p>数据库 <code>{{ $database['database'] }}</code> 将被删除并重建，应用和卡密也会清除。</p>
-                            <label class="field">
-                                <span>输入完整数据库名称</span>
-                                <input name="reset_database_name" required autocomplete="off">
-                            </label>
-                            <label class="choice-row choice-danger">
-                                <input name="confirm_reset_all" type="checkbox" value="1" required>
-                                <span><strong>确认清空全部数据并重新安装</strong></span>
-                            </label>
-                        </section>
-                    @elseif (($database['table_count'] ?? 0) > 0)
+                    @if (($database['table_count'] ?? 0) > 0 && ($database['existing_data_action'] ?? 'preserve_business') === 'preserve_business')
                         <aside class="info-panel preserve-data-panel">
                             <span aria-hidden="true">✓</span>
                             <div>

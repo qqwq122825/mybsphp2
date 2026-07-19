@@ -67,6 +67,27 @@ class InstallationFlowTest extends TestCase
             ->assertSee('checked', false);
     }
 
+    public function test_reset_all_mode_has_no_repeated_database_name_confirmation(): void
+    {
+        $this->withSession([
+            'install.database' => [
+                'database' => 'mybsphp',
+                'existing_data_action' => 'reset_all',
+                'table_count' => 12,
+            ],
+            'install.site' => [
+                'app_name' => 'MyBsPHP2',
+                'app_url' => 'http://127.0.0.1:8091',
+                'timezone' => 'Asia/Shanghai',
+                'admin_path' => 'admin',
+            ],
+        ])->get('/install/administrator')
+            ->assertOk()
+            ->assertSee('确认清空并安装')
+            ->assertDontSee('输入完整数据库名称')
+            ->assertDontSee('确认清空全部数据并重新安装');
+    }
+
     public function test_installed_site_shows_lock_file_and_deleting_it_reopens_installer(): void
     {
         app(InstallationManager::class)->writeLock([

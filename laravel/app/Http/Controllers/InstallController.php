@@ -204,8 +204,6 @@ final class InstallController extends Controller
             'secondary_password_enabled' => ['nullable', 'boolean'],
             'secondary_password' => ['nullable', 'string', 'min:6', 'max:128', 'confirmed'],
             'confirm_install' => ['accepted'],
-            'confirm_reset_all' => ['nullable', 'boolean'],
-            'reset_database_name' => ['nullable', 'string', 'max:64'],
         ]);
 
         $admin = [
@@ -214,8 +212,6 @@ final class InstallController extends Controller
             'secondary_password_enabled' => $request->boolean('secondary_password_enabled'),
             'secondary_password' => (string) ($validated['secondary_password'] ?? ''),
             'secondary_password_confirmation' => (string) $request->input('secondary_password_confirmation', ''),
-            'confirm_reset_all' => $request->boolean('confirm_reset_all'),
-            'reset_database_name' => (string) ($validated['reset_database_name'] ?? ''),
         ];
 
         if ($admin['secondary_password_enabled'] && $admin['secondary_password'] === '') {
