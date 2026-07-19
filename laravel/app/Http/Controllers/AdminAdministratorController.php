@@ -10,7 +10,9 @@ use App\Models\Role;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 final class AdminAdministratorController extends Controller
@@ -119,6 +121,57 @@ final class AdminAdministratorController extends Controller
         ), $request);
 
         return back()->with('success', '后台账号已更新。');
+    }
+
+    public function updateSecurity(Request $request, string $adminPath): RedirectResponse
+    {
+        $validated = $request->validate([
+            'current_password' => ['required', 'string', 'max:128'],
+            'secondary_action' => ['required', Rule::in(['enable', 'disable'])],
+            'secondary_password' => ['nullable', 'string', 'min:6', 'max:128', 'confirmed'],
+        ]);
+        $administrator = $this->actor();
+
+        if (! Hash::check((string) $validated['current_password'], $administrator->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => '当前登录密码不正确。',
+            ]);
+        }
+
+        $enable = $validated['secondary_action'] === 'enable';
+        $secondaryPassword = (string) ($validated['secondary_password'] ?? '');
+
+        if ($enable && $secondaryPassword === '') {
+            throw ValidationException::withMessages([
+                'secondary_password' => '启用二级密码时需要填写并确认新二级密码。',
+            ]);
+        }
+
+        if ($enable && hash_equals((string) $validated['current_password'], $secondaryPassword)) {
+            throw ValidationException::withMessages([
+                'secondary_password' => '登录密码与二级密码需要设置为不同内容。',
+            ]);
+        }
+
+        $before = ['secondary_password_required' => $administrator->secondary_password_required];
+        $administrator->forceFill([
+            'secondary_password' => $enable ? $secondaryPassword : null,
+            'secondary_password_required' => $enable,
+        ])->save();
+
+        $this->audit->record(new AuditEvent(
+            action: 'administrator.security_updated',
+            targetType: 'administrator',
+            targetId: (string) $administrator->getKey(),
+            before: $before,
+            after: ['secondary_password_required' => $enable],
+            actorRole: $administrator->role,
+        ), $request);
+
+        return back()->with(
+            'success',
+            $enable ? '当前账号二级密码已启用。' : '当前账号二级密码已关闭。',
+        );
     }
 
     private function actor(): Administrator

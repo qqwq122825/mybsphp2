@@ -44,6 +44,8 @@ class AdminAuthenticationTest extends TestCase
         $this->get('/private-console')
             ->assertOk()
             ->assertSee('管理员登录')
+            ->assertSee('安全码')
+            ->assertSee('二级密码')
             ->assertDontSee('语言');
 
         $this->post('/private-console/login', [
@@ -87,14 +89,21 @@ class AdminAuthenticationTest extends TestCase
         $this->get('/private-console/dashboard')->assertRedirect('/private-console');
     }
 
-    public function test_secondary_password_is_required_when_enabled(): void
+    public function test_secondary_password_is_required_by_account_even_when_install_flag_is_disabled(): void
     {
-        $this->install(secondaryPasswordEnabled: true);
+        $this->install(secondaryPasswordEnabled: false);
         $this->administrator(secondaryPassword: 'second-secret');
 
         $this->get('/private-console')
             ->assertOk()
             ->assertSee('二级密码');
+
+        $this->post('/private-console/login', [
+            'username' => 'admin',
+            'password' => 'primary-secret',
+        ])->assertSessionHasErrors('login');
+
+        $this->assertGuest('admin');
 
         $this->post('/private-console/login', [
             'username' => 'admin',

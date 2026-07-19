@@ -29,7 +29,6 @@ final class AdminAuthController extends Controller
         return view('admin.login', [
             'appName' => $this->installation->applicationName(),
             'adminPath' => $adminPath,
-            'secondaryPasswordEnabled' => $this->installation->secondaryPasswordEnabled(),
         ]);
     }
 
@@ -66,7 +65,6 @@ final class AdminAuthController extends Controller
         if (
             $valid
             && $administrator->secondary_password_required
-            && $this->installation->secondaryPasswordEnabled()
         ) {
             $secondary = (string) ($validated['secondary_password'] ?? '');
             $valid = $secondary !== ''

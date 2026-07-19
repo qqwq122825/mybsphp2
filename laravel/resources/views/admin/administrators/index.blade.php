@@ -12,6 +12,36 @@
     </header>
 
     <section class="management-grid">
+        <form class="dashboard-panel form-panel" method="post"
+              action="{{ route('admin.administrators.security.update', ['adminPath' => $adminPath]) }}">
+            @csrf @method('PUT')
+            <header>
+                <div><span>MY SECURITY</span><h2>当前账号安全</h2></div>
+                <em class="{{ $administrator->secondary_password_required ? 'ok-badge' : '' }}">
+                    二级密码{{ $administrator->secondary_password_required ? '已启用' : '关闭' }}
+                </em>
+            </header>
+            <div class="panel-body stack-form compact-form">
+                <label class="field">
+                    <span>当前登录密码</span>
+                    <input type="password" name="current_password" maxlength="128" required autocomplete="current-password">
+                </label>
+                <div class="field-grid">
+                    <label class="field"><span>新二级密码</span><input type="password" name="secondary_password" minlength="6" maxlength="128"></label>
+                    <label class="field"><span>确认二级密码</span><input type="password" name="secondary_password_confirmation" minlength="6" maxlength="128"></label>
+                </div>
+                <div class="info-panel"><span>i</span><p>启用后，登录需要同时提交主密码与二级密码；二者至少 6 位且内容需要不同。</p></div>
+                <div class="form-action-row">
+                    <button class="button button-primary" type="submit" name="secondary_action" value="enable">
+                        {{ $administrator->secondary_password_required ? '更新二级密码' : '启用二级密码' }}
+                    </button>
+                    @if($administrator->secondary_password_required)
+                        <button class="button button-secondary" type="submit" name="secondary_action" value="disable">关闭二级密码</button>
+                    @endif
+                </div>
+            </div>
+        </form>
+
         @can('administrators.create')
             <form class="dashboard-panel form-panel" method="post" action="{{ route('admin.administrators.store', ['adminPath' => $adminPath]) }}">
                 @csrf

@@ -7,6 +7,7 @@ use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class AdministratorManagementTest extends TestCase
@@ -78,6 +79,49 @@ class AdministratorManagementTest extends TestCase
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'administrator.updated',
             'target_id' => (string) $agent->getKey(),
+        ]);
+    }
+
+    public function test_administrator_can_enable_update_and_disable_own_secondary_password(): void
+    {
+        $root = Administrator::query()->create([
+            'username' => 'root-admin',
+            'password' => 'primary-secret',
+            'role' => 'super_admin',
+            'status' => 'active',
+        ]);
+        $root->roles()->attach(Role::query()->where('code', 'super_admin')->sole());
+        $this->actingAs($root, 'admin');
+
+        $this->put('/private-console/administrators/security', [
+            'current_password' => 'wrong-password',
+            'secondary_action' => 'enable',
+            'secondary_password' => 'second-secret',
+            'secondary_password_confirmation' => 'second-secret',
+        ])->assertSessionHasErrors('current_password');
+
+        $this->put('/private-console/administrators/security', [
+            'current_password' => 'primary-secret',
+            'secondary_action' => 'enable',
+            'secondary_password' => 'second-secret',
+            'secondary_password_confirmation' => 'second-secret',
+        ])->assertRedirect();
+
+        $root->refresh();
+        $this->assertTrue($root->secondary_password_required);
+        $this->assertTrue(Hash::check('second-secret', (string) $root->secondary_password));
+
+        $this->put('/private-console/administrators/security', [
+            'current_password' => 'primary-secret',
+            'secondary_action' => 'disable',
+        ])->assertRedirect();
+
+        $root->refresh();
+        $this->assertFalse($root->secondary_password_required);
+        $this->assertNull($root->secondary_password);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'administrator.security_updated',
+            'target_id' => (string) $root->getKey(),
         ]);
     }
 }
