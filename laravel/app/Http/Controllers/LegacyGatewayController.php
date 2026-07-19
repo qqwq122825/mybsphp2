@@ -46,11 +46,9 @@ final class LegacyGatewayController extends Controller
         $envelope = $request->json()->all();
         $legacy = $application->legacyConfig()->firstOrCreate([], [
             'api_param' => 'api',
-            'credential_param' => 'icid',
-            'credential_secret_param' => 'icpwd',
             'device_param' => 'key',
             'appsafecode_param' => 'appsafecode',
-            'login_api_name' => 'login.ic',
+            ...$application->legacyLoginDefaults(),
             'max_clock_skew_seconds' => 300,
             'legacy_enabled' => true,
         ]);

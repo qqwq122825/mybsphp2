@@ -80,7 +80,7 @@ final class AdminApplicationController extends Controller
             'max_concurrent_sessions' => 1,
             'created_by_administrator_id' => $administrator->getKey(),
         ]);
-        $application->legacyConfig()->create();
+        $application->legacyConfig()->create($application->legacyLoginDefaults());
 
         $this->audit->record(new AuditEvent(
             action: 'application.created',
@@ -151,14 +151,13 @@ final class AdminApplicationController extends Controller
 
         $legacy = $request->validate([
             'legacy_enabled' => ['nullable', 'boolean'],
-            'login_api_name' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/'],
             'max_clock_skew_seconds' => ['nullable', 'integer', 'min:30', 'max:3600'],
         ]);
         $application->legacyConfig()->updateOrCreate(
             ['application_id' => $application->getKey()],
             [
                 'legacy_enabled' => (bool) ($legacy['legacy_enabled'] ?? false),
-                'login_api_name' => $legacy['login_api_name'] ?? 'login.ic',
+                'login_api_name' => $application->defaultLoginApiName(),
                 'max_clock_skew_seconds' => $legacy['max_clock_skew_seconds'] ?? 300,
             ],
         );

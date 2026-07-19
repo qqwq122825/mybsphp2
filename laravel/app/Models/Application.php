@@ -36,6 +36,23 @@ class Application extends Model
 {
     use SoftDeletes;
 
+    public function defaultLoginApiName(): string
+    {
+        return $this->mode === 'account_recharge' ? 'login.lg' : 'login.ic';
+    }
+
+    /**
+     * @return array{login_api_name: string, credential_param: string, credential_secret_param: string}
+     */
+    public function legacyLoginDefaults(): array
+    {
+        return [
+            'login_api_name' => $this->defaultLoginApiName(),
+            'credential_param' => $this->mode === 'account_recharge' ? 'user' : 'icid',
+            'credential_secret_param' => $this->mode === 'account_recharge' ? 'pwd' : 'icpwd',
+        ];
+    }
+
     public function verificationData(): string
     {
         return (string) ($this->payload_value_ciphertext ?? '');

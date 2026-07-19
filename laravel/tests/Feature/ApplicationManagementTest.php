@@ -51,7 +51,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('快捷入口指引')
             ->assertSee('切换侧栏显示')
             ->assertSee('data-quick-entry', false)
-            ->assertSee('mybsphp.css?v=20260719-w414-motion', false)
+            ->assertSee('mybsphp.css?v=20260719-w415-api-default', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -121,7 +121,10 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-config-tab="limits"', false)
             ->assertSee('基本配置')
             ->assertSee('通信安全')
-            ->assertSee('限开控制');
+            ->assertSee('限开控制')
+            ->assertSee('默认登录 API')
+            ->assertSee('卡串模式固定使用 .ic')
+            ->assertDontSee('name="login_api_name"', false);
 
         $this->put('/private-console/applications/'.$application->public_id, [
             'name' => '游戏 iOS 正式版',
@@ -134,7 +137,7 @@ class ApplicationManagementTest extends TestCase
             'max_concurrent_sessions' => 2,
             'version_name' => '1.1.0',
             'legacy_enabled' => '1',
-            'login_api_name' => 'login.ic',
+            'login_api_name' => 'login.lg',
             'max_clock_skew_seconds' => 600,
         ])->assertRedirect();
 
@@ -143,10 +146,27 @@ class ApplicationManagementTest extends TestCase
         $this->assertSame("0x100000\nworld-server=gwrold.example", $application->verificationData());
         $this->assertSame('constant', $application->payload_mode);
         $this->assertFalse($application->bind_device_enabled);
+        $this->assertSame('login.ic', $application->legacyConfig()->sole()->login_api_name);
 
         $this->post('/private-console/applications/'.$application->public_id.'/toggle')
             ->assertRedirect();
         $this->assertSame('suspended', $application->fresh()->status);
+
+        $this->post('/private-console/applications', [
+            'code' => '10000002',
+            'name' => '账户模式软件',
+            'mode' => 'account_recharge',
+        ])->assertRedirect();
+
+        $accountApplication = Application::query()->where('code', '10000002')->sole();
+        $accountLegacy = $accountApplication->legacyConfig()->sole();
+        $this->assertSame('login.lg', $accountLegacy->login_api_name);
+        $this->assertSame('user', $accountLegacy->credential_param);
+        $this->assertSame('pwd', $accountLegacy->credential_secret_param);
+        $this->get('/private-console/applications/'.$accountApplication->public_id.'/edit')
+            ->assertOk()
+            ->assertSee('login.lg')
+            ->assertSee('账户模式固定使用 .lg');
     }
 
     private function administrator(): Administrator

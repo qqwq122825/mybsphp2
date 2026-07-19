@@ -633,3 +633,19 @@ iOS arm64 Objective-C++ 编译检查通过。
 验收：Composer 检查通过，PHPUnit 50 tests / 424 assertions，PHPStan 0 错误。
 
 任务日志：`docs/logs/W3-10.md`。
+
+---
+
+## 2026-07-19 · W4-12 BSPHP 模式后缀与默认登录 API
+
+- 根据 BSPHP 新版文档固定模式后缀：卡串 `.ic`、账户 `.lg`、公用 `.in`。
+- 卡密模式默认 `login.ic`，账户模式默认 `login.lg`。
+- 登录凭据参数也随模式切换：`icid/icpwd` 或 `user/pwd`。
+- 登录 API 在软件配置页改为自动计算的只读值。
+- 迁移已校正开发库的已有应用配置。
+- 建立 BSPHP API 兼容表，作为 W6/W7/W8 后续接口任务清单。
+
+验收：Composer 检查通过，PHPUnit 50 tests / 435 assertions，PHPStan 0 错误；
+Chrome 确认默认 API 只读展示和页面布局正常。
+
+任务日志：`docs/logs/W4-12.md`。

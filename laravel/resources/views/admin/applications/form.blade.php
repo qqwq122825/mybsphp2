@@ -70,7 +70,8 @@
         </form>
     @else
         @php
-            $communicationError = collect(['encryption_mode', 'login_api_name', 'max_clock_skew_seconds', 'legacy_enabled'])
+            $loginApiName = $application->defaultLoginApiName();
+            $communicationError = collect(['encryption_mode', 'max_clock_skew_seconds', 'legacy_enabled'])
                 ->contains(fn (string $field): bool => $errors->has($field));
             $limitError = collect(['bind_device_enabled', 'max_bound_devices', 'max_concurrent_sessions'])
                 ->contains(fn (string $field): bool => $errors->has($field));
@@ -239,12 +240,15 @@
             <div class="admin-form-grid software-config-panel" role="tabpanel"
                  data-config-panel="communication" hidden>
             <section class="dashboard-panel form-panel form-panel-wide">
-                <header><div><span>APPEN SETTINGS</span><h2>接口参数</h2></div><em>login.ic</em></header>
+                <header><div><span>APPEN SETTINGS</span><h2>接口参数</h2></div><em>{{ $loginApiName }}</em></header>
                 <div class="panel-body stack-form">
-                    <label class="field">
-                        <span>登录 API 名称</span>
-                        <input name="login_api_name" value="{{ old('login_api_name', $application->legacyConfig?->login_api_name ?? 'login.ic') }}" required>
-                    </label>
+                    <div class="connection-row">
+                        <div>
+                            <span>默认登录 API</span>
+                            <strong>{{ $loginApiName }}</strong>
+                        </div>
+                        <small>{{ $application->mode === 'card_login' ? '卡串模式固定使用 .ic' : '账户模式固定使用 .lg' }}</small>
+                    </div>
                     <label class="field">
                         <span>时间容差（秒）</span>
                         <input type="number" name="max_clock_skew_seconds" min="30" max="3600"
@@ -254,7 +258,7 @@
                         <input type="hidden" name="legacy_enabled" value="0">
                         <input type="checkbox" name="legacy_enabled" value="1"
                                @checked((bool) old('legacy_enabled', $application->legacyConfig?->legacy_enabled ?? true))>
-                        <span><strong>启用 AppEn 兼容接口</strong><small>允许客户端按 login.ic 调用。</small></span>
+                        <span><strong>启用 AppEn 兼容接口</strong><small>允许客户端按 {{ $loginApiName }} 调用，后缀随软件模式自动选择。</small></span>
                     </label>
                 </div>
             </section>
