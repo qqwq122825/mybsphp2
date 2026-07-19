@@ -61,16 +61,32 @@
     navToggle?.addEventListener('click', () => setNav(!sidebar?.classList.contains('is-open')));
     overlay?.addEventListener('click', () => setNav(false));
 
-    const workspaceSidebarToggle = document.querySelector('[data-workspace-sidebar-toggle]');
-    workspaceSidebarToggle?.addEventListener('click', () => {
-        if (window.matchMedia('(max-width: 860px)').matches) {
-            setNav(true);
-            return;
-        }
-        document.body.classList.toggle('is-sidebar-collapsed');
+    const workspaceSidebarToggles = [...document.querySelectorAll('[data-workspace-sidebar-toggle]')];
+    workspaceSidebarToggles.forEach((button) => {
+        button.addEventListener('click', () => {
+            if (window.matchMedia('(max-width: 860px)').matches) {
+                setNav(true);
+                return;
+            }
+            const collapsed = document.body.classList.toggle('is-sidebar-collapsed');
+            workspaceSidebarToggles.forEach((toggle) => {
+                toggle.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+            });
+        });
     });
 
-    document.querySelector('[data-page-refresh]')?.addEventListener('click', () => window.location.reload());
+    document.querySelectorAll('[data-page-refresh]').forEach((button) => {
+        button.addEventListener('click', () => window.location.reload());
+    });
+
+    const quickEntry = document.querySelector('[data-quick-entry]');
+    document.addEventListener('click', (event) => {
+        if (!(quickEntry instanceof HTMLDetailsElement) || !quickEntry.open) return;
+        if (event.target instanceof Node && !quickEntry.contains(event.target)) quickEntry.open = false;
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && quickEntry instanceof HTMLDetailsElement) quickEntry.open = false;
+    });
 
     const configTabs = [...document.querySelectorAll('[data-config-tab]')];
     const configPanels = [...document.querySelectorAll('[data-config-panel]')];

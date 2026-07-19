@@ -1,7 +1,7 @@
 <nav aria-label="管理后台导航">
     @canany(['dashboard.view', 'online_users.view', 'risk.view', 'audit.view', 'administrators.view'])
         <details class="nav-group" {{ request()->routeIs('admin.dashboard') ? 'open' : '' }}>
-            <summary>
+            <summary title="控制台">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M3 10.5 12 3l9 7.5"></path><path d="M5.5 9.5V21h13V9.5"></path>
                 </svg>
@@ -25,7 +25,7 @@
 
     @canany(['applications.view', 'applications.create', 'applications.protocol.manage', 'app_accounts.manage'])
         <details class="nav-group" {{ request()->routeIs('admin.applications.*') ? 'open' : '' }}>
-            <summary>
+            <summary title="应用管理">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <rect x="3" y="3" width="7" height="7" rx="1"></rect>
                     <rect x="14" y="14" width="7" height="7" rx="1"></rect>
@@ -50,7 +50,7 @@
 
     @canany(['cards.view', 'card_types.manage', 'cards.import', 'cards.issue', 'card_issues.view'])
         <details class="nav-group" {{ request()->routeIs('admin.cards.*', 'admin.card-*') ? 'open' : '' }}>
-            <summary>
+            <summary title="卡密管理">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M4 6.5h16v11H4z"></path><path d="M8 6.5v11M16 6.5v11M4 10h16"></path>
                 </svg>
@@ -78,7 +78,7 @@
 
     @canany(['users.view', 'agents.view', 'users.create', 'users.manage'])
         <details class="nav-group">
-            <summary>
+            <summary title="账号管理">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="9" cy="8" r="4"></circle>
                     <path d="M2.5 21c.4-4.3 2.7-6.5 6.5-6.5s6.1 2.2 6.5 6.5"></path>
@@ -97,7 +97,7 @@
 
     @canany(['settings.view', 'settings.appearance.update', 'permissions.manage', 'devices.unbind', 'legacy.manage'])
         <details class="nav-group">
-            <summary>
+            <summary title="系统配置">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"></path>
                     <path d="m4 7.5 8 4.5 8-4.5M12 12v9"></path>
