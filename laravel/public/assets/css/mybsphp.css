@@ -2670,9 +2670,29 @@ button.workspace-tab {
     grid-template-columns: minmax(0, 1fr);
 }
 
-.card-type-page-form,
-.card-type-list-panel {
-    margin-bottom: 18px;
+.card-type-workspace-card {
+    min-height: calc(100vh - 150px);
+    margin: 0;
+    overflow: hidden;
+    border-radius: 18px;
+}
+
+.card-type-workspace-header {
+    min-height: 92px;
+    display: flex;
+    align-items: center;
+    padding: 0 30px;
+    border-bottom: 1px solid #e8ebf1;
+}
+
+.card-type-workspace-header h2 {
+    margin: 0;
+    color: #172039;
+    font-size: 18px;
+}
+
+.card-type-page-form {
+    margin: 0;
 }
 
 .card-type-form-rows {
@@ -2751,6 +2771,31 @@ button.workspace-tab {
     margin: 12px -28px 0;
     border-top: 1px solid #e8ebf1;
     border-radius: 0;
+}
+
+.card-type-list-panel {
+    border-top: 1px solid #e8ebf1;
+}
+
+.card-type-list-panel > header {
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 30px;
+    border-bottom: 1px solid #edf0f5;
+}
+
+.card-type-list-panel > header h2 {
+    margin: 0;
+    color: #25304a;
+    font-size: 16px;
+}
+
+.card-type-list-panel > header em {
+    color: #8c96aa;
+    font-size: 12px;
+    font-style: normal;
 }
 
 .prerequisite-panel .empty-activity {
