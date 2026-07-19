@@ -6,7 +6,7 @@
 |---|---|
 | 新数据库 | 正常创建表、管理员和安装锁 |
 | 数据库已有表、站点尚未安装完成 | 停止继续，提示选择新数据库或勾选覆盖安装 |
-| 已存在 `storage/installed.lock` | `/install` 显示“系统已安装成功”和需要删除的锁文件 |
+| 已存在 `storage/installed.lock` | `/install` 简单提示“已安装，需要重装请删除 installed.lock” |
 
 安装状态只以 `storage/installed.lock` 为准。手动删除该文件后，重新访问 `/install`
 即可进入五步安装向导，不需要修改 `.env`。
@@ -26,13 +26,14 @@
 ## 3. BSPHP 习惯的手动重装
 
 1. 访问 `/install`。
-2. 页面确认系统已经安装，并显示需要删除的文件：
+2. 页面显示简单提示：
 
 ```text
-storage/installed.lock
+已安装
+如果需要重新安装，请删除 installed.lock 文件。
 ```
 
-3. 在项目目录手动删除该文件。
+3. 在项目目录手动删除实际文件 `storage/installed.lock`。
 4. 刷新 `/install`，重新进入环境检测和五步安装向导。
 5. 继续使用原数据库时，勾选“覆盖现有数据库”。
 6. 最后输入完整数据库名并再次确认清除。

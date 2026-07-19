@@ -37,9 +37,6 @@ final class InstallController extends Controller
             if (! $reinstallationAuthorized && ($step !== 'complete' || ! is_array($summary))) {
                 return view('install.locked', [
                     'appName' => $this->installation->applicationName(),
-                    'adminPath' => $this->installation->adminPath(),
-                    'lockFilePath' => $this->installation->lockFilePath(),
-                    'installedAt' => $this->installation->metadata()['installed_at'] ?? null,
                 ]);
             }
 

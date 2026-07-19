@@ -63,14 +63,14 @@ class InstallationFlowTest extends TestCase
 
         $this->get('/install')
             ->assertOk()
-            ->assertSee('系统已安装成功')
-            ->assertSee('需要删除的文件')
-            ->assertSee('storage/framework/testing/installation-flow.lock')
-            ->assertSee('/private-console');
+            ->assertSee('已安装')
+            ->assertSee('如果需要重新安装，请删除')
+            ->assertSee('installed.lock')
+            ->assertDontSee('先备份数据库');
         $this->get('/install/complete')
             ->assertOk()
-            ->assertSee('系统已安装成功')
-            ->assertSee('/private-console');
+            ->assertSee('已安装')
+            ->assertSee('installed.lock');
         $this->get('/admin')->assertNotFound();
         $this->get('/private-console')
             ->assertOk()
@@ -85,7 +85,7 @@ class InstallationFlowTest extends TestCase
             ->assertOk()
             ->assertSee('环境检测')
             ->assertSee('步骤 1 / 5')
-            ->assertDontSee('系统已安装成功');
+            ->assertDontSee('如果需要重新安装，请删除');
         $this->get('/private-console')->assertRedirect('/install');
     }
 
