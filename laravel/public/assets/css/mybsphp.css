@@ -965,23 +965,25 @@ button {
 
 .admin-sidebar nav {
     display: grid;
-    gap: 7px;
+    gap: 8px;
 }
 
 .nav-group {
+    position: relative;
     overflow: hidden;
-    border-radius: 11px;
+    border-radius: 12px;
 }
 
 .nav-group summary {
-    min-height: 42px;
+    position: relative;
+    min-height: 52px;
     display: grid;
-    grid-template-columns: 22px minmax(0, 1fr) auto;
+    grid-template-columns: 26px minmax(0, 1fr) 10px;
     align-items: center;
-    gap: 9px;
-    padding: 0 11px;
-    border-radius: 10px;
-    color: #56617a;
+    gap: 11px;
+    padding: 0 14px;
+    border-radius: 12px;
+    color: #485268;
     cursor: pointer;
     list-style: none;
     transition: color .18s ease, background-color .18s ease;
@@ -993,25 +995,42 @@ button {
 
 .nav-group summary:hover,
 .nav-group[open] summary {
-    color: #294fae;
-    background: #f4f7fe;
+    color: #345aaf;
+    background: #e9f1fc;
 }
 
-.nav-group summary span {
-    color: #8793aa;
-    font-size: 17px;
-    text-align: center;
+.nav-group[open] summary::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: #4a86ef;
+    content: "";
+}
+
+.nav-group summary svg {
+    width: 23px;
+    height: 23px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.7;
 }
 
 .nav-group summary strong {
-    font-size: 12px;
-    font-weight: 750;
+    font-size: 13px;
+    font-weight: 780;
 }
 
 .nav-group summary i {
-    color: #9ca6b8;
-    font-size: 11px;
-    font-style: normal;
+    width: 0;
+    height: 0;
+    border-top: 5px solid #8e96a5;
+    border-right: 5px solid transparent;
+    border-left: 5px solid transparent;
     transition: transform .18s ease;
 }
 
@@ -1020,29 +1039,22 @@ button {
 }
 
 .nav-children {
-    position: relative;
     display: grid;
     gap: 2px;
-    margin: 4px 0 6px 21px;
-    padding-left: 14px;
-}
-
-.nav-children::before {
-    position: absolute;
-    inset: 4px auto 4px 0;
-    width: 1px;
-    background: #e2e8f4;
-    content: "";
+    margin: 6px 0 3px;
+    padding: 7px 8px;
+    border-radius: 11px;
+    background: #f7f8fa;
 }
 
 .admin-sidebar .nav-children a {
-    min-height: 34px;
+    min-height: 38px;
     display: flex;
     align-items: center;
-    padding: 0 10px;
-    border-radius: 8px;
-    color: #737e95;
-    font-size: 11px;
+    padding: 0 12px 0 39px;
+    border-radius: 9px;
+    color: #535d73;
+    font-size: 12px;
     font-weight: 650;
 }
 
@@ -1052,8 +1064,8 @@ button {
 }
 
 .admin-sidebar .nav-children a.is-active {
-    color: #2f5cd5;
-    background: #eaf0ff;
+    color: #3978e7;
+    background: #e1ecfb;
 }
 
 .sidebar-foot {

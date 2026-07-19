@@ -28,46 +28,82 @@
     <aside class="admin-sidebar" data-sidebar>
         <nav aria-label="管理后台导航">
             <details class="nav-group" open>
-                <summary><span>⌂</span><strong>工作台</strong><i>⌄</i></summary>
+                <summary>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 10.5 12 3l9 7.5"></path>
+                        <path d="M5.5 9.5V21h13V9.5"></path>
+                    </svg>
+                    <strong>控制台</strong><i aria-hidden="true"></i>
+                </summary>
                 <div class="nav-children">
-                    <a class="is-active" href="{{ route('admin.dashboard', ['adminPath' => $adminPath]) }}">管理首页</a>
-                    <a href="#risk">在线与风险</a>
-                    <a href="#audit">操作审计</a>
+                    <a class="is-active" href="{{ route('admin.dashboard', ['adminPath' => $adminPath]) }}">主页</a>
+                    <a href="#online">在线用户管理</a>
+                    <a href="#risk">风险事件</a>
+                    <a href="#audit">系统日志</a>
+                    <a href="#administrators">后台管理员</a>
                 </div>
             </details>
             <details class="nav-group">
-                <summary><span>◫</span><strong>应用与授权</strong><i>⌄</i></summary>
+                <summary>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                        <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                        <path d="M14 6.5h7M17.5 3v7M3 17.5h7M6.5 14v7"></path>
+                    </svg>
+                    <strong>应用管理</strong><i aria-hidden="true"></i>
+                </summary>
                 <div class="nav-children">
-                    <a href="#applications">应用管理</a>
-                    <a href="#applications">创建应用</a>
+                    <a href="#applications">软件管理</a>
+                    <a href="#applications">添加新软件</a>
                     <a href="#applications">授权协议配置</a>
+                    <a href="#accounts">软件用户批量维护</a>
                 </div>
             </details>
             <details class="nav-group">
-                <summary><span>◇</span><strong>卡密与发卡</strong><i>⌄</i></summary>
+                <summary>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 6.5h16v11H4z"></path>
+                        <path d="M8 6.5v11M16 6.5v11M4 10h16"></path>
+                    </svg>
+                    <strong>卡密管理</strong><i aria-hidden="true"></i>
+                </summary>
                 <div class="nav-children">
-                    <a href="#cards">卡密管理</a>
+                    <a href="#cards">卡密列表</a>
                     <a href="#cards">卡种与批次</a>
+                    <a href="#cards">卡密批量维护</a>
                     <a href="#cards">手动发卡</a>
                     <a href="#cards">发卡记录</a>
                 </div>
             </details>
             <details class="nav-group">
-                <summary><span>♧</span><strong>账户与代理</strong><i>⌄</i></summary>
+                <summary>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="9" cy="8" r="4"></circle>
+                        <path d="M2.5 21c.4-4.3 2.7-6.5 6.5-6.5s6.1 2.2 6.5 6.5"></path>
+                        <path d="M15.5 5.2a3.7 3.7 0 0 1 0 6.8M17 14.5c2.8.6 4.3 2.8 4.5 6.5"></path>
+                    </svg>
+                    <strong>账号管理</strong><i aria-hidden="true"></i>
+                </summary>
                 <div class="nav-children">
-                    <a href="#accounts">用户账户</a>
-                    <a href="#agents">代理管理</a>
-                    <a href="#agents">代理等级与定价</a>
-                    <a href="#agents">余额流水</a>
+                    <a href="#accounts">用户账号管理</a>
+                    <a href="#agents">代理账号管理</a>
+                    <a href="#accounts">添加账号</a>
+                    <a href="#accounts">批量维护</a>
                 </div>
             </details>
             <details class="nav-group">
-                <summary><span>⚙</span><strong>安全与系统</strong><i>⌄</i></summary>
+                <summary>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"></path>
+                        <path d="m4 7.5 8 4.5 8-4.5M12 12v9"></path>
+                    </svg>
+                    <strong>系统配置</strong><i aria-hidden="true"></i>
+                </summary>
                 <div class="nav-children">
-                    <a href="#administrators">后台管理员</a>
+                    <a href="#settings">系统信息设置</a>
+                    <a href="#settings">个性化设置</a>
                     <a href="#permissions">角色与权限</a>
                     <a href="#devices">设备解绑</a>
-                    <a href="#settings">系统设置</a>
                     <a href="#api">API 与 Legacy 配置</a>
                 </div>
             </details>
