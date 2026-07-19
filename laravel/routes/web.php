@@ -1,5 +1,6 @@
 <?php
 
+use App\Auth\AdminPermission;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\InstallController;
@@ -32,7 +33,9 @@ Route::prefix('{adminPath}')
         Route::post('/login', [AdminAuthController::class, 'login'])->name('admin.login');
 
         Route::middleware('admin.auth')->group(function (): void {
-            Route::get('/dashboard', AdminDashboardController::class)->name('admin.dashboard');
+            Route::get('/dashboard', AdminDashboardController::class)
+                ->middleware('can:'.AdminPermission::DashboardView->value)
+                ->name('admin.dashboard');
             Route::post('/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
         });
     });

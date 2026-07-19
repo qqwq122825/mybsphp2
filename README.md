@@ -12,8 +12,8 @@ W0、W1 和 W2 已完成，W3 后台权限阶段正在实施。详细路线图�
 - W0 调研与需求冻结：DONE。
 - W1 Laravel 工程基线：DONE。
 - W2 首次安装与管理员登录：DONE。
-- W3-0～W3-2 动态后台首页、响应式导航和 RBAC 数据层：DONE。
-- 下一任务：W3-3，Laravel Gate/Policy 权限层。
+- W3-0～W3-3 动态后台首页、响应式导航、RBAC 数据层和 Gate/Policy：DONE。
+- 下一任务：W3-4，系统角色与权限 Seeder。
 
 ## 环境要求
 

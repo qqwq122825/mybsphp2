@@ -33,18 +33,26 @@ class Administrator extends Authenticatable
 
     public function hasRole(string $code): bool
     {
-        return $this->roles()->where('code', $code)->exists();
+        $this->loadMissing('roles.permissions');
+
+        return $this->roles->contains(
+            static fn (Role $role): bool => $role->code === $code,
+        );
     }
 
     public function hasPermission(string $code): bool
     {
+        $this->loadMissing('roles.permissions');
+
         if ($this->hasRole('super_admin')) {
             return true;
         }
 
-        return $this->roles()
-            ->whereHas('permissions', fn ($query) => $query->where('code', $code))
-            ->exists();
+        return $this->roles->contains(
+            static fn (Role $role): bool => $role->permissions->contains(
+                static fn (Permission $permission): bool => $permission->code === $code,
+            ),
+        );
     }
 
     protected function casts(): array

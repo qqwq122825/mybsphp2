@@ -437,3 +437,25 @@ W1-0：冻结当前原型，建立正式 Laravel 目录。本次没有继续扩�
 导航范围：`docs/W3_NAVIGATION_SCOPE.md`。
 
 任务日志：`docs/logs/W3-2.md`。下一任务为 W3-3。
+
+---
+
+## 2026-07-19 · W3-3
+
+完成 Laravel Gate/Policy 权限执行层：
+
+- 建立 26 个首批后台权限码，并统一注册为 Laravel Gate。
+- 管理首页路由增加 `can:dashboard.view`，缺少权限返回 403。
+- 新增管理员 Policy，映射查看、新建、修改和删除能力，并阻止删除自身。
+- 后台请求统一使用独立 `admin` Guard，角色和权限一次预加载后复用。
+- 五个一级菜单、全部二级入口、快捷操作、手机底部导航按权限输出。
+- 缺少 `audit.view` 时不读取也不渲染最近审计内容。
+- 超级管理员获得登记能力全集，普通管理员未授予能力默认拒绝。
+
+验收：
+
+- PHPUnit 36 tests / 230 assertions。
+- PHPStan 0 错误，Pint 与 Composer 严格校验通过。
+- Chrome 实测 8091 超级管理员动态首页正常，五组导航与真实数据正常显示。
+
+任务日志：`docs/logs/W3-3.md`。下一任务为 W3-4。

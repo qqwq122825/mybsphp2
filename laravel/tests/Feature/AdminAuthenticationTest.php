@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Install\InstallationManager;
 use App\Models\Administrator;
+use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
@@ -148,7 +149,7 @@ class AdminAuthenticationTest extends TestCase
 
     private function administrator(?string $secondaryPassword = null): Administrator
     {
-        return Administrator::query()->create([
+        $administrator = Administrator::query()->create([
             'username' => 'admin',
             'password' => 'primary-secret',
             'secondary_password' => $secondaryPassword,
@@ -156,5 +157,11 @@ class AdminAuthenticationTest extends TestCase
             'role' => 'super_admin',
             'status' => 'active',
         ]);
+
+        $administrator->roles()->attach(
+            Role::query()->where('code', 'super_admin')->sole(),
+        );
+
+        return $administrator;
     }
 }

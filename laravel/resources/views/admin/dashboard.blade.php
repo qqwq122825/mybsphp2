@@ -27,6 +27,7 @@
 <div class="dashboard-layout">
     <aside class="admin-sidebar" data-sidebar>
         <nav aria-label="管理后台导航">
+            @canany(['dashboard.view', 'online_users.view', 'risk.view', 'audit.view', 'administrators.view'])
             <details class="nav-group" open>
                 <summary>
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -36,13 +37,25 @@
                     <strong>控制台</strong><i aria-hidden="true"></i>
                 </summary>
                 <div class="nav-children">
+                    @can('dashboard.view')
                     <a class="is-active" href="{{ route('admin.dashboard', ['adminPath' => $adminPath]) }}">主页</a>
+                    @endcan
+                    @can('online_users.view')
                     <a href="#online">在线用户管理</a>
+                    @endcan
+                    @can('risk.view')
                     <a href="#risk">风险事件</a>
+                    @endcan
+                    @can('audit.view')
                     <a href="#audit">系统日志</a>
+                    @endcan
+                    @can('administrators.view')
                     <a href="#administrators">后台管理员</a>
+                    @endcan
                 </div>
             </details>
+            @endcanany
+            @canany(['applications.view', 'applications.create', 'applications.protocol.manage', 'app_accounts.manage'])
             <details class="nav-group">
                 <summary>
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -53,12 +66,22 @@
                     <strong>应用管理</strong><i aria-hidden="true"></i>
                 </summary>
                 <div class="nav-children">
+                    @can('applications.view')
                     <a href="#applications">软件管理</a>
+                    @endcan
+                    @can('applications.create')
                     <a href="#applications">添加新软件</a>
+                    @endcan
+                    @can('applications.protocol.manage')
                     <a href="#applications">授权协议配置</a>
+                    @endcan
+                    @can('app_accounts.manage')
                     <a href="#accounts">软件用户批量维护</a>
+                    @endcan
                 </div>
             </details>
+            @endcanany
+            @canany(['cards.view', 'card_types.manage', 'cards.import', 'cards.issue', 'card_issues.view'])
             <details class="nav-group">
                 <summary>
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -68,13 +91,25 @@
                     <strong>卡密管理</strong><i aria-hidden="true"></i>
                 </summary>
                 <div class="nav-children">
+                    @can('cards.view')
                     <a href="#cards">卡密列表</a>
+                    @endcan
+                    @can('card_types.manage')
                     <a href="#cards">卡种与批次</a>
+                    @endcan
+                    @can('cards.import')
                     <a href="#cards">卡密批量维护</a>
+                    @endcan
+                    @can('cards.issue')
                     <a href="#cards">手动发卡</a>
+                    @endcan
+                    @can('card_issues.view')
                     <a href="#cards">发卡记录</a>
+                    @endcan
                 </div>
             </details>
+            @endcanany
+            @canany(['users.view', 'agents.view', 'users.create', 'users.manage'])
             <details class="nav-group">
                 <summary>
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -85,12 +120,22 @@
                     <strong>账号管理</strong><i aria-hidden="true"></i>
                 </summary>
                 <div class="nav-children">
+                    @can('users.view')
                     <a href="#accounts">用户账号管理</a>
+                    @endcan
+                    @can('agents.view')
                     <a href="#agents">代理账号管理</a>
+                    @endcan
+                    @can('users.create')
                     <a href="#accounts">添加账号</a>
+                    @endcan
+                    @can('users.manage')
                     <a href="#accounts">批量维护</a>
+                    @endcan
                 </div>
             </details>
+            @endcanany
+            @canany(['settings.view', 'settings.appearance.update', 'permissions.manage', 'devices.unbind', 'legacy.manage'])
             <details class="nav-group">
                 <summary>
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -100,13 +145,24 @@
                     <strong>系统配置</strong><i aria-hidden="true"></i>
                 </summary>
                 <div class="nav-children">
+                    @can('settings.view')
                     <a href="#settings">系统信息设置</a>
+                    @endcan
+                    @can('settings.appearance.update')
                     <a href="#settings">个性化设置</a>
+                    @endcan
+                    @can('permissions.manage')
                     <a href="#permissions">角色与权限</a>
+                    @endcan
+                    @can('devices.unbind')
                     <a href="#devices">设备解绑</a>
+                    @endcan
+                    @can('legacy.manage')
                     <a href="#api">API 与 Legacy 配置</a>
+                    @endcan
                 </div>
             </details>
+            @endcanany
         </nav>
         <div class="sidebar-foot">
             <span>后台入口</span><code>/{{ $adminPath }}</code>
@@ -140,15 +196,25 @@
         </section>
 
         <section class="dashboard-grid">
+            @canany(['applications.create', 'cards.issue', 'agents.view', 'risk.view'])
             <article class="dashboard-panel quick-panel">
                 <header><div><span>快捷操作</span><h2>开始管理业务</h2></div><em>常用入口</em></header>
                 <div class="quick-grid">
+                    @can('applications.create')
                     <a href="#applications"><b>＋</b><span><strong>创建应用</strong><small>配置授权模式与协议</small></span></a>
+                    @endcan
+                    @can('cards.issue')
                     <a href="#cards"><b>◇</b><span><strong>生成卡密</strong><small>创建卡种与批次</small></span></a>
+                    @endcan
+                    @can('agents.view')
                     <a href="#agents"><b>♧</b><span><strong>管理代理</strong><small>等级、余额与权限</small></span></a>
+                    @endcan
+                    @can('risk.view')
                     <a href="#risk"><b>△</b><span><strong>查看风险</strong><small>登录和设备事件</small></span></a>
+                    @endcan
                 </div>
             </article>
+            @endcanany
 
             <article class="dashboard-panel status-panel">
                 <header><div><span>运行状态</span><h2>系统环境</h2></div><em class="ok-badge">正常</em></header>
@@ -161,6 +227,7 @@
             </article>
         </section>
 
+        @if ($canViewAudit)
         <section class="dashboard-panel activity-panel" id="audit">
             <header>
                 <div><span>最近动态</span><h2>管理与登录审计</h2></div>
@@ -183,14 +250,21 @@
                 </div>
             @endif
         </section>
+        @endif
     </main>
 </div>
 
 <nav class="mobile-bottom-nav" aria-label="手机快捷导航">
     <a class="is-active" href="#"><span>⌂</span>首页</a>
+    @can('applications.view')
     <a href="#applications"><span>◫</span>应用</a>
+    @endcan
+    @can('cards.view')
     <a href="#cards"><span>◇</span>卡密</a>
+    @endcan
+    @can('settings.view')
     <a href="#settings"><span>⚙</span>我的</a>
+    @endcan
 </nav>
 </body>
 </html>
