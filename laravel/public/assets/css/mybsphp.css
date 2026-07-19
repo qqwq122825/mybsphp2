@@ -1852,6 +1852,128 @@ button {
     font-size: 9px;
 }
 
+.communication-panel .panel-body {
+    gap: 12px;
+}
+
+.connection-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 13px 15px;
+    border: 1px solid #e6eaf2;
+    border-radius: 11px;
+    background: #fbfcfe;
+}
+
+.connection-row > div {
+    min-width: 0;
+}
+
+.connection-row span,
+.connection-row strong,
+.connection-row code {
+    display: block;
+}
+
+.connection-row span {
+    margin-bottom: 5px;
+    color: #8c96aa;
+    font-size: 9px;
+    font-weight: 760;
+    letter-spacing: .04em;
+}
+
+.connection-row strong,
+.connection-row code {
+    overflow-wrap: anywhere;
+    color: #34415d;
+    font-size: 12px;
+}
+
+.connection-row button,
+.inline-copy-button,
+.legacy-key-panel button {
+    flex: 0 0 auto;
+    border: 1px solid #cfd9ec;
+    border-radius: 8px;
+    padding: 7px 11px;
+    color: #3564bf;
+    background: #fff;
+    font-size: 10px;
+    font-weight: 760;
+    cursor: pointer;
+}
+
+.encryption-mode-field {
+    margin-top: 5px;
+}
+
+.encryption-mode-value {
+    display: block;
+    border: 1px solid #dce3ef;
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: #f8faff;
+    color: #33415d;
+    font-size: 12px;
+    font-weight: 720;
+}
+
+.certificate-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px;
+}
+
+.certificate-grid textarea {
+    min-height: 160px;
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+.certificate-grid .inline-copy-button {
+    align-self: flex-start;
+    margin-top: 8px;
+}
+
+.legacy-key-panel {
+    border: 1px solid #e2e7f0;
+    border-radius: 11px;
+    padding: 13px 15px;
+    background: #f8faff;
+}
+
+.legacy-key-panel summary {
+    color: #4a5873;
+    font-size: 11px;
+    font-weight: 760;
+    cursor: pointer;
+}
+
+.legacy-key-panel > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-top: 12px;
+}
+
+.legacy-key-panel code {
+    overflow-wrap: anywhere;
+    color: #3d4b68;
+    font-size: 11px;
+}
+
+.legacy-key-panel p {
+    margin: 9px 0 0;
+    color: #8994a8;
+    font-size: 10px;
+}
+
 .secret-panel div {
     min-width: 0;
 }
@@ -2109,6 +2231,10 @@ button {
     }
 
     .software-create-body {
+        grid-template-columns: 1fr;
+    }
+
+    .certificate-grid {
         grid-template-columns: 1fr;
     }
 
@@ -2393,6 +2519,17 @@ button {
     .software-card-actions a,
     .software-card-actions button {
         justify-content: center;
+    }
+
+    .connection-row,
+    .legacy-key-panel > div {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .connection-row button,
+    .legacy-key-panel button {
+        width: 100%;
     }
 
     .three-columns {

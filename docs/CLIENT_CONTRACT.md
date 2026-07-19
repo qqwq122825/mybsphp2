@@ -167,3 +167,59 @@ W8 阶段至少实现：
 - Block 使用稳定错误结构。
 - 过期、冻结、异机和不存在卡密。
 - Legacy JSON 外壳。
+
+## 10. W8-0 新版 iOS 混合加密封包
+
+新客户端默认使用纯 Objective-C/Objective-C++ 可实现的 v2 封包，业务参数仍保留
+`api=login.ic&icid=...` 形式，因此 `UIInitializer.mm` 的业务字典和返回数组解析无需重写。
+
+软件创建时自动生成：
+
+- 纯数字软件代号；
+- 32 位十六进制通信认证 Key；
+- 32 位十六进制网关 Token；
+- RSA-2048 服务器密钥对；
+- 18 位旧版数据包兼容密钥。
+
+客户端只复制 `BSPHP_HOST`、`BSPHP_MUTUALKEY` 和 RSA 服务器公钥。服务器私钥采用
+Laravel encrypted cast 保存，仅在服务端解封会话密钥。
+
+### 10.1 请求封包
+
+```json
+{
+  "v": 2,
+  "alg": "RSA-OAEP+A256CBC-HS256",
+  "ts": 1784390400,
+  "nonce": "BASE64URL_16_RANDOM_BYTES",
+  "ek": "RSA_OAEP_WRAPPED_32_BYTE_SESSION_KEY",
+  "iv": "BASE64URL_16_RANDOM_BYTES",
+  "data": "AES_256_CBC_CIPHERTEXT",
+  "mac": "SESSION_HMAC_SHA256",
+  "auth": "APPLICATION_HMAC_SHA256"
+}
+```
+
+固定顺序签名串：
+
+```text
+v|alg|ts|nonce|ek|iv|data
+```
+
+`mac` 使用每次请求的会话密钥派生出的 MAC Key；`auth` 使用通信认证 Key 对签名串和
+`mac` 再认证。服务端先校验时间窗口与 `auth`，再进行 RSA 私钥运算。
+
+### 10.2 响应封包
+
+响应复用本次请求会话密钥，生成新的 IV 和响应 nonce，并把 `request_nonce` 纳入 HMAC，
+避免把其他请求的响应移接到当前请求。解密后的正文保持原有竖线数组契约。
+
+### 10.3 iOS 实现
+
+- RSA：`Security.framework`，OAEP 封装随机会话密钥；
+- AES/HMAC：`CommonCrypto`，AES-256-CBC + PKCS7 与 HMAC-SHA256；
+- 参考实现：`docs/ios/BSPHPTransportCrypto.h/.mm`；
+- 接入说明：`docs/ios/BSPHPTransportIntegration.md`。
+
+服务端默认时间窗 300 秒；请求 nonce 首次处理后写入 10 分钟缓存，再次出现返回
+`PACKET_REPLAYED`。

@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withCommands([IssueReinstallationLink::class])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AttachRequestId::class);
+        $middleware->validateCsrfTokens(except: ['AppEn.php']);
         $middleware->alias([
             'admin.auth' => EnsureAdministratorAuthenticated::class,
             'admin.path' => EnsureAdminPath::class,

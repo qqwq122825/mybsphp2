@@ -10,12 +10,13 @@ W3 后台框架、角色与权限：DONE
 W4 应用与协议配置：CORE DONE
 W5 卡种、批次与手动发卡：CORE DONE
 W6 卡密直接登录：IN PROGRESS
+W8 AppEn 与 iOS 加密协议：FOUNDATION DONE
 ```
 
 ## 当前任务
 
 ```text
-W6-5 激活 Service 已完成，下一步接入 W8 Legacy login.ic 分派
+W8-0 新版 iOS 混合加密网关与 login.ic 端到端链路已完成
 ```
 
 ## 已完成
@@ -61,6 +62,8 @@ W6-5 激活 Service 已完成，下一步接入 W8 Legacy login.ic 分派
 - W3 导航范围按原版一级/二级分类精简，隐藏用户反馈、邮件、短信、支付等首版排除项。
 - W4 应用表、列表、新建、编辑、停用、Legacy 参数、业务值、每日签名和设备绑定配置。
 - W4-10 BSPHP 风格三项新增软件、卡片列表及“验证数据 → `a[2]`”配置。
+- W8-0 纯数字软件代号、自动通信 Key/服务器地址/RSA 证书、iOS Objective-C++
+  混合加密、`/AppEn.php` 解包和 `login.ic` 加密往返。
 - W5 卡种、批次、安全随机卡密、单张/批量线下手动发卡、记录与响应式列表。
 - W6 卡密查询、首次激活、到期计算、设备绑定、异机冲突及统一激活 API。
 - 静态激活模拟页 `/demo/activate` 已与服务端 API 完成真实端到端验证。
@@ -78,7 +81,7 @@ W6-5 激活 Service 已完成，下一步接入 W8 Legacy login.ic 分派
 1. W5-4/W5-9 补充卡密导入与 TXT/CSV 导出。
 2. W6-6～W6-8 完成在线会话、解绑审批和登录事件。
 3. W7 完成账户注册、登录和充值模式。
-4. W8 将已验证的激活 Service 接入 `/AppEn.php` 与 `api=login.ic`。
+4. W8 后续补充旧版 3DES 适配器、Legacy 错误映射和更多 action。
 
 ## 规则
 

@@ -564,3 +564,23 @@ PHPStan 0 错误，Pint 通过。
 严格校验通过；390px 与桌面页面无横向溢出。
 
 任务日志：`docs/logs/W4-10.md`。
+
+---
+
+## 2026-07-19 · W8-0 iOS 通信加密与 AppEn 网关
+
+完成每个软件独立的通信凭据和新版 iOS 加密链路：
+
+- 软件代号限制为纯数字，创建时自动生成通信 Key、网关 Token、RSA-2048 密钥对和
+  旧版兼容密钥。
+- 软件配置页直接给出服务器地址、服务器公钥与 Objective-C 宏复制区。
+- 新版封包采用 RSA-OAEP + AES-256-CBC + HMAC-SHA256，iOS 仅依赖
+  Security.framework 与 CommonCrypto。
+- `/AppEn.php` 已完成加密请求解包、时间窗、nonce 防重放、`login.ic` 分派和加密响应。
+- 解密后的返回仍保持 `a[0/1/2/3/4/6/8]` 固定位置，验证数据继续作为 `a[2]`。
+- 增加可直接放进现有 Objective-C++ 工程的参考类和接入文档。
+
+验收：完整 Composer 检查通过，PHPUnit 50 tests / 408 assertions，PHPStan 0 错误；
+iOS arm64 Objective-C++ 编译检查通过。
+
+任务日志：`docs/logs/W8-0.md`。

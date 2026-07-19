@@ -318,6 +318,21 @@ App Override > Mode Handler > Core Default Handler
 
 ### 10.1 网关请求
 
+新版 iOS 客户端默认请求：
+
+```http
+POST /AppEn.php?appid=201&md5=APP_GATEWAY_TOKEN
+Content-Type: application/json
+
+{"v":2,"alg":"RSA-OAEP+A256CBC-HS256","ts":...,"nonce":"...","ek":"...","iv":"...","data":"...","mac":"...","auth":"..."}
+```
+
+RSA-OAEP 封装每次请求随机生成的 32 字节会话密钥，正文使用 AES-256-CBC，固定字段使用
+HMAC-SHA256 认证。解密后的正文仍是下方列出的 Query String，业务处理器不依赖具体
+加密器。完整封包见 `CLIENT_CONTRACT.md` 第 10 节。
+
+旧客户端适配器保留下列原始请求形态和 18 位兼容密钥：
+
 ```http
 POST /AppEn.php?appid=APP_ID&md5=APP_MD5
 Content-Type: application/x-www-form-urlencoded
@@ -342,6 +357,9 @@ nonce=OPTIONAL_NONCE
 
 网关必须依次完成：应用定位、应用状态、请求解码、时间窗、通信 Key、请求指纹/Nonce、
 action 白名单和处理器分派。`api` 只允许目录中声明的逻辑名，不直接拼接磁盘路径。
+
+当前 W8-0 已完成新版 JSON 加密封包、`login.ic` 分派、nonce 一次性消费以及加密响应；
+旧版表单/3DES 适配器在后续兼容任务接入。
 
 ### 10.2 固定外层 JSON
 

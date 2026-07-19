@@ -235,9 +235,9 @@ W0-0
 
 | 编号 | 内容 | 测试/验收 |
 |---|---|---|
-| W8-0 | `/AppEn.php` 兼容入口 | Contract |
-| W8-1 | `appid/md5/parameter` 解包 | Contract |
-| W8-2 | `api=login.ic` 分派 | Contract |
+| W8-0 | DONE：`/AppEn.php` 新版加密入口与 iOS 参考实现 | Contract |
+| W8-1 | DONE：`appid/md5`、RSA/AES/HMAC 解包、时间窗与 nonce | Contract |
+| W8-2 | DONE：`api=login.ic` 分派 | Contract |
 | W8-3 | 应用覆盖 > 模式 > 默认处理器 | Unit |
 | W8-4 | JSON 外壳和竖线数据 | Contract |
 | W8-5 | 固定 `arr[0/1/2/3/4/6/8]` | Contract |

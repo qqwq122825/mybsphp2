@@ -7,12 +7,16 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminCardController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\InstallController;
+use App\Http\Controllers\LegacyGatewayController;
 use App\Http\Controllers\SiteController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', SiteController::class)->name('site.home');
 Route::get('/demo/activate', fn () => response()->file(public_path('demo-activate.html')))
     ->name('demo.activate');
+Route::post('/AppEn.php', LegacyGatewayController::class)
+    ->middleware('throttle:60,1')
+    ->name('legacy.gateway');
 
 Route::prefix('install')->group(function (): void {
     Route::get('/reinstall', [InstallController::class, 'authorizeReinstallation'])

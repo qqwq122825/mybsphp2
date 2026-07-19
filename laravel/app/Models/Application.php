@@ -19,6 +19,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'payload_mode',
     'payload_value_ciphertext',
     'client_secret_hash',
+    'gateway_token',
+    'communication_key_ciphertext',
+    'encryption_mode',
+    'server_public_key',
+    'server_private_key_ciphertext',
+    'legacy_packet_key_ciphertext',
     'bind_device_enabled',
     'max_bound_devices',
     'max_concurrent_sessions',
@@ -33,6 +39,21 @@ class Application extends Model
     public function verificationData(): string
     {
         return (string) ($this->payload_value_ciphertext ?? '');
+    }
+
+    public function communicationKey(): string
+    {
+        return (string) ($this->communication_key_ciphertext ?? '');
+    }
+
+    public function serverPrivateKey(): string
+    {
+        return (string) ($this->server_private_key_ciphertext ?? '');
+    }
+
+    public function legacyPacketKey(): string
+    {
+        return (string) ($this->legacy_packet_key_ciphertext ?? '');
     }
 
     public function getRouteKeyName(): string
@@ -68,6 +89,9 @@ class Application extends Model
     {
         return [
             'payload_value_ciphertext' => 'encrypted',
+            'communication_key_ciphertext' => 'encrypted',
+            'server_private_key_ciphertext' => 'encrypted',
+            'legacy_packet_key_ciphertext' => 'encrypted',
             'bind_device_enabled' => 'boolean',
             'max_bound_devices' => 'integer',
             'max_concurrent_sessions' => 'integer',

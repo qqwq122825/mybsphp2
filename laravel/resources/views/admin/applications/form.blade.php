@@ -13,13 +13,6 @@
         <a class="button button-secondary" href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">返回列表</a>
     </header>
 
-    @if (session('client_secret'))
-        <section class="secret-panel">
-            <div><span>CLIENT SECRET · 仅展示本次</span><strong>{{ session('client_secret') }}</strong></div>
-            <button type="button" data-copy="{{ session('client_secret') }}">复制密钥</button>
-        </section>
-    @endif
-
     @if (! $editing)
         <form class="admin-form-grid software-create-grid" method="post"
               action="{{ route('admin.applications.store', ['adminPath' => $adminPath]) }}">
@@ -45,9 +38,10 @@
                         </label>
                         <label class="field">
                             <span>软件代号</span>
-                            <input name="code" value="{{ old('code') }}" maxlength="40"
-                                   placeholder="建议使用统一的 8 位数字" required>
-                            <small>可使用数字、字母、下划线和短横线，创建后保持不变。</small>
+                            <input name="code" value="{{ old('code') }}" maxlength="20"
+                                   inputmode="numeric" pattern="[0-9]+"
+                                   placeholder="例如 201 或 12345678" required>
+                            <small>只允许数字，创建后保持不变。</small>
                         </label>
                     </div>
 
@@ -75,6 +69,53 @@
               action="{{ route('admin.applications.update', ['adminPath' => $adminPath, 'application' => $application]) }}">
             @csrf
             @method('PUT')
+
+            <section class="dashboard-panel form-panel form-panel-wide communication-panel">
+                <header><div><span>CONNECTION</span><h2>通信配置</h2></div><em>创建时自动生成</em></header>
+                <div class="panel-body stack-form">
+                    <div class="connection-row">
+                        <div><span>软件代号</span><strong>{{ $application->code }}</strong></div>
+                        <button type="button" data-copy="{{ $application->code }}">复制</button>
+                    </div>
+                    <div class="connection-row">
+                        <div><span>通信认证 Key</span><code>{{ $application->communicationKey() }}</code></div>
+                        <button type="button" data-copy="{{ $application->communicationKey() }}">复制 Key</button>
+                    </div>
+                    <div class="connection-row connection-row-address">
+                        <div><span>服务器地址</span><code>{{ $serverAddress }}</code></div>
+                        <button type="button" data-copy="{{ $serverAddress }}">复制地址</button>
+                    </div>
+
+                    <div class="field encryption-mode-field">
+                        <span>数据包加密</span>
+                        <input type="hidden" name="encryption_mode" value="hybrid_rsa_aes_hmac">
+                        <strong class="encryption-mode-value">现代混合加密（RSA-OAEP + AES-256-CBC + HMAC）</strong>
+                        <small>新客户端使用服务器公钥封装临时会话密钥，再用 AES-CBC + HMAC 加密并校验请求和响应；可直接使用 iOS Security.framework 与 CommonCrypto。</small>
+                    </div>
+
+                    <div class="certificate-grid">
+                        <label class="field">
+                            <span>服务器公钥 <small>复制到客户端</small></span>
+                            <textarea rows="7" readonly>{{ $application->server_public_key }}</textarea>
+                            <button class="inline-copy-button" type="button" data-copy="{{ $application->server_public_key }}">复制服务器公钥</button>
+                        </label>
+                        <label class="field">
+                            <span>Objective-C 配置宏</span>
+                            <textarea rows="7" readonly>{{ $objectiveCMacros }}</textarea>
+                            <button class="inline-copy-button" type="button" data-copy="{{ $objectiveCMacros }}">复制客户端配置</button>
+                        </label>
+                    </div>
+
+                    <details class="legacy-key-panel">
+                        <summary>查看旧版数据包兼容密钥</summary>
+                        <div>
+                            <code>{{ $application->legacyPacketKey() }}</code>
+                            <button type="button" data-copy="{{ $application->legacyPacketKey() }}">复制兼容密钥</button>
+                        </div>
+                        <p>仅供旧版 3DES 数据包使用；现代模式不把服务器私钥放进客户端。</p>
+                    </details>
+                </div>
+            </section>
 
             <section class="dashboard-panel form-panel form-panel-wide">
                 <header><div><span>BASIC SETTINGS</span><h2>基本配置</h2></div><em>{{ $application->code }}</em></header>

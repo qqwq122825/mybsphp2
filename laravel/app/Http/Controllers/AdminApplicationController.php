@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Applications\ApplicationCredentialService;
 use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
 use App\Auth\AdminPermission;
@@ -22,6 +23,7 @@ final class AdminApplicationController extends Controller
     public function __construct(
         private readonly InstallationManager $installation,
         private readonly AuditLogger $audit,
+        private readonly ApplicationCredentialService $credentials,
     ) {}
 
     public function index(string $adminPath): View
@@ -59,7 +61,8 @@ final class AdminApplicationController extends Controller
     {
         $validated = $this->validateNewApplication($request);
         $administrator = $this->administrator();
-        $clientSecret = Str::password(40, symbols: false);
+        $credentials = $this->credentials->generate();
+        $communicationKey = $credentials['communication_key_ciphertext'];
 
         $application = Application::query()->create([
             'public_id' => (string) Str::ulid(),
@@ -70,7 +73,8 @@ final class AdminApplicationController extends Controller
             'status' => 'active',
             'payload_mode' => 'constant',
             'payload_value_ciphertext' => null,
-            'client_secret_hash' => Hash::make($clientSecret),
+            'client_secret_hash' => Hash::make($communicationKey),
+            ...$credentials,
             'bind_device_enabled' => true,
             'max_bound_devices' => 1,
             'max_concurrent_sessions' => 1,
@@ -97,17 +101,20 @@ final class AdminApplicationController extends Controller
                 'adminPath' => $adminPath,
                 'application' => $application,
             ])
-            ->with('success', '软件创建成功。客户端密钥仅展示本次，请立即保存。')
-            ->with('client_secret', $clientSecret);
+            ->with('success', '软件创建成功，通信认证 Key、服务器地址和证书已自动生成。')
+            ->with('client_secret', $communicationKey);
     }
 
     public function edit(string $adminPath, Application $application): View
     {
+        $application = $this->credentials->ensure($application);
         $application->load('legacyConfig');
 
         return view('admin.applications.form', [
             ...$this->layout($adminPath),
             'application' => $application,
+            'serverAddress' => $this->credentials->serverAddress($application),
+            'objectiveCMacros' => $this->credentials->objectiveCMacros($application),
         ]);
     }
 
@@ -204,8 +211,8 @@ final class AdminApplicationController extends Controller
                 'required',
                 'string',
                 'min:1',
-                'max:40',
-                'regex:/^[A-Za-z0-9][A-Za-z0-9_-]*$/',
+                'max:20',
+                'regex:/^[0-9]+$/',
                 Rule::unique('applications', 'code'),
             ],
             'name' => ['required', 'string', 'min:2', 'max:120'],
@@ -223,6 +230,7 @@ final class AdminApplicationController extends Controller
             'description' => ['nullable', 'string', 'max:500'],
             'status' => ['required', Rule::in(['draft', 'active', 'suspended', 'archived'])],
             'verification_data' => ['nullable', 'string', 'max:262144'],
+            'encryption_mode' => ['required', Rule::in(['hybrid_rsa_aes_hmac'])],
             'bind_device_enabled' => ['nullable', 'boolean'],
             'max_bound_devices' => ['required', 'integer', 'min:1', 'max:20'],
             'max_concurrent_sessions' => ['required', 'integer', 'min:1', 'max:100'],

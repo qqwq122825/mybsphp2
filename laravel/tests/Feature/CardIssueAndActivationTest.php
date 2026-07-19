@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Applications\ApplicationCredentialService;
+use App\Applications\HybridPacketCipher;
 use App\Cards\CardCredentialHasher;
 use App\Cards\CardGenerationService;
 use App\Cards\ManualIssueService;
@@ -75,6 +77,41 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertSame(10, strlen($fields[4]));
         $this->assertSame('IOS-DEVICE-001', $fields[8]);
 
+        $cipher = app(HybridPacketCipher::class);
+        $sealed = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic',
+            'icid' => $credential['code'],
+            'icpwd' => $credential['secret'],
+            'key' => 'IOS-DEVICE-001',
+            'appsafecode' => 'IOS-SAFE',
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $gatewayUrl = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
+        $gatewayResponse = $this->postJson($gatewayUrl, $sealed['envelope']);
+        $gatewayResponse->assertOk();
+
+        $gatewayPlaintext = $cipher->openResponse(
+            $gatewayResponse->json(),
+            $sealed['session_key'],
+            $sealed['request_nonce'],
+        );
+        $gatewayFields = explode('|', $gatewayPlaintext);
+        $this->assertSame('01', $gatewayFields[0]);
+        $this->assertSame('0x100000', $gatewayFields[2]);
+        $this->assertSame('IOS-SAFE', $gatewayFields[3]);
+        $this->assertSame('IOS-DEVICE-001', $gatewayFields[8]);
+
+        $this->postJson($gatewayUrl, $sealed['envelope'])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'PACKET_REPLAYED');
+
+        $application->forceFill(['status' => 'suspended'])->save();
+        $disabledRequest = $cipher->sealRequest($application, 'api=login.ic');
+        $this->postJson($gatewayUrl, $disabledRequest)
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'APP_DISABLED');
+        $application->forceFill(['status' => 'active'])->save();
+
         $this->postJson('/api/v2/demo/activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
@@ -137,19 +174,21 @@ class CardIssueAndActivationTest extends TestCase
      */
     private function applicationAndType(): array
     {
+        $credentials = app(ApplicationCredentialService::class)->generate();
         $application = Application::query()->create([
             'public_id' => (string) Str::ulid(),
-            'code' => 'demo_ios',
+            'code' => '201',
             'name' => '激活演示应用',
             'mode' => 'card_login',
             'entitlement_kind' => 'duration',
             'status' => 'active',
             'payload_mode' => 'constant',
             'payload_value_ciphertext' => '0x100000',
-            'client_secret_hash' => 'not-used-in-fixture',
+            'client_secret_hash' => hash('sha256', $credentials['communication_key_ciphertext']),
             'bind_device_enabled' => true,
             'max_bound_devices' => 1,
             'max_concurrent_sessions' => 1,
+            ...$credentials,
         ]);
 
         $cardType = CardType::query()->create([

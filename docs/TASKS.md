@@ -55,9 +55,9 @@
 
 | 编号 | 状态 | 任务 | 测试 |
 |---|---|---|---|
-| G4-01 | TODO | `/AppEn.php` 网关 | Contract |
-| G4-02 | TODO | 请求解包与时间窗口 | Contract |
-| G4-03 | TODO | `login.ic` 处理器 | Contract |
+| G4-01 | DONE | `/AppEn.php` 新版加密网关 | Contract |
+| G4-02 | DONE | RSA/AES/HMAC 解包、时间窗口与 nonce | Contract |
+| G4-03 | DONE | `login.ic` 处理器 | Contract |
 | G4-04 | TODO | 固定字段响应器 | Contract |
 | G4-05 | TODO | `arr[2]` 真实/空/诱饵配置 | Unit + Contract |
 | G4-06 | TODO | 旧 iOS Fixture | End-to-end |
