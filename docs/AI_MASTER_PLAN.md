@@ -2,7 +2,8 @@
 
 > 项目目标：参考并重构新版 BSPHP，而不是在旧版 PHP 5 代码上继续修改。  
 > 工作方式：按 `W阶段-任务号` 逐项实施；一项完成、测试、记录后再进入下一项。  
-> 当前阶段：W0、W1、W2 已完成；W3-0～W3-3 已完成，下一任务为 W3-4。
+> 当前阶段：W0～W3 已完成；W4 应用管理主流程、W5 手动发卡主流程和
+> W6 卡密激活核心链路已完成，后续继续补齐账户模式、Legacy 入口与风控。
 
 ## 1. 项目基线
 
@@ -56,6 +57,8 @@ W0-0
 - `DOING`：正在实施。
 - `REVIEW`：实现完成，等待复查。
 - `DONE`：测试与日志全部完成。
+- `CORE DONE`：当前阶段的核心闭环完成，扩展任务仍在计划内。
+- `PARTIAL`：本任务已完成当前阶段所需部分，剩余部分有明确后续任务。
 - `BLOCKED`：依赖尚未满足。
 
 ## 3. 每项任务固定流程
@@ -158,57 +161,57 @@ W0-0
 | W3-1 | DONE | 手机抽屉和底部导航 | Browser + 响应式巡检 |
 | W3-2 | DONE | 管理员、角色、权限及关联表 | Migration + MySQL |
 | W3-3 | DONE | Laravel Gate/Policy 权限层 | Unit |
-| W3-4 | TODO | 超级管理员、管理员、代理角色 | Seeder |
-| W3-5 | TODO | 代理默认权限模板 | Permission |
-| W3-6 | TODO | 默认禁止删卡、解绑、管理账户 | Permission |
-| W3-7 | TODO | 管理操作审计日志 | Feature |
-| W3-8 | TODO | 后台管理员管理页面 | Feature + Browser |
+| W3-4 | DONE | 超级管理员、管理员、代理角色 | Seeder |
+| W3-5 | DONE | 代理默认权限模板 | Permission |
+| W3-6 | DONE | 默认禁止删卡、解绑、管理账户 | Permission |
+| W3-7 | DONE | 管理操作审计日志 | Feature |
+| W3-8 | DONE | 后台管理员管理页面 | Feature + Browser |
 
 ## 8. 阶段 W4：应用与协议配置
 
-| 编号 | 内容 | 测试/验收 |
-|---|---|---|
-| W4-0 | 继续调研 BSPHP“新建/配置软件”页面 | UI 记录 |
-| W4-1 | 应用表、模式和状态 | Migration |
-| W4-2 | 应用列表与统计卡片 | Feature + Browser |
-| W4-3 | 新建/编辑/停用应用 | Feature |
-| W4-4 | `card_login` 模式 | Unit |
-| W4-5 | `account_recharge` 模式 | Unit |
-| W4-6 | Legacy 参数名配置 | Unit + Feature |
-| W4-7 | `arr[2]` 真实值、空值、诱饵值配置 | Contract |
-| W4-8 | 每日签名和响应档案 | Unit |
-| W4-9 | 应用级设备绑定和并发设置 | Unit |
+| 编号 | 状态 | 内容 | 测试/验收 |
+|---|---|---|---|
+| W4-0 | DONE | 继续调研 BSPHP“新建/配置软件”页面 | UI 记录 |
+| W4-1 | DONE | 应用表、模式和状态 | Migration |
+| W4-2 | DONE | 应用列表与统计卡片 | Feature + Browser |
+| W4-3 | DONE | 新建/编辑/停用应用 | Feature |
+| W4-4 | DONE | `card_login` 模式 | Unit |
+| W4-5 | PARTIAL | `account_recharge` 模式 | 模式可选，账户业务在 W7 实现 |
+| W4-6 | DONE | Legacy 参数名配置 | Unit + Feature |
+| W4-7 | DONE | `arr[2]` 真实值、空值、诱饵值配置 | Contract |
+| W4-8 | DONE | 每日签名和响应档案 | Unit |
+| W4-9 | PARTIAL | 应用级设备绑定和并发设置 | 设备绑定完成，会话并发在 W6-6 实现 |
 
 ## 9. 阶段 W5：卡种、批次与手动发卡
 
-| 编号 | 内容 | 测试/验收 |
-|---|---|---|
-| W5-0 | 调研卡种、制卡、批量维护页面 | UI 记录 |
-| W5-1 | 卡种和时长/点数规则 | Migration + Unit |
-| W5-2 | 卡密批次 | Migration + Feature |
-| W5-3 | 安全随机卡密生成 | Unit |
-| W5-4 | 卡密导入 | Feature |
-| W5-5 | 卡密状态机 | Unit |
-| W5-6 | 单张手动发卡 | Transaction |
-| W5-7 | 批量手动发卡 | Transaction |
-| W5-8 | 发给用户/代理/线下客户 | Feature |
-| W5-9 | TXT/CSV 导出 | Feature |
-| W5-10 | 发卡记录和备注 | Feature |
-| W5-11 | 手机卡密列表与批量操作 | Browser |
+| 编号 | 状态 | 内容 | 测试/验收 |
+|---|---|---|---|
+| W5-0 | DONE | 调研卡种、制卡、批量维护页面 | UI 记录 |
+| W5-1 | DONE | 卡种和时长/点数规则 | Migration + Unit |
+| W5-2 | DONE | 卡密批次 | Migration + Feature |
+| W5-3 | DONE | 安全随机卡密生成 | Unit |
+| W5-4 | TODO | 卡密导入 | Feature |
+| W5-5 | DONE | 卡密状态机 | Unit |
+| W5-6 | DONE | 单张手动发卡 | Transaction |
+| W5-7 | DONE | 批量手动发卡 | Transaction |
+| W5-8 | PARTIAL | 发给用户/代理/线下客户 | 线下客户完成，用户/代理在 W7/W10 接入 |
+| W5-9 | TODO | TXT/CSV 导出 | Feature |
+| W5-10 | DONE | 发卡记录和备注 | Feature |
+| W5-11 | DONE | 手机卡密列表与批量操作 | Browser |
 
 ## 10. 阶段 W6：卡密直接登录
 
-| 编号 | 内容 | 测试/验收 |
-|---|---|---|
-| W6-0 | 卡密查询和状态验证 Service | Unit |
-| W6-1 | 首次激活和到期时间计算 | Unit |
-| W6-2 | 首次绑定设备 | Unit + Transaction |
-| W6-3 | 异机登录处理 | Unit |
-| W6-4 | 冻结、过期、作废处理 | Unit |
-| W6-5 | `login.ic` 业务 Service | Unit |
-| W6-6 | 心跳和在线会话 | Feature |
-| W6-7 | 解绑与换绑审批 | Permission |
-| W6-8 | 登录事件和设备记录 | Feature |
+| 编号 | 状态 | 内容 | 测试/验收 |
+|---|---|---|---|
+| W6-0 | DONE | 卡密查询和状态验证 Service | Unit |
+| W6-1 | DONE | 首次激活和到期时间计算 | Unit |
+| W6-2 | DONE | 首次绑定设备 | Unit + Transaction |
+| W6-3 | DONE | 异机登录处理 | Unit |
+| W6-4 | DONE | 冻结、过期、作废处理 | Unit |
+| W6-5 | PARTIAL | `login.ic` 业务 Service | 激活 Service 完成，Legacy 分派在 W8 接入 |
+| W6-6 | TODO | 心跳和在线会话 | Feature |
+| W6-7 | TODO | 解绑与换绑审批 | Permission |
+| W6-8 | PARTIAL | 登录事件和设备记录 | 卡密状态与审计完成，独立登录事件待补 |
 
 ## 11. 阶段 W7：账户注册、登录与充值
 

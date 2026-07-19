@@ -1,0 +1,119 @@
+<?php
+
+namespace App\Cards;
+
+use App\Models\Administrator;
+use App\Models\Card;
+use App\Models\CardBatch;
+use App\Models\CardType;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use InvalidArgumentException;
+
+final class CardGenerationService
+{
+    private const DEFAULT_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+    public function __construct(
+        private readonly CardCredentialHasher $hasher,
+    ) {}
+
+    /**
+     * @return array{batch: CardBatch, credentials: list<array{code: string, secret: string}>}
+     */
+    public function generate(
+        CardType $cardType,
+        int $quantity,
+        ?Administrator $administrator,
+        ?string $note = null,
+    ): array {
+        if ($quantity < 1 || $quantity > 500) {
+            throw new InvalidArgumentException('单批制卡数量必须在 1 到 500 之间。');
+        }
+
+        return DB::transaction(function () use ($cardType, $quantity, $administrator, $note): array {
+            $batch = CardBatch::query()->create([
+                'public_id' => (string) Str::ulid(),
+                'card_type_id' => $cardType->getKey(),
+                'batch_no' => 'B'.now()->format('YmdHis').strtoupper(Str::random(5)),
+                'source' => 'generated',
+                'planned_quantity' => $quantity,
+                'actual_quantity' => 0,
+                'status' => 'generating',
+                'created_by_administrator_id' => $administrator?->getKey(),
+                'note' => $note,
+            ]);
+
+            $credentials = [];
+            for ($index = 0; $index < $quantity; $index++) {
+                [$code, $secret] = $this->uniqueCredential($cardType);
+
+                Card::query()->create([
+                    'public_id' => (string) Str::ulid(),
+                    'batch_id' => $batch->getKey(),
+                    'card_type_id' => $cardType->getKey(),
+                    'application_id' => $cardType->application_id,
+                    'code_lookup_hash' => $this->hasher->lookupHash($code),
+                    'code_ciphertext' => $code,
+                    'code_last4' => substr($code, -4),
+                    'secret_hash' => Hash::make($secret),
+                    'secret_ciphertext' => $secret,
+                    'secret_last4' => substr($secret, -4),
+                    'status' => 'inventory',
+                ]);
+
+                $credentials[] = ['code' => $code, 'secret' => $secret];
+            }
+
+            $batch->forceFill([
+                'actual_quantity' => $quantity,
+                'status' => 'ready',
+                'generated_at' => now(),
+            ])->save();
+
+            return ['batch' => $batch, 'credentials' => $credentials];
+        }, 3);
+    }
+
+    /**
+     * @return array{string, string}
+     */
+    private function uniqueCredential(CardType $cardType): array
+    {
+        $alphabetValue = $cardType->getAttribute('alphabet');
+        $alphabet = is_string($alphabetValue) && $alphabetValue !== ''
+            ? $alphabetValue
+            : self::DEFAULT_ALPHABET;
+        $prefix = strtoupper($cardType->code_prefix);
+        $bodyLength = max(8, $cardType->code_length - strlen($prefix));
+
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $code = $prefix.$this->randomFromAlphabet($alphabet, $bodyLength);
+            if (! Card::query()->where('code_lookup_hash', $this->hasher->lookupHash($code))->exists()) {
+                return [
+                    $code,
+                    $this->randomFromAlphabet($alphabet, $cardType->secret_length),
+                ];
+            }
+        }
+
+        throw new InvalidArgumentException('生成唯一卡密失败，请重试。');
+    }
+
+    private function randomFromAlphabet(string $alphabet, int $length): string
+    {
+        $output = '';
+        $lastIndex = strlen($alphabet) - 1;
+
+        if ($lastIndex < 15) {
+            throw new InvalidArgumentException('卡密字符集至少需要 16 个不同字符。');
+        }
+
+        for ($index = 0; $index < $length; $index++) {
+            $output .= $alphabet[random_int(0, $lastIndex)];
+        }
+
+        return $output;
+    }
+}

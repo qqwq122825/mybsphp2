@@ -2,6 +2,7 @@
 
 namespace App\Install;
 
+use App\Auth\SystemAccessSynchronizer;
 use App\Models\Administrator;
 use App\Models\Role;
 use App\Models\SystemSetting;
@@ -16,6 +17,7 @@ final class InstallerService
     public function __construct(
         private readonly InstallationManager $manager,
         private readonly EnvironmentFileWriter $environment,
+        private readonly SystemAccessSynchronizer $access,
     ) {}
 
     /**
@@ -97,6 +99,8 @@ final class InstallerService
             if ($exitCode !== 0) {
                 throw new InstallationException('数据库迁移执行失败，请根据请求 ID 检查服务端日志。');
             }
+
+            $this->access->sync('install');
 
             DB::connection('install')->transaction(function () use ($admin, $site): void {
                 $administrator = new Administrator;
