@@ -102,6 +102,14 @@ class Application extends Model
         return $this->hasMany(Card::class);
     }
 
+    /**
+     * @return HasMany<ApplicationAccount, $this>
+     */
+    public function accounts(): HasMany
+    {
+        return $this->hasMany(ApplicationAccount::class);
+    }
+
     protected function casts(): array
     {
         return [

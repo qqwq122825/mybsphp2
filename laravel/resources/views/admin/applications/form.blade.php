@@ -29,8 +29,8 @@
                         <label class="field">
                             <span>软件模式</span>
                             <select name="mode" required>
-                                <option value="card_login" @selected(old('mode', 'card_login') === 'card_login')>卡密验证限时模式</option>
-                                <option value="account_recharge" @selected(old('mode') === 'account_recharge')>账户注册与充值模式</option>
+                                <option value="card_login" @selected(old('mode', 'card_login') === 'card_login')>卡串验证限时模式</option>
+                                <option value="account_recharge" @selected(old('mode') === 'account_recharge')>账号登录限时模式</option>
                             </select>
                             <small>选择客户端使用卡密直接登录，或使用账户注册后充值。</small>
                         </label>
@@ -52,11 +52,11 @@
                     <aside class="software-mode-guide">
                         <span>模式说明</span>
                         <article>
-                            <b>卡密验证限时模式</b>
+                            <b>卡串验证限时模式</b>
                             <p>后台生成卡密并手动交付，客户端直接使用卡密登录；有效期由卡种决定。</p>
                         </article>
                         <article>
-                            <b>账户注册与充值模式</b>
+                            <b>账号登录限时模式</b>
                             <p>用户注册账户后登录，再使用充值卡增加时长或点数；账户业务将在后续任务继续完善。</p>
                         </article>
                     </aside>

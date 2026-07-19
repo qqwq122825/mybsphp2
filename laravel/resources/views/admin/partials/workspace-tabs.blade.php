@@ -25,6 +25,14 @@
                 <span class="workspace-tab is-active" aria-current="page">
                     <span>{{ $application->code }}-软件配置</span><i aria-hidden="true">×</i>
                 </span>
+            @elseif (request()->routeIs('admin.applications.users.index') && isset($application) && $application)
+                <span class="workspace-tab is-active" aria-current="page">
+                    <span>{{ $application->code }}-用户管理</span><i aria-hidden="true">×</i>
+                </span>
+            @elseif (request()->routeIs('admin.applications.cards.make') && isset($application) && $application)
+                <span class="workspace-tab is-active" aria-current="page">
+                    <span>{{ $application->code }}-现卡制作</span><i aria-hidden="true">×</i>
+                </span>
             @endif
         @elseif (request()->routeIs('admin.cards.*'))
             <span class="workspace-tab is-active" aria-current="page"><span>卡密管理</span><i aria-hidden="true">×</i></span>

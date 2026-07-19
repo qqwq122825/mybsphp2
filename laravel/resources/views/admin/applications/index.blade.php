@@ -47,29 +47,32 @@
 
                     <div class="software-mode-line">
                         <span>软件模式</span>
-                        <strong>{{ $application->mode === 'card_login' ? '卡密验证限时模式' : '账户注册与充值模式' }}</strong>
+                        <strong>{{ $application->mode === 'card_login' ? '卡串验证限时模式' : '账号登录限时模式' }}</strong>
                     </div>
 
                     <div class="software-stats">
+                        <div><span>用户总数</span><strong>{{ $application->mode === 'card_login' ? $application->card_users_count : $application->accounts_count }}</strong></div>
                         <div><span>卡总数</span><strong>{{ $application->cards_count }}</strong></div>
                         <div><span>卡已激活</span><strong>{{ $application->activated_cards_count }}</strong></div>
                         <div><span>卡未激活</span><strong>{{ $notActivated }}</strong></div>
                         <div><span>卡类型数量</span><strong>{{ $application->card_types_count }}</strong></div>
-                        <div><span>版本号</span><strong>{{ $application->version_name ?: '—' }}</strong></div>
                     </div>
 
                     <footer class="software-card-actions">
                         @can('applications.update')
-                            <a class="software-action-primary" href="{{ route('admin.applications.edit', ['adminPath' => $adminPath, 'application' => $application]) }}">⚙ 配置软件</a>
+                            <a class="software-action-primary" href="{{ route('admin.applications.edit', ['adminPath' => $adminPath, 'application' => $application]) }}">⚙ 软件配置</a>
+                        @endcan
+                        @can('applications.view')
+                            <a href="{{ route('admin.applications.users.index', ['adminPath' => $adminPath, 'application' => $application]) }}">▣ 用户管理</a>
                         @endcan
                         @can('cards.view')
                             <a href="{{ route('admin.cards.index', ['adminPath' => $adminPath, 'application' => $application->getKey()]) }}">▣ 充值卡列表</a>
                         @endcan
-                        @can('applications.status.update')
-                            <form method="post" action="{{ route('admin.applications.toggle', ['adminPath' => $adminPath, 'application' => $application]) }}">
-                                @csrf
-                                <button type="submit">{{ $application->status === 'active' ? '暂停软件' : '启用软件' }}</button>
-                            </form>
+                        @can('card_types.manage')
+                            <a href="{{ route('admin.cards.index', ['adminPath' => $adminPath, 'application' => $application->getKey()]) }}#card-types">☷ 卡串类型</a>
+                        @endcan
+                        @can('batches.create')
+                            <a class="software-action-warn" href="{{ route('admin.applications.cards.make', ['adminPath' => $adminPath, 'application' => $application]) }}">＋ 现卡制作</a>
                         @endcan
                     </footer>
                 </article>

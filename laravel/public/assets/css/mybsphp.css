@@ -2281,6 +2281,7 @@ button {
 
 .software-card-actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 9px;
     padding: 14px 22px;
@@ -2306,6 +2307,12 @@ button {
     border-color: #a9c5ff;
     color: #2e64c8;
     background: #f3f7ff;
+}
+
+.software-card-actions .software-action-warn {
+    border-color: #f3b69b;
+    color: #d65d2f;
+    background: #fff8f4;
 }
 
 .software-pager {
@@ -2629,6 +2636,14 @@ button {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
+}
+
+.single-management-grid {
+    grid-template-columns: minmax(0, 760px);
+}
+
+.prerequisite-panel .empty-activity {
+    min-height: 320px;
 }
 
 .compact-form {

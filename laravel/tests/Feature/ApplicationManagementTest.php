@@ -51,7 +51,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('快捷入口指引')
             ->assertSee('切换侧栏显示')
             ->assertSee('data-quick-entry', false)
-            ->assertSee('mybsphp.css?v=20260719-w415-api-default', false)
+            ->assertSee('mybsphp.css?v=20260719-w416-software-actions', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -103,8 +103,29 @@ class ApplicationManagementTest extends TestCase
         $this->get('/private-console/applications')
             ->assertOk()
             ->assertSee('游戏 iOS')
-            ->assertSee('卡密验证限时模式')
-            ->assertSee('配置软件');
+            ->assertSee('卡串验证限时模式')
+            ->assertSee('软件配置')
+            ->assertSee('用户管理')
+            ->assertSee('充值卡列表')
+            ->assertSee('卡串类型')
+            ->assertSee('现卡制作');
+
+        $this->get('/private-console/applications/'.$application->public_id.'/users')
+            ->assertOk()
+            ->assertSee('卡串用户')
+            ->assertDontSee('用户分组');
+
+        $this->get('/private-console/applications/'.$application->public_id.'/cards/make')
+            ->assertOk()
+            ->assertSee('请先添加充值卡类型')
+            ->assertDontSee('确认制作');
+
+        $this->get('/private-console/cards?application='.$application->getKey())
+            ->assertOk()
+            ->assertSee('新建充值卡类型')
+            ->assertSee('代号 '.$application->code)
+            ->assertDontSee('用户分组')
+            ->assertDontSee('卡类图片');
 
         $this->get('/private-console/applications/'.$application->public_id.'/edit')
             ->assertOk()
@@ -167,6 +188,12 @@ class ApplicationManagementTest extends TestCase
             ->assertOk()
             ->assertSee('login.lg')
             ->assertSee('账户模式固定使用 .lg');
+        $this->get('/private-console/applications/'.$accountApplication->public_id.'/users')
+            ->assertOk()
+            ->assertSee('账户用户')
+            ->assertSee('余额')
+            ->assertSee('点数')
+            ->assertDontSee('用户分组');
     }
 
     private function administrator(): Administrator

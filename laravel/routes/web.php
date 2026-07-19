@@ -3,6 +3,7 @@
 use App\Auth\AdminPermission;
 use App\Http\Controllers\AdminAdministratorController;
 use App\Http\Controllers\AdminApplicationController;
+use App\Http\Controllers\AdminApplicationUserController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminCardController;
 use App\Http\Controllers\AdminDashboardController;
@@ -70,6 +71,12 @@ Route::prefix('{adminPath}')
             Route::get('/applications/{application}/edit', [AdminApplicationController::class, 'edit'])
                 ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
                 ->name('admin.applications.edit');
+            Route::get('/applications/{application}/users', [AdminApplicationUserController::class, 'index'])
+                ->middleware('can:'.AdminPermission::ApplicationsView->value)
+                ->name('admin.applications.users.index');
+            Route::get('/applications/{application}/cards/make', [AdminCardController::class, 'make'])
+                ->middleware('can:'.AdminPermission::BatchesCreate->value)
+                ->name('admin.applications.cards.make');
             Route::put('/applications/{application}', [AdminApplicationController::class, 'update'])
                 ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
                 ->name('admin.applications.update');

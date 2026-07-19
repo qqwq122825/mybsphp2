@@ -33,6 +33,8 @@ final class AdminApplicationController extends Controller
                 'cardTypes',
                 'cards',
                 'cards as activated_cards_count' => fn ($query) => $query->whereNotNull('activated_at'),
+                'cards as card_users_count' => fn ($query) => $query->where('status', '!=', 'inventory'),
+                'accounts',
             ])
             ->latest()
             ->paginate(20);

@@ -32,26 +32,68 @@ final class AdminCardController extends Controller
 
     public function index(Request $request, string $adminPath): View
     {
+        $applicationFilter = $request->filled('application')
+            ? Application::query()->find($request->integer('application'))
+            : null;
         $query = Card::query()->with(['application', 'cardType', 'batch'])->latest();
-        if ($request->filled('application')) {
-            $query->where('application_id', $request->integer('application'));
+        if ($applicationFilter instanceof Application) {
+            $query->where('application_id', $applicationFilter->getKey());
         }
         if ($request->filled('status')) {
             $query->where('status', (string) $request->input('status'));
         }
 
+        $metricQuery = Card::query();
+        if ($applicationFilter instanceof Application) {
+            $metricQuery->where('application_id', $applicationFilter->getKey());
+        }
+
+        $cardTypes = CardType::query()
+            ->with('application')
+            ->when(
+                $applicationFilter instanceof Application,
+                fn ($builder) => $builder->where('application_id', $applicationFilter->getKey()),
+            )
+            ->orderBy('name')
+            ->get();
+
         return view('admin.cards.index', [
             ...$this->layout($adminPath),
             'cards' => $query->paginate(30)->withQueryString(),
             'applications' => Application::query()->orderBy('name')->get(),
-            'cardTypes' => CardType::query()->with('application')->orderBy('name')->get(),
-            'batches' => CardBatch::query()->with('cardType.application')->latest()->limit(20)->get(),
+            'applicationFilter' => $applicationFilter,
+            'cardTypes' => $cardTypes,
+            'batches' => CardBatch::query()
+                ->with('cardType.application')
+                ->when(
+                    $applicationFilter instanceof Application,
+                    fn ($builder) => $builder->whereHas(
+                        'cardType',
+                        fn ($cardTypeQuery) => $cardTypeQuery->where('application_id', $applicationFilter->getKey()),
+                    ),
+                )
+                ->latest()
+                ->limit(20)
+                ->get(),
             'metrics' => [
-                'total' => Card::query()->count(),
-                'inventory' => Card::query()->where('status', 'inventory')->count(),
-                'issued' => Card::query()->where('status', 'issued')->count(),
-                'active' => Card::query()->where('status', 'active')->count(),
+                'total' => (clone $metricQuery)->count(),
+                'inventory' => (clone $metricQuery)->where('status', 'inventory')->count(),
+                'issued' => (clone $metricQuery)->where('status', 'issued')->count(),
+                'active' => (clone $metricQuery)->where('status', 'active')->count(),
             ],
+            'generatedCards' => session('generated_cards', []),
+        ]);
+    }
+
+    public function make(string $adminPath, Application $application): View
+    {
+        return view('admin.cards.make', [
+            ...$this->layout($adminPath),
+            'application' => $application,
+            'cardTypes' => $application->cardTypes()
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get(),
             'generatedCards' => session('generated_cards', []),
         ]);
     }
@@ -67,6 +109,7 @@ final class AdminCardController extends Controller
             'points_amount' => ['nullable', 'integer', 'min:1', 'max:1000000000'],
             'fixed_expires_at' => ['nullable', 'date', 'after:now'],
             'face_price' => ['nullable', 'numeric', 'min:0', 'max:999999'],
+            'agent_price' => ['nullable', 'numeric', 'min:0', 'max:999999'],
             'code_prefix' => ['required', 'string', 'min:1', 'max:8', 'regex:/^[A-Za-z0-9]+$/'],
             'code_length' => ['required', 'integer', 'min:16', 'max:40'],
             'secret_length' => ['required', 'integer', 'min:6', 'max:24'],
@@ -102,7 +145,7 @@ final class AdminCardController extends Controller
             'points_amount' => $points,
             'fixed_expires_at' => $fixed,
             'face_price_cents' => (int) round(((float) ($validated['face_price'] ?? 0)) * 100),
-            'default_agent_price_cents' => 0,
+            'default_agent_price_cents' => (int) round(((float) ($validated['agent_price'] ?? 0)) * 100),
             'code_prefix' => strtoupper($validated['code_prefix']),
             'code_length' => $validated['code_length'],
             'secret_length' => $validated['secret_length'],
@@ -120,8 +163,11 @@ final class AdminCardController extends Controller
         ), $request);
 
         return redirect()
-            ->route('admin.cards.index', ['adminPath' => $adminPath])
-            ->with('success', '卡种创建成功。');
+            ->to(route('admin.cards.index', [
+                'adminPath' => $adminPath,
+                'application' => $application->getKey(),
+            ]).'#card-types')
+            ->with('success', '充值卡类型创建成功。');
     }
 
     public function generateBatch(Request $request, string $adminPath): RedirectResponse
@@ -157,7 +203,10 @@ final class AdminCardController extends Controller
         ), $request);
 
         return redirect()
-            ->route('admin.cards.index', ['adminPath' => $adminPath])
+            ->route('admin.applications.cards.make', [
+                'adminPath' => $adminPath,
+                'application' => $cardType->application,
+            ])
             ->with('success', '卡密批次生成成功，明文仅在本次页面展示。')
             ->with('generated_cards', $result['credentials']);
     }
