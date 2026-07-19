@@ -85,15 +85,23 @@ final class CardGenerationService
         $alphabet = is_string($alphabetValue) && $alphabetValue !== ''
             ? $alphabetValue
             : self::DEFAULT_ALPHABET;
-        $prefix = strtoupper($cardType->code_prefix);
-        $bodyLength = max(8, $cardType->code_length - strlen($prefix));
+        $secretAlphabetValue = $cardType->getAttribute('secret_alphabet');
+        $secretAlphabet = is_string($secretAlphabetValue) && $secretAlphabetValue !== ''
+            ? $secretAlphabetValue
+            : $alphabet;
+        $prefix = (string) $cardType->code_prefix;
+        $bodyLength = $cardType->code_length - strlen($prefix);
+
+        if ($bodyLength < 8) {
+            throw new InvalidArgumentException('卡号长度至少需要比开头字符多 8 位。');
+        }
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
             $code = $prefix.$this->randomFromAlphabet($alphabet, $bodyLength);
             if (! Card::query()->where('code_lookup_hash', $this->hasher->lookupHash($code))->exists()) {
                 return [
                     $code,
-                    $this->randomFromAlphabet($alphabet, $cardType->secret_length),
+                    $this->randomFromAlphabet($secretAlphabet, $cardType->secret_length),
                 ];
             }
         }
@@ -106,8 +114,8 @@ final class CardGenerationService
         $output = '';
         $lastIndex = strlen($alphabet) - 1;
 
-        if ($lastIndex < 15) {
-            throw new InvalidArgumentException('卡密字符集至少需要 16 个不同字符。');
+        if ($lastIndex < 9) {
+            throw new InvalidArgumentException('卡密字符集至少需要 10 个不同字符。');
         }
 
         for ($index = 0; $index < $length; $index++) {

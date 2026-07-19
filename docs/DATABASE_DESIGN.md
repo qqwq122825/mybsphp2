@@ -302,12 +302,13 @@ Legacy 成功基线必须固定：
 
 旧版“卡类/商品”的统一模型：
 
-- `public_id`、`application_id`、`name`、`code`。
+- `public_id`、`application_id`、`name`、内部自动生成的 `code`、`note`、`sort_order`。
 - `purpose`：`login_credential | account_recharge`。
 - `benefit_kind`：`duration | points | fixed_expiry`。
-- `duration_seconds`、`points_amount`、`fixed_expires_at` 三选一。
-- `face_price_cents`、`default_agent_price_cents`。
-- `code_prefix`、`code_length`、`secret_length`、`alphabet`。
+- `duration_seconds` 是统一计算值；`duration_value`、`duration_unit` 保存后台输入值和单位。
+- `face_price_cents`、`default_agent_price_cents` 支持 `-100` 表示前台隐藏；`balance_recharge_cents` 支持有符号余额变化。
+- `code_prefix`、`code_length`、`code_charset`、`alphabet` 定义卡号；`secret_length` 可为 0，密码使用独立的 `secret_charset`、`secret_alphabet`。
+- `account_concurrency_limit`、`machine_concurrency_limit`：`0` 继承软件限开控制，`-1` 关闭当前类型的对应限制。
 - `status`：`draft | active | disabled`。
 - `max_activations`（首版登录卡为 1）、`deleted_at`。
 
@@ -317,7 +318,7 @@ Legacy 成功基线必须固定：
 - `purpose` 必须与应用模式兼容：
   - `card_login` → `login_credential`。
   - `account_recharge` → `account_recharge`。
-- `benefit_kind` 对应的值必须且只能有一个大于零；由 `CHECK` +领域校验共同保证。
+- 当前后台按 BSPHP 时长卡表单创建 `benefit_kind=duration`；底层继续保留点数和固定到期字段供后续模式扩展。
 - 价格按分保存；首版无线上收款，但用于代理提卡扣款和统计。
 
 ### 7.2 `card_batches`

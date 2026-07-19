@@ -14,7 +14,7 @@ final class CardActivationController extends Controller
     {
         $validated = $request->validate([
             'code' => ['required', 'string', 'min:8', 'max:64'],
-            'secret' => ['required', 'string', 'min:4', 'max:64'],
+            'secret' => ['nullable', 'string', 'max:64'],
             'device_id' => ['nullable', 'string', 'max:160'],
             'appsafecode' => ['nullable', 'string', 'max:255'],
         ]);
@@ -22,7 +22,7 @@ final class CardActivationController extends Controller
         try {
             $result = $activation->activate(
                 $validated['code'],
-                $validated['secret'],
+                $validated['secret'] ?? '',
                 $validated['device_id'] ?? '',
                 $validated['appsafecode'] ?? '',
             );

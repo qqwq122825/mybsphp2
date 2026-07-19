@@ -185,6 +185,8 @@ W0-0
 | W4-7 | DONE | `arr[2]` 真实值、空值、诱饵值配置 | Contract |
 | W4-8 | DONE | 每日签名和响应档案 | Unit |
 | W4-9 | PARTIAL | 应用级设备绑定和并发设置 | 设备绑定完成，会话并发在 W6-6 实现 |
+| W4-10～16 | DONE | BSPHP 软件管理、工作标签及单卡片类型工作区 | Feature + Browser |
+| W4-17 | DONE | BSPHP 充值卡类型字段、内部代号和字符规则 | Migration + Feature + Browser |
 
 ## 9. 阶段 W5：卡种、批次与手动发卡
 

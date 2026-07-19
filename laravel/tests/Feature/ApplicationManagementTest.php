@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Auth\SystemAccessSynchronizer;
+use App\Cards\CardGenerationService;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
+use App\Models\CardType;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -133,7 +135,55 @@ class ApplicationManagementTest extends TestCase
             ->assertDontSee('全部卡密')
             ->assertDontSee('累计生成')
             ->assertDontSee('用户分组')
-            ->assertDontSee('卡类图片');
+            ->assertDontSee('卡类图片')
+            ->assertDontSee('类型代号')
+            ->assertSee('充值卡别名')
+            ->assertSee('开头字符')
+            ->assertSee('余额充值')
+            ->assertSee('卡号字符类型')
+            ->assertSee('密码字符类型')
+            ->assertSee('账号同时在线数')
+            ->assertSee('机器同时使用量')
+            ->assertSee('value="25"', false)
+            ->assertSee('value="0"', false);
+
+        $this->post('/private-console/card-types', [
+            'application_id' => $application->getKey(),
+            'name' => '贵宾年卡',
+            'code_prefix' => 'jGG',
+            'note' => '内部测试类型',
+            'sort_order' => 20,
+            'duration_value' => 1,
+            'duration_unit' => 'year',
+            'face_price' => -1,
+            'agent_price' => 88.5,
+            'balance_recharge' => -5,
+            'code_length' => 35,
+            'code_charset' => 'mixed',
+            'secret_length' => 0,
+            'secret_charset' => 'digits',
+            'account_concurrency_limit' => 0,
+            'machine_concurrency_limit' => -1,
+        ])->assertRedirect('/private-console/applications/'.$application->public_id.'/card-types');
+
+        $cardType = CardType::query()->where('application_id', $application->getKey())->sole();
+        $this->assertMatchesRegularExpression('/^ct_[0-9a-z]{12}$/', $cardType->code);
+        $this->assertSame('jGG', $cardType->code_prefix);
+        $this->assertSame(20, $cardType->sort_order);
+        $this->assertSame(1, $cardType->duration_value);
+        $this->assertSame('year', $cardType->duration_unit);
+        $this->assertSame(31536000, $cardType->duration_seconds);
+        $this->assertSame(-100, $cardType->face_price_cents);
+        $this->assertSame(8850, $cardType->default_agent_price_cents);
+        $this->assertSame(-500, $cardType->balance_recharge_cents);
+        $this->assertSame(35, $cardType->code_length);
+        $this->assertSame(0, $cardType->secret_length);
+        $this->assertSame(-1, $cardType->machine_concurrency_limit);
+
+        $generated = app(CardGenerationService::class)->generate($cardType, 1, $administrator, '零密码类型测试');
+        $this->assertSame(35, strlen($generated['credentials'][0]['code']));
+        $this->assertStringStartsWith('jGG', $generated['credentials'][0]['code']);
+        $this->assertSame('', $generated['credentials'][0]['secret']);
 
         $this->get('/private-console/applications/'.$application->public_id.'/edit')
             ->assertOk()

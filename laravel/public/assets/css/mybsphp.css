@@ -2716,7 +2716,8 @@ button.workspace-tab {
 
 .card-type-form-row > input,
 .card-type-form-row > select,
-.inline-unit-input input {
+.inline-unit-input input,
+.inline-unit-input select {
     width: 100%;
     height: 46px;
     border: 1px solid #d7deeb;
@@ -2729,7 +2730,8 @@ button.workspace-tab {
 
 .card-type-form-row > input:focus,
 .card-type-form-row > select:focus,
-.inline-unit-input input:focus {
+.inline-unit-input input:focus,
+.inline-unit-input select:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 4px rgba(56, 103, 232, .1);
 }
@@ -2756,15 +2758,17 @@ button.workspace-tab {
     border-radius: 10px 0 0 10px;
 }
 
-.inline-unit-input span {
-    display: grid;
-    place-items: center;
+.inline-unit-input select {
+    width: 100%;
+    height: 46px;
     border: 1px solid #d7deeb;
     border-left: 0;
     border-radius: 0 10px 10px 0;
+    padding: 0 10px;
     color: #65718b;
     background: #f6f8fc;
     font-size: 13px;
+    outline: 0;
 }
 
 .embedded-submit-bar {

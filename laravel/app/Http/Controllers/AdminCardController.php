@@ -23,6 +23,16 @@ use RuntimeException;
 
 final class AdminCardController extends Controller
 {
+    /** @var array<string, string> */
+    private const CARD_ALPHABETS = [
+        'mixed' => '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
+        'digits' => '0123456789',
+        'uppercase' => 'ABCDEFGHJKLMNPQRSTUVWXYZ',
+        'lowercase' => 'abcdefghijkmnopqrstuvwxyz',
+        'digits_uppercase' => '23456789ABCDEFGHJKLMNPQRSTUVWXYZ',
+        'digits_lowercase' => '23456789abcdefghijkmnopqrstuvwxyz',
+    ];
+
     public function __construct(
         private readonly InstallationManager $installation,
         private readonly CardGenerationService $generator,
@@ -105,6 +115,7 @@ final class AdminCardController extends Controller
             'application' => $application,
             'cardTypes' => $application->cardTypes()
                 ->withCount('cards')
+                ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get(),
         ]);
@@ -114,53 +125,61 @@ final class AdminCardController extends Controller
     {
         $validated = $request->validate([
             'application_id' => ['required', 'integer', 'exists:applications,id'],
-            'name' => ['required', 'string', 'min:2', 'max:100'],
-            'code' => ['required', 'string', 'max:40', 'regex:/^[A-Za-z][A-Za-z0-9_-]+$/'],
-            'benefit_kind' => ['required', Rule::in(['duration', 'points', 'fixed_expiry'])],
-            'duration_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
-            'points_amount' => ['nullable', 'integer', 'min:1', 'max:1000000000'],
-            'fixed_expires_at' => ['nullable', 'date', 'after:now'],
-            'face_price' => ['nullable', 'numeric', 'min:0', 'max:999999'],
-            'agent_price' => ['nullable', 'numeric', 'min:0', 'max:999999'],
-            'code_prefix' => ['required', 'string', 'min:1', 'max:8', 'regex:/^[A-Za-z0-9]+$/'],
-            'code_length' => ['required', 'integer', 'min:16', 'max:40'],
-            'secret_length' => ['required', 'integer', 'min:6', 'max:24'],
+            'name' => ['required', 'string', 'min:1', 'max:100'],
+            'code_prefix' => ['nullable', 'string', 'max:10', 'regex:/^[A-Za-z0-9]+$/'],
+            'note' => ['nullable', 'string', 'max:500'],
+            'sort_order' => ['required', 'integer', 'min:0', 'max:4294967295'],
+            'duration_value' => ['required', 'integer', 'min:1', 'max:315360000'],
+            'duration_unit' => ['required', Rule::in(['minute', 'hour', 'day', 'month', 'year'])],
+            'face_price' => ['required', 'numeric', 'min:-1', 'max:999999'],
+            'agent_price' => ['required', 'numeric', 'min:-1', 'max:999999'],
+            'balance_recharge' => ['required', 'numeric', 'min:-999999', 'max:999999'],
+            'code_length' => ['required', 'integer', 'min:10', 'max:64'],
+            'code_charset' => ['required', Rule::in(array_keys(self::CARD_ALPHABETS))],
+            'secret_length' => ['required', 'integer', 'min:0', 'max:64'],
+            'secret_charset' => ['required', Rule::in(array_keys(self::CARD_ALPHABETS))],
+            'account_concurrency_limit' => ['required', 'integer', 'min:-1', 'max:32767'],
+            'machine_concurrency_limit' => ['required', 'integer', 'min:-1', 'max:32767'],
         ]);
         $application = Application::query()->findOrFail($validated['application_id']);
 
-        $durationSeconds = $validated['benefit_kind'] === 'duration'
-            ? ((int) ($validated['duration_days'] ?? 0)) * 86400
-            : null;
-        $points = $validated['benefit_kind'] === 'points'
-            ? (int) ($validated['points_amount'] ?? 0)
-            : null;
-        $fixed = $validated['benefit_kind'] === 'fixed_expiry'
-            ? $validated['fixed_expires_at']
-            : null;
-
-        if (
-            ($validated['benefit_kind'] === 'duration' && $durationSeconds < 1)
-            || ($validated['benefit_kind'] === 'points' && $points < 1)
-            || ($validated['benefit_kind'] === 'fixed_expiry' && $fixed === null)
-        ) {
-            return back()->withErrors(['benefit_kind' => '请填写当前权益类型对应的有效值。'])->withInput();
+        $codePrefix = (string) ($validated['code_prefix'] ?? '');
+        if ((int) $validated['code_length'] - strlen($codePrefix) < 8) {
+            return back()->withErrors(['code_length' => '卡号长度至少需要比开头字符多 8 位。'])->withInput();
         }
 
+        $durationSeconds = $this->durationSeconds(
+            (int) $validated['duration_value'],
+            $validated['duration_unit'],
+        );
+        $publicId = (string) Str::ulid();
+
         $cardType = CardType::query()->create([
-            'public_id' => (string) Str::ulid(),
+            'public_id' => $publicId,
             'application_id' => $application->getKey(),
             'name' => $validated['name'],
-            'code' => strtolower($validated['code']),
+            'code' => 'ct_'.strtolower(substr($publicId, -12)),
+            'note' => $validated['note'] ?? null,
+            'sort_order' => (int) $validated['sort_order'],
             'purpose' => $application->mode === 'card_login' ? 'login_credential' : 'account_recharge',
-            'benefit_kind' => $validated['benefit_kind'],
+            'benefit_kind' => 'duration',
             'duration_seconds' => $durationSeconds,
-            'points_amount' => $points,
-            'fixed_expires_at' => $fixed,
-            'face_price_cents' => (int) round(((float) ($validated['face_price'] ?? 0)) * 100),
-            'default_agent_price_cents' => (int) round(((float) ($validated['agent_price'] ?? 0)) * 100),
-            'code_prefix' => strtoupper($validated['code_prefix']),
-            'code_length' => $validated['code_length'],
-            'secret_length' => $validated['secret_length'],
+            'duration_value' => (int) $validated['duration_value'],
+            'duration_unit' => $validated['duration_unit'],
+            'points_amount' => null,
+            'fixed_expires_at' => null,
+            'face_price_cents' => (int) round(((float) $validated['face_price']) * 100),
+            'default_agent_price_cents' => (int) round(((float) $validated['agent_price']) * 100),
+            'balance_recharge_cents' => (int) round(((float) $validated['balance_recharge']) * 100),
+            'code_prefix' => $codePrefix,
+            'code_length' => (int) $validated['code_length'],
+            'code_charset' => $validated['code_charset'],
+            'alphabet' => self::CARD_ALPHABETS[$validated['code_charset']],
+            'secret_length' => (int) $validated['secret_length'],
+            'secret_charset' => $validated['secret_charset'],
+            'secret_alphabet' => self::CARD_ALPHABETS[$validated['secret_charset']],
+            'account_concurrency_limit' => (int) $validated['account_concurrency_limit'],
+            'machine_concurrency_limit' => (int) $validated['machine_concurrency_limit'],
             'status' => 'active',
             'max_activations' => 1,
         ]);
@@ -170,7 +189,14 @@ final class AdminCardController extends Controller
             targetType: 'card_type',
             targetId: (string) $cardType->public_id,
             applicationId: (int) $application->getKey(),
-            after: $cardType->only(['name', 'code', 'purpose', 'benefit_kind']),
+            after: $cardType->only([
+                'name',
+                'code',
+                'purpose',
+                'duration_seconds',
+                'code_length',
+                'secret_length',
+            ]),
             actorRole: $this->administrator()->role,
         ), $request);
 
@@ -308,5 +334,19 @@ final class AdminCardController extends Controller
         abort_unless($administrator instanceof Administrator, 401);
 
         return $administrator;
+    }
+
+    private function durationSeconds(int $value, string $unit): int
+    {
+        $multiplier = match ($unit) {
+            'minute' => 60,
+            'hour' => 3600,
+            'day' => 86400,
+            'month' => 2592000,
+            'year' => 31536000,
+            default => throw new RuntimeException('充值卡期限单位配置错误。'),
+        };
+
+        return $value * $multiplier;
     }
 }
