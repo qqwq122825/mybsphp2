@@ -1749,8 +1749,41 @@ button {
 
 .software-config-form {
     display: grid;
-    gap: 16px;
-    margin-top: 16px;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid #e1e6ef;
+    border-radius: 15px;
+    background: #fff;
+    box-shadow: 0 12px 34px rgba(29, 45, 81, .07);
+}
+
+.software-settings-heading {
+    min-height: 82px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 17px 24px;
+    border-bottom: 1px solid #e8ebf1;
+}
+
+.software-settings-heading span {
+    color: #4974d8;
+    font-size: 9px;
+    font-weight: 850;
+    letter-spacing: .1em;
+}
+
+.software-settings-heading h1 {
+    margin: 3px 0 0;
+    color: #222d45;
+    font-size: 19px;
+}
+
+.software-settings-heading p {
+    margin: 4px 0 0;
+    color: #9099ab;
+    font-size: 10px;
 }
 
 .software-config-tabs {
@@ -1758,31 +1791,24 @@ button {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     overflow: hidden;
-    border: 1px solid #e0e5ef;
-    border-radius: 13px;
+    padding: 0 22px;
+    border-bottom: 1px solid #e6eaf1;
     background: #fff;
-    box-shadow: 0 9px 25px rgba(31, 48, 85, .05);
 }
 
 .software-config-tabs button {
     position: relative;
     min-width: 0;
-    display: grid;
-    grid-template-columns: 28px minmax(0, 1fr);
-    grid-template-rows: auto auto;
+    min-height: 48px;
+    display: flex;
     align-items: center;
-    column-gap: 11px;
-    padding: 17px 19px;
+    justify-content: center;
+    padding: 10px 18px;
     border: 0;
-    border-right: 1px solid #e9edf4;
     color: #5a657b;
     background: #fff;
-    text-align: left;
+    text-align: center;
     cursor: pointer;
-}
-
-.software-config-tabs button:last-child {
-    border-right: 0;
 }
 
 .software-config-tabs button::after {
@@ -1796,16 +1822,7 @@ button {
 }
 
 .software-config-tabs button > span {
-    grid-row: 1 / 3;
-    width: 28px;
-    height: 28px;
-    display: grid;
-    place-items: center;
-    border-radius: 8px;
-    color: #73809a;
-    background: #eef2f8;
-    font-size: 9px;
-    font-weight: 850;
+    display: none;
 }
 
 .software-config-tabs button > strong,
@@ -1816,13 +1833,11 @@ button {
 }
 
 .software-config-tabs button > strong {
-    font-size: 13px;
+    font-size: 12px;
 }
 
 .software-config-tabs button > small {
-    margin-top: 3px;
-    color: #99a2b3;
-    font-size: 9px;
+    display: none;
 }
 
 .software-config-tabs button:hover,
@@ -1835,17 +1850,68 @@ button {
     background: #3479ec;
 }
 
-.software-config-tabs button.is-active > span {
-    color: #fff;
-    background: #3479ec;
-}
-
 .software-config-panel[hidden] {
     display: none;
 }
 
 .software-config-panel {
+    gap: 0;
     margin-top: 0;
+    padding: 0 22px;
+}
+
+.software-config-panel .dashboard-panel {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.software-config-panel .dashboard-panel + .dashboard-panel {
+    border-top: 1px solid #e9ecf2;
+}
+
+.software-config-panel .dashboard-panel > header {
+    display: none;
+}
+
+.software-config-panel .dashboard-panel > header span {
+    font-size: 8px;
+}
+
+.software-config-panel .dashboard-panel > header h2 {
+    margin-top: 3px;
+    font-size: 15px;
+}
+
+.software-config-panel .dashboard-panel > header em {
+    font-size: 9px;
+}
+
+.software-config-panel .panel-body {
+    padding: 13px 0 18px;
+}
+
+.software-config-panel .stack-form {
+    gap: 11px;
+}
+
+.software-config-panel .field input,
+.software-config-panel .field select {
+    height: 40px;
+    min-height: 40px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+}
+
+.software-config-form > .form-submit-bar {
+    margin: 0;
+    padding: 12px 22px;
+    border: 0;
+    border-top: 1px solid #e6eaf1;
+    border-radius: 0;
+    background: #fbfcfe;
+    box-shadow: none;
 }
 
 .form-panel-wide,
@@ -2075,7 +2141,7 @@ button {
 }
 
 .verification-data-field textarea {
-    min-height: 190px;
+    min-height: 132px;
     resize: vertical;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     line-height: 1.65;
@@ -2088,18 +2154,29 @@ button {
 }
 
 .communication-panel .panel-body {
-    gap: 12px;
+    gap: 0;
 }
 
 .connection-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 18px;
-    padding: 13px 15px;
+    gap: 14px;
+    min-height: 53px;
+    margin-top: -1px;
+    padding: 8px 12px;
     border: 1px solid #e6eaf2;
-    border-radius: 11px;
+    border-radius: 0;
     background: #fbfcfe;
+}
+
+.communication-panel .connection-row:first-child {
+    margin-top: 0;
+    border-radius: 9px 9px 0 0;
+}
+
+.communication-panel .connection-row:nth-child(3) {
+    border-radius: 0 0 9px 9px;
 }
 
 .connection-row > div {
@@ -2113,7 +2190,7 @@ button {
 }
 
 .connection-row span {
-    margin-bottom: 5px;
+    margin-bottom: 3px;
     color: #8c96aa;
     font-size: 9px;
     font-weight: 760;
@@ -2133,7 +2210,7 @@ button {
     flex: 0 0 auto;
     border: 1px solid #cfd9ec;
     border-radius: 8px;
-    padding: 7px 11px;
+    padding: 6px 10px;
     color: #3564bf;
     background: #fff;
     font-size: 10px;
@@ -2142,14 +2219,14 @@ button {
 }
 
 .encryption-mode-field {
-    margin-top: 5px;
+    margin-top: 10px;
 }
 
 .encryption-mode-value {
     display: block;
     border: 1px solid #dce3ef;
     border-radius: 10px;
-    padding: 12px 14px;
+    padding: 10px 12px;
     background: #f8faff;
     color: #33415d;
     font-size: 12px;
@@ -2162,8 +2239,71 @@ button {
     gap: 13px;
 }
 
+.certificate-panel {
+    margin-top: 11px;
+    border: 1px solid #e2e7f0;
+    border-radius: 9px;
+    background: #fbfcfe;
+}
+
+.certificate-panel summary {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 8px 12px;
+    color: #46536d;
+    cursor: pointer;
+    list-style: none;
+}
+
+.certificate-panel summary::-webkit-details-marker {
+    display: none;
+}
+
+.certificate-panel summary span,
+.certificate-panel summary strong,
+.certificate-panel summary small {
+    display: block;
+}
+
+.certificate-panel summary strong {
+    font-size: 11px;
+}
+
+.certificate-panel summary small {
+    margin-top: 3px;
+    color: #939caf;
+    font-size: 9px;
+}
+
+.certificate-panel summary i {
+    color: #5680d4;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 750;
+}
+
+.certificate-panel[open] summary {
+    border-bottom: 1px solid #e4e9f1;
+}
+
+.certificate-panel[open] summary i {
+    font-size: 0;
+}
+
+.certificate-panel[open] summary i::after {
+    font-size: 9px;
+    content: "收起";
+}
+
+.certificate-panel .certificate-grid {
+    padding: 13px;
+}
+
 .certificate-grid textarea {
-    min-height: 160px;
+    min-height: 132px;
     resize: vertical;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 10px;
@@ -2178,7 +2318,8 @@ button {
 .legacy-key-panel {
     border: 1px solid #e2e7f0;
     border-radius: 11px;
-    padding: 13px 15px;
+    margin-top: 9px;
+    padding: 10px 12px;
     background: #f8faff;
 }
 

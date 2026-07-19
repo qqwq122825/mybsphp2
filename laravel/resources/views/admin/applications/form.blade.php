@@ -6,14 +6,16 @@
 @section('title', $editing ? '软件配置' : '添加新软件')
 
 @section('content')
-    <header class="page-heading page-heading-actions">
-        <div>
-            <p class="eyebrow">{{ $editing ? 'SOFTWARE SETTINGS' : 'NEW SOFTWARE' }}</p>
-            <h1>{{ $editing ? '软件配置' : '添加新软件' }}</h1>
-            <p>{{ $editing ? '验证数据会直接作为客户端返回数组的 a[2]。' : '先建立软件，其他参数在创建完成后进入配置页设置。' }}</p>
-        </div>
-        <a class="button button-secondary" href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">返回列表</a>
-    </header>
+    @if (! $editing)
+        <header class="page-heading page-heading-actions">
+            <div>
+                <p class="eyebrow">NEW SOFTWARE</p>
+                <h1>添加新软件</h1>
+                <p>先建立软件，其他参数在创建完成后进入配置页设置。</p>
+            </div>
+            <a class="button button-secondary" href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">返回列表</a>
+        </header>
+    @endif
 
     @if (! $editing)
         <form class="admin-form-grid software-create-grid" method="post"
@@ -80,6 +82,15 @@
             @csrf
             @method('PUT')
 
+            <header class="software-settings-heading">
+                <div>
+                    <span>SOFTWARE SETTINGS</span>
+                    <h1>软件配置</h1>
+                    <p>软件代号 {{ $application->code }}，验证数据将作为客户端返回数组的 a[2]。</p>
+                </div>
+                <a class="button button-secondary" href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">返回列表</a>
+            </header>
+
             <nav class="software-config-tabs" role="tablist" aria-label="软件配置分类">
                 <button type="button" role="tab" data-config-tab="basic" aria-controls="software-panel-basic">
                     <span>01</span><strong>基本配置</strong><small>名称、状态和验证数据</small>
@@ -117,18 +128,21 @@
                         <small>新客户端使用服务器公钥封装临时会话密钥，再用 AES-CBC + HMAC 加密并校验请求和响应；可直接使用 iOS Security.framework 与 CommonCrypto。</small>
                     </div>
 
-                    <div class="certificate-grid">
-                        <label class="field">
-                            <span>服务器公钥 <small>复制到客户端</small></span>
-                            <textarea rows="7" readonly>{{ $application->server_public_key }}</textarea>
-                            <button class="inline-copy-button" type="button" data-copy="{{ $application->server_public_key }}">复制服务器公钥</button>
-                        </label>
-                        <label class="field">
-                            <span>Objective-C 配置宏</span>
-                            <textarea rows="7" readonly>{{ $objectiveCMacros }}</textarea>
-                            <button class="inline-copy-button" type="button" data-copy="{{ $objectiveCMacros }}">复制客户端配置</button>
-                        </label>
-                    </div>
+                    <details class="certificate-panel">
+                        <summary><span><strong>证书与客户端配置</strong><small>服务器公钥、Objective-C 配置宏</small></span><i>展开</i></summary>
+                        <div class="certificate-grid">
+                            <label class="field">
+                                <span>服务器公钥 <small>复制到客户端</small></span>
+                                <textarea rows="6" readonly>{{ $application->server_public_key }}</textarea>
+                                <button class="inline-copy-button" type="button" data-copy="{{ $application->server_public_key }}">复制服务器公钥</button>
+                            </label>
+                            <label class="field">
+                                <span>Objective-C 配置宏</span>
+                                <textarea rows="6" readonly>{{ $objectiveCMacros }}</textarea>
+                                <button class="inline-copy-button" type="button" data-copy="{{ $objectiveCMacros }}">复制客户端配置</button>
+                            </label>
+                        </div>
+                    </details>
 
                     <details class="legacy-key-panel">
                         <summary>查看旧版数据包兼容密钥</summary>
