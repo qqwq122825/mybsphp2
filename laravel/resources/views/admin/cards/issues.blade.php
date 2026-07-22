@@ -61,7 +61,7 @@
         @if($issues->isEmpty())
             <div class="empty-activity"><b>↗</b><strong>暂无发卡记录</strong><p>创建第一笔线下发卡单。</p></div>
         @else
-            <div class="table-scroll">
+            <x-admin.table-frame frame-class="card-issue-table-component">
                 <table class="data-table">
                     <thead><tr><th>发卡单</th><th>应用</th><th>接收人</th><th>数量</th><th>状态</th><th>时间</th><th>备注</th></tr></thead>
                     <tbody>
@@ -78,7 +78,8 @@
                     @endforeach
                     </tbody>
                 </table>
-            </div>
+                <x-slot:footer><span>共 {{ $issues->total() }} 条发卡记录</span></x-slot:footer>
+            </x-admin.table-frame>
         @endif
     </section>
 @endsection

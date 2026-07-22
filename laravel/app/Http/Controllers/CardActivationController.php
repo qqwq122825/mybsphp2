@@ -17,6 +17,7 @@ final class CardActivationController extends Controller
             'secret' => ['nullable', 'string', 'max:64'],
             'device_id' => ['nullable', 'string', 'max:160'],
             'appsafecode' => ['nullable', 'string', 'max:255'],
+            'BSphpSeSsL' => ['nullable', 'string', 'size:64'],
         ]);
 
         try {
@@ -25,6 +26,7 @@ final class CardActivationController extends Controller
                 $validated['secret'] ?? '',
                 $validated['device_id'] ?? '',
                 $validated['appsafecode'] ?? '',
+                $validated['BSphpSeSsL'] ?? '',
             );
         } catch (CardActivationException $exception) {
             return ApiResponse::error(

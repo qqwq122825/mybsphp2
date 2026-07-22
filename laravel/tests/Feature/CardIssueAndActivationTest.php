@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Applications\ApplicationCredentialService;
 use App\Applications\HybridPacketCipher;
+use App\Applications\DailyVerificationCodec;
 use App\Cards\CardCredentialHasher;
 use App\Cards\CardGenerationService;
 use App\Cards\ManualIssueService;
@@ -72,9 +73,11 @@ class CardIssueAndActivationTest extends TestCase
         $fields = explode('|', $legacy);
         $this->assertSame('01', $fields[0]);
         $this->assertSame('xx', $fields[1]);
-        $this->assertSame('0x100000', $fields[2]);
+        $this->assertMatchesRegularExpression('/^[0-9A-F]{10}$/', $fields[2]);
+        $this->assertSame(0x100000, app(DailyVerificationCodec::class)->decryptUInt32($fields[2]));
         $this->assertSame('SAFE-123', $fields[3]);
-        $this->assertSame(10, strlen($fields[4]));
+        $this->assertSame(8, strlen($fields[4]));
+        $this->assertSame(app(DailyVerificationCodec::class)->dailySignature(), $fields[4]);
         $this->assertSame('IOS-DEVICE-001', $fields[8]);
 
         $cipher = app(HybridPacketCipher::class);
@@ -97,9 +100,44 @@ class CardIssueAndActivationTest extends TestCase
         );
         $gatewayFields = explode('|', $gatewayPlaintext);
         $this->assertSame('01', $gatewayFields[0]);
-        $this->assertSame('0x100000', $gatewayFields[2]);
+        $this->assertSame(0x100000, app(DailyVerificationCodec::class)->decryptUInt32($gatewayFields[2]));
         $this->assertSame('IOS-SAFE', $gatewayFields[3]);
         $this->assertSame('IOS-DEVICE-001', $gatewayFields[8]);
+
+        // iOS Demo 使用 wire v3 紧凑数组，数据包中不暴露 iv/data/mac 等字段名称。
+        $compactSealed = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic',
+            'icid' => $credential['code'],
+            'icpwd' => $credential['secret'],
+            'key' => 'IOS-DEVICE-001',
+            'appsafecode' => 'IOS-COMPACT-SAFE',
+        ], '', '&', PHP_QUERY_RFC3986));
+        $requestEnvelope = $compactSealed['envelope'];
+        $compactRequest = [
+            3, $requestEnvelope['ts'], $requestEnvelope['nonce'], $requestEnvelope['ek'],
+            $requestEnvelope['iv'], $requestEnvelope['data'], $requestEnvelope['mac'], $requestEnvelope['auth'],
+        ];
+        $compactResponse = $this->postJson($gatewayUrl, $compactRequest)->assertOk()->json();
+        $this->assertTrue(array_is_list($compactResponse));
+        $this->assertCount(7, $compactResponse);
+        $this->assertSame(3, $compactResponse[0]);
+        $expandedCompactResponse = [
+            'v' => 2,
+            'alg' => HybridPacketCipher::ALGORITHM,
+            'direction' => 'response',
+            'ts' => $compactResponse[1],
+            'nonce' => $compactResponse[2],
+            'request_nonce' => $compactResponse[3],
+            'iv' => $compactResponse[4],
+            'data' => $compactResponse[5],
+            'mac' => $compactResponse[6],
+        ];
+        $compactPlaintext = $cipher->openResponse(
+            $expandedCompactResponse,
+            $compactSealed['session_key'],
+            $compactSealed['request_nonce'],
+        );
+        $this->assertSame('IOS-COMPACT-SAFE', explode('|', $compactPlaintext)[3]);
 
         $this->postJson($gatewayUrl, $sealed['envelope'])
             ->assertConflict()
@@ -124,6 +162,25 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertSame(1, $card->activation_count);
         $this->assertNotNull($card->expires_at);
 
+        // BSPHP semantics: freezing a used card does not freeze its software user.
+        $card->forceFill(['card_is_frozen' => true, 'frozen_at' => now()])->save();
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $credential['code'],
+            'secret' => $credential['secret'],
+            'device_id' => 'IOS-DEVICE-001',
+        ])->assertOk();
+
+        // Freezing the software user blocks subsequent logins without changing expiry.
+        $expiresAt = $card->fresh()->expires_at;
+        $card->forceFill(['user_status' => 'frozen', 'user_frozen_at' => now()])->save();
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $credential['code'],
+            'secret' => $credential['secret'],
+            'device_id' => 'IOS-DEVICE-001',
+        ])->assertForbidden()->assertJsonPath('error.code', 'USER_FROZEN');
+        $this->assertTrue($expiresAt->equalTo($card->fresh()->expires_at));
+        $card->forceFill(['user_status' => 'active', 'user_frozen_at' => null])->save();
+
         $this->postJson('/api/v2/demo/activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
@@ -139,7 +196,7 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertStringContainsString('/api/v2/demo/activate', $demoHtml);
     }
 
-    public function test_inventory_card_is_rejected_before_manual_issue(): void
+    public function test_generated_inventory_card_can_be_activated_directly(): void
     {
         [$application, $cardType] = $this->applicationAndType();
         $credential = app(CardGenerationService::class)
@@ -150,11 +207,29 @@ class CardIssueAndActivationTest extends TestCase
             'secret' => $credential['secret'],
             'device_id' => 'IOS-DEVICE-001',
         ])
-            ->assertUnprocessable()
-            ->assertJsonPath('error.code', 'CARD_NOT_ISSUED');
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('data.card.status', 'active');
     }
 
-    public function test_wrong_secret_does_not_reveal_card_existence(): void
+    public function test_frozen_unused_card_cannot_be_activated(): void
+    {
+        [, $cardType] = $this->applicationAndType();
+        $credential = app(CardGenerationService::class)
+            ->generate($cardType, 1, $this->administrator())['credentials'][0];
+        Card::query()->where('code_lookup_hash', app(CardCredentialHasher::class)->lookupHash($credential['code']))
+            ->update(['card_is_frozen' => true, 'frozen_at' => now()]);
+
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $credential['code'],
+            'secret' => $credential['secret'],
+            'device_id' => 'IOS-DEVICE-001',
+        ])->assertUnprocessable()
+            ->assertJsonPath('error.code', 'CARD_FROZEN')
+            ->assertJsonPath('error.message', '你选择卡串已冻结！');
+    }
+
+    public function test_card_password_is_ignored_because_all_cards_are_code_only(): void
     {
         [$application, $cardType] = $this->applicationAndType();
         $credential = app(CardGenerationService::class)
@@ -165,8 +240,77 @@ class CardIssueAndActivationTest extends TestCase
             'secret' => 'WRONG-SECRET',
             'device_id' => 'IOS-DEVICE-001',
         ])
-            ->assertNotFound()
-            ->assertJsonPath('error.code', 'INVALID_CARD');
+            ->assertOk()
+            ->assertJsonPath('ok', true);
+    }
+
+    public function test_zero_password_card_activates_through_encrypted_appen_gateway(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $cardType->forceFill(['secret_length' => 0])->save();
+        $credential = app(CardGenerationService::class)
+            ->generate($cardType, 1, $this->administrator())['credentials'][0];
+
+        $this->assertSame('', $credential['secret']);
+        $cipher = app(HybridPacketCipher::class);
+        $sealed = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic',
+            'icid' => $credential['code'],
+            'icpwd' => '',
+            'key' => 'IOS-SHOUQUAN-DEMO',
+            'appsafecode' => 'shouquan-demo',
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $response = $this->postJson(
+            '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token,
+            $sealed['envelope'],
+        )->assertOk();
+
+        $plaintext = $cipher->openResponse(
+            $response->json(),
+            $sealed['session_key'],
+            $sealed['request_nonce'],
+        );
+        $fields = explode('|', $plaintext);
+        $this->assertSame('01', $fields[0]);
+        $this->assertSame('shouquan-demo', $fields[3]);
+        $this->assertNotSame('', $fields[6]);
+        $this->assertSame('IOS-SHOUQUAN-DEMO', $fields[8]);
+    }
+
+    public function test_bsphp_session_handle_and_encrypted_card_heartbeat(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $handle = str_repeat('b', 64);
+        $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
+
+        $login = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $credential['code'], 'icpwd' => '', 'key' => 'HEARTBEAT-DEVICE',
+            'BSphpSeSsL' => $handle, 'appsafecode' => 'LOGIN-SAFE',
+        ], '', '&', PHP_QUERY_RFC3986));
+        $loginResponse = $this->postJson($gateway, $login['envelope'])->assertOk()->json();
+        $loginFields = explode('|', $cipher->openResponse($loginResponse, $login['session_key'], $login['request_nonce']));
+        $this->assertSame($handle, $loginFields[9]);
+
+        $heartbeat = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'timeout.ic', 'BSphpSeSsL' => $handle, 'key' => 'HEARTBEAT-DEVICE', 'appsafecode' => 'HEART-SAFE',
+        ], '', '&', PHP_QUERY_RFC3986));
+        $heartbeatResponse = $this->postJson($gateway, $heartbeat['envelope'])->assertOk()->json();
+        $fields = explode('|', $cipher->openResponse($heartbeatResponse, $heartbeat['session_key'], $heartbeat['request_nonce']));
+        $this->assertSame(['5031', $handle, 'HEART-SAFE'], array_slice($fields, 0, 3));
+
+        $card = $application->cards()->sole();
+        $card->forceFill(['user_status' => 'frozen'])->save();
+        $this->postJson('/api/v2/apps/'.$application->public_id.'/sessions/heartbeat', [
+            'BSphpSeSsL' => $handle, 'device_id' => 'HEARTBEAT-DEVICE',
+        ])->assertOk()->assertJsonPath('data.code', '5033');
+
+        $card->forceFill(['user_status' => 'active', 'expires_at' => now()->subSecond()])->save();
+        $this->postJson('/api/v2/apps/'.$application->public_id.'/sessions/heartbeat', [
+            'BSphpSeSsL' => $handle, 'device_id' => 'HEARTBEAT-DEVICE',
+        ])->assertOk()->assertJsonPath('data.code', '5030');
     }
 
     /**
@@ -202,7 +346,7 @@ class CardIssueAndActivationTest extends TestCase
             'face_price_cents' => 3000,
             'code_prefix' => 'DM',
             'code_length' => 20,
-            'secret_length' => 8,
+            'secret_length' => 0,
             'status' => 'active',
             'max_activations' => 1,
         ]);

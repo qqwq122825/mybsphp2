@@ -16,7 +16,10 @@
             </a>
             @if(isset($application) && $application)
                 <span class="workspace-tab is-active" aria-current="page">
-                    <span>{{ $application->code }}-{{ request()->routeIs('admin.software-card-types.*') ? '卡串类型' : '现卡制作' }}</span><i aria-hidden="true">×</i>
+                    <span>{{ $application->code }}-{{ request()->routeIs('admin.software-card-types.*') ? '卡串类型' : '现卡制作' }}</span>
+                    <a class="workspace-static-close" data-workspace-static-close
+                       href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}"
+                       aria-label="关闭当前标签" title="关闭当前标签">×</a>
                 </span>
             @endif
         @elseif (request()->routeIs('admin.applications.*'))
@@ -40,11 +43,42 @@
                 </span>
             @endif
         @elseif (request()->routeIs('admin.cards.*'))
-            <span class="workspace-tab is-active" aria-current="page"><span>卡密管理</span><i aria-hidden="true">×</i></span>
+            <a class="workspace-tab" href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">
+                <span>软件管理</span><i aria-hidden="true">×</i>
+            </a>
+            <span class="workspace-tab is-active" aria-current="page">
+                <span>
+                    @if(request()->routeIs('admin.cards.maintenance.*'))
+                        充值卡批量维护
+                    @else
+                        {{ $applicationFilter?->code ? $applicationFilter->code.'-' : '' }}充值卡列表
+                    @endif
+                </span><i aria-hidden="true">×</i>
+            </span>
         @elseif (request()->routeIs('admin.card-issues.*'))
             <span class="workspace-tab is-active" aria-current="page"><span>手动发卡</span><i aria-hidden="true">×</i></span>
+        @elseif (request()->routeIs('admin.system-logs.*'))
+            <span class="workspace-tab is-active" aria-current="page"><span>{{ $title ?? '系统日志' }}</span><i aria-hidden="true">×</i></span>
         @elseif (request()->routeIs('admin.administrators.*'))
-            <span class="workspace-tab is-active" aria-current="page"><span>后台管理员</span><i aria-hidden="true">×</i></span>
+            <a class="workspace-tab {{ request()->routeIs('admin.administrators.index') ? 'is-active' : '' }}"
+               href="{{ route('admin.administrators.index', ['adminPath' => $adminPath]) }}">
+                <span>管理员列表</span><i aria-hidden="true">×</i>
+            </a>
+            @if(request()->routeIs('admin.administrators.create'))
+                <span class="workspace-tab is-active" aria-current="page"><span>添加管理员</span><i aria-hidden="true">×</i></span>
+            @endif
+        @elseif (request()->routeIs('admin.agents.*'))
+            <a class="workspace-tab {{ request()->routeIs('admin.agents.index') ? 'is-active' : '' }}"
+               href="{{ route('admin.agents.index', ['adminPath' => $adminPath]) }}">
+                <span>代理账号管理</span><i aria-hidden="true">×</i>
+            </a>
+            @if(request()->routeIs('admin.agents.create'))
+                <span class="workspace-tab is-active" aria-current="page"><span>添加代理账号</span><i aria-hidden="true">×</i></span>
+            @endif
+        @elseif (request()->routeIs('admin.operation-plugins.*'))
+            <span class="workspace-tab is-active" aria-current="page"><span>{{ $title ?? '运营插件' }}</span><i aria-hidden="true">×</i></span>
+        @elseif (request()->routeIs('admin.settings.system.*'))
+            <span class="workspace-tab is-active" aria-current="page"><span>系统信息设置</span><i aria-hidden="true">×</i></span>
         @else
             <span class="workspace-tab is-active" aria-current="page"><span>控制台首页</span><i aria-hidden="true">×</i></span>
         @endif

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BSPHP iOS 双模式 Demo</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC",sans-serif;color:#15203a;background:#eaf0fa}*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:28px;display:grid;place-items:center;background:radial-gradient(circle at 15% 5%,#d5e3ff,transparent 35rem),#edf2fa}.phone{width:min(440px,100%);min-height:780px;border:1px solid #d8e0ed;border-radius:38px;background:#f7f9fd;box-shadow:0 30px 90px #213e7229;overflow:hidden}.bar{height:34px;display:flex;align-items:end;justify-content:center}.notch{width:112px;height:24px;border-radius:0 0 16px 16px;background:#11192b}.content{padding:22px}.eyebrow{margin:4px 0 10px;color:#416be1;font-size:11px;font-weight:800;letter-spacing:.14em}.title{margin:0;font-size:30px;letter-spacing:-.03em}.sub{margin:9px 0 22px;color:#71809d;font-size:13px;line-height:1.6}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:5px;border:1px solid #dce3ef;border-radius:15px;background:#fff}.tab{height:42px;border:0;border-radius:11px;background:transparent;color:#65718a;font-weight:750;cursor:pointer}.tab.active{color:#fff;background:#4169df;box-shadow:0 8px 18px #4169df36}.panel{margin-top:14px;padding:19px;border:1px solid #dde4f0;border-radius:20px;background:#fff}.panel-head{display:flex;align-items:center;gap:10px;margin-bottom:17px}.panel h2{margin:0;font-size:18px}.back{width:34px;height:34px;border:1px solid #dce3ef;border-radius:10px;background:#f8faff;color:#44516a;font-size:18px;cursor:pointer}.choice{display:grid;gap:11px}.choice button{padding:17px;border:1px solid #dbe3f0;border-radius:15px;background:#f9fbff;text-align:left;cursor:pointer}.choice strong{display:block;font-size:15px;color:#18233b}.choice small{display:block;margin-top:6px;color:#8190aa}.fields{display:grid;gap:13px}.field{display:grid;gap:7px}.field span{font-size:12px;font-weight:700;color:#33405a}.field input{width:100%;height:46px;padding:0 13px;border:1px solid #d8e0ec;border-radius:11px;background:#fbfcff;font:inherit;font-size:14px;outline:0}.field input:focus{border-color:#4d73e3;box-shadow:0 0 0 4px #4d73e315}.action,.secondary{height:48px;border:0;border-radius:12px;font:inherit;font-weight:800;cursor:pointer}.action{color:#fff;background:#4169df}.secondary{color:#3456b7;background:#edf2ff}.status{display:none;margin-top:14px;padding:16px;border-radius:15px}.status.show{display:block}.status.ok{border:1px solid #bfe6d4;background:#effaf5;color:#185d43}.status.warn{border:1px solid #f0d399;background:#fff9ed;color:#7b5010}.status.bad{border:1px solid #f0c6cb;background:#fff3f4;color:#943944}.status h3{margin:0 0 12px;font-size:16px}.status-grid{display:grid;grid-template-columns:88px 1fr;gap:8px;font-size:12px;line-height:1.55}.status-grid span{color:#7c889e}.state{display:inline-flex;padding:3px 9px;border-radius:999px;background:#fee4df;color:#a53d2f;font-weight:800}.state.active{background:#dff5e9;color:#23714d}.recharge{margin-top:14px;padding-top:14px;border-top:1px solid #e4e9f2}.recharge h3{margin:0 0 12px;font-size:15px}.meta{margin:17px 2px 0;color:#94a0b5;font-size:10px;text-align:center}.hidden{display:none!important}@media(max-width:520px){body{padding:0;background:#f7f9fd}.phone{width:100%;min-height:100vh;border:0;border-radius:0;box-shadow:none}.bar{display:none}.content{padding:calc(22px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom))}}
+</style>
+</head>
+<body>
+<main class="phone">
+  <div class="bar"><div class="notch"></div></div>
+  <div class="content">
+    <div class="eyebrow">BSPHP · iOS CLIENT DEMO</div>
+    <h1 class="title">授权接入示例</h1>
+    <p class="sub">注册只创建账号；授权时间来自注册充值卡、登录后充值卡或邀请码奖励。</p>
+    <div class="tabs">
+      <button class="tab active" data-mode="card">卡串验证</button>
+      <button class="tab" data-mode="account">账户密码验证</button>
+    </div>
+
+    <section class="panel" id="card-panel">
+      <h2>卡串验证</h2>
+      <form class="fields" id="card-form" style="margin-top:17px">
+        <label class="field"><span>充值卡号</span><input name="credential" value="TKauK3jPQZFQyAaeYFPwxs3PJ" required></label>
+        <button class="action" type="submit">验证卡串</button>
+      </form>
+      <div id="card-result" class="status" aria-live="polite"></div>
+    </section>
+
+    <section class="panel hidden" id="account-panel">
+      <div id="account-home">
+        <h2>账户密码验证</h2>
+        <div class="choice" style="margin-top:17px">
+          <button type="button" id="open-register"><strong>注册新账户</strong><small>可填写邀请码和注册充值卡</small></button>
+          <button type="button" id="open-login"><strong>登录账户</strong><small>验证账号状态、到期时间并支持充值</small></button>
+        </div>
+      </div>
+
+      <div id="register-view" class="hidden">
+        <div class="panel-head"><button class="back" type="button" data-account-back>‹</button><h2>注册新账户</h2></div>
+        <form class="fields" id="register-form">
+          <label class="field"><span>用户名</span><input name="username" id="register-username" autocomplete="username" required></label>
+          <label class="field"><span>密码</span><input name="password" type="password" value="demo123456" autocomplete="new-password" required></label>
+          <label class="field"><span>他人邀请码（可选）</span><input name="invitation_code" placeholder="填写邀请你的用户的邀请码"></label>
+          <label class="field"><span>注册充值卡（可选）</span><input name="card_credential" placeholder="只填写充值卡号"></label>
+          <button class="action" type="submit">确认注册</button>
+          <button class="secondary" type="button" id="register-to-login">已有账号，前往登录</button>
+        </form>
+        <div id="register-result" class="status" aria-live="polite"></div>
+      </div>
+
+      <div id="login-view" class="hidden">
+        <div class="panel-head"><button class="back" type="button" data-account-back>‹</button><h2>账户登录</h2></div>
+        <form class="fields" id="login-form">
+          <label class="field"><span>用户名</span><input name="username" id="login-username" autocomplete="username" required></label>
+          <label class="field"><span>密码</span><input name="password" id="login-password" type="password" value="demo123456" autocomplete="current-password" required></label>
+          <button class="action" type="submit">验证并登录</button>
+        </form>
+        <div id="login-result" class="status" aria-live="polite"></div>
+        <div id="heartbeat-state" class="status" aria-live="polite"></div>
+        <div id="recharge-box" class="recharge hidden">
+          <h3>充值卡续期</h3>
+          <form class="fields" id="recharge-form">
+            <label class="field"><span>充值卡</span><input name="card_credential" value="AC7BDJQM3VEKRNN932AS2U7D" placeholder="只填写充值卡号" required></label>
+            <button class="secondary" type="submit">立即充值</button>
+          </form>
+        </div>
+      </div>
+    </section>
+    <div class="meta">Account App 1002 · Browser Fixture · REST v2</div>
+  </div>
+</main>
+<script>
+const ACCOUNT_APP='01KXXMFNVG0PH5B9THDVJXMB0B',DEVICE='BROWSER-IOS-DEMO-001',SESSION=(crypto.randomUUID()+crypto.randomUUID()).replaceAll('-','').toLowerCase();let heartbeatTimer=null;
+const $=selector=>document.querySelector(selector),tabs=[...document.querySelectorAll('.tab')];
+const cardPanel=$('#card-panel'),accountPanel=$('#account-panel'),accountHome=$('#account-home'),registerView=$('#register-view'),loginView=$('#login-view');
+const generatedUsername='demo'+String(Date.now()).slice(-7);$('#register-username').value=generatedUsername;$('#login-username').value=generatedUsername;
+const splitCard=value=>{const raw=(value||'').trim(),i=raw.indexOf('----');if(i<0)return[raw,''];return[raw.slice(0,i).trim(),raw.slice(i+4).replace(/^-+|-+$/g,'').trim()]};
+const safe=()=>`browser-demo-${Date.now()}-${crypto.randomUUID()}`;
+const formatDate=value=>value?new Intl.DateTimeFormat('zh-CN',{dateStyle:'medium',timeStyle:'medium'}).format(new Date(value)):'未获得授权时长';
+const authorizationFrom=body=>body?.data?.authorization||body?.error?.details?.authorization||{};
+const accountFrom=body=>body?.data?.account||body?.error?.details?.account||{};
+function setAccountPage(page){accountHome.classList.toggle('hidden',page!=='home');registerView.classList.toggle('hidden',page!=='register');loginView.classList.toggle('hidden',page!=='login')}
+function statusBox(target,title,body,tone='ok'){
+  const account=accountFrom(body),auth=authorizationFrom(body),expired=auth.is_expired!==false;
+  target.className=`status show ${tone}`;
+  target.innerHTML=`<h3>${title}</h3><div class="status-grid"><span>用户名</span><b>${account.username||'—'}</b><span>账号验证</span><b>${account.credentials_verified||body?.error?.details?.credentials_verified?'验证成功':'—'}</b><span>授权状态</span><b><i class="state ${expired?'':'active'}">${expired?'已过期':'正常'}</i></b><span>到期时间</span><b>${formatDate(auth.expires_at||account.expires_at)}</b><span>我的邀请码</span><b>${account.invitation_code||'—'}（用于邀请他人）</b></div>`;
+}
+function simpleBox(target,ok,title,message){target.className=`status show ${ok?'ok':'bad'}`;target.innerHTML=`<h3>${title}</h3><div style="font-size:12px;line-height:1.65">${message}</div>`}
+async function post(url,payload){try{const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)});return await response.json()}catch(error){return{ok:false,error:{code:'NETWORK_ERROR',message:error.message}}}}
+function startHeartbeat(){clearInterval(heartbeatTimer);const run=async()=>{const body=await post(`/api/v2/apps/${ACCOUNT_APP}/sessions/heartbeat`,{BSphpSeSsL:SESSION,device_id:DEVICE}),state=$('#heartbeat-state'),valid=body?.data?.code==='5031';state.className=`status show ${valid?'ok':'bad'}`;state.innerHTML=`<h3>心跳验证：${body?.data?.code||'请求错误'}</h3><div style="font-size:12px">${body?.data?.message||body?.error?.message||'连接异常'} · BSphpSeSsL 已绑定当前登录</div>`;if(!valid)clearInterval(heartbeatTimer)};run();heartbeatTimer=setInterval(run,30000)}
+tabs.forEach(tab=>tab.addEventListener('click',()=>{tabs.forEach(x=>x.classList.toggle('active',x===tab));cardPanel.classList.toggle('hidden',tab.dataset.mode!=='card');accountPanel.classList.toggle('hidden',tab.dataset.mode!=='account');if(tab.dataset.mode==='account')setAccountPage('home')}));
+$('#open-register').addEventListener('click',()=>setAccountPage('register'));$('#open-login').addEventListener('click',()=>setAccountPage('login'));document.querySelectorAll('[data-account-back]').forEach(button=>button.addEventListener('click',()=>setAccountPage('home')));
+$('#register-to-login').addEventListener('click',()=>{setAccountPage('login');$('#login-username').value=$('#register-username').value;$('#login-password').value=$('#register-form [name=password]').value});
+$('#card-form').addEventListener('submit',async event=>{event.preventDefault();const[code,secret]=splitCard(new FormData(event.currentTarget).get('credential'));const body=await post('/api/v2/demo/activate',{code,secret,device_id:DEVICE,appsafecode:safe(),BSphpSeSsL:SESSION});simpleBox($('#card-result'),body.ok,body.ok?'卡串验证成功':'卡串验证失败',body.ok?`到期时间：${formatDate(body.data.card.expires_at)}<br>验证数据：${body.data.payload}`:(body.error?.message||'请求错误'))});
+$('#register-form').addEventListener('submit',async event=>{event.preventDefault();const form=new FormData(event.currentTarget),[card_code,card_secret]=splitCard(form.get('card_credential'));const payload={username:form.get('username').trim(),password:form.get('password'),invitation_code:form.get('invitation_code').trim(),card_code,card_secret,device_id:DEVICE,appsafecode:safe(),BSphpSeSsL:SESSION},body=await post(`/api/v2/apps/${ACCOUNT_APP}/accounts/register`,payload);if(body.ok){$('#login-username').value=payload.username;$('#login-password').value=payload.password;statusBox($('#register-result'),'注册成功',body,authorizationFrom(body).is_expired?'warn':'ok');if(body.data.BSphpSeSsL)startHeartbeat()}else simpleBox($('#register-result'),false,'注册失败',body.error?.message||'请求错误')});
+$('#login-form').addEventListener('submit',async event=>{event.preventDefault();const form=new FormData(event.currentTarget),body=await post(`/api/v2/apps/${ACCOUNT_APP}/accounts/login`,{username:form.get('username').trim(),password:form.get('password'),device_id:DEVICE,appsafecode:safe(),BSphpSeSsL:SESSION});if(body.ok){statusBox($('#login-result'),'账户验证成功',body,'ok');startHeartbeat()}else if(body.error?.code==='ACCOUNT_EXPIRED')statusBox($('#login-result'),'账户验证成功，授权已过期',body,'warn');else simpleBox($('#login-result'),false,'登录失败',body.error?.message||'请求错误');$('#recharge-box').classList.toggle('hidden',!(body.ok||body.error?.code==='ACCOUNT_EXPIRED'))});
+$('#recharge-form').addEventListener('submit',async event=>{event.preventDefault();const rechargeForm=event.currentTarget,[card_code,card_secret]=splitCard(new FormData(rechargeForm).get('card_credential')),username=$('#login-username').value.trim(),body=await post(`/api/v2/apps/${ACCOUNT_APP}/accounts/recharge`,{username,card_code,card_secret,appsafecode:safe()});if(body.ok){statusBox($('#login-result'),'充值成功，授权已续期',body,'ok');rechargeForm.reset()}else simpleBox($('#login-result'),false,'充值失败',body.error?.message||'请求错误')});
+</script>
+</body>
+</html>

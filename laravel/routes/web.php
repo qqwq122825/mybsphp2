@@ -2,22 +2,53 @@
 
 use App\Auth\AdminPermission;
 use App\Http\Controllers\AdminAdministratorController;
+use App\Http\Controllers\AdminAgentController;
+use App\Http\Controllers\AdminOperationPluginController;
 use App\Http\Controllers\AdminApplicationController;
 use App\Http\Controllers\AdminApplicationUserController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminCardController;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\AdminSystemLogController;
+use App\Http\Controllers\AdminSystemSettingController;
+use App\Http\Controllers\AgentAuthController;
+use App\Http\Controllers\AgentPortalController;
 use App\Http\Controllers\InstallController;
 use App\Http\Controllers\LegacyGatewayController;
+use App\Http\Controllers\PublicCardQueryController;
 use App\Http\Controllers\SiteController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', SiteController::class)->name('site.home');
 Route::get('/demo/activate', fn () => response()->file(public_path('demo-activate.html')))
     ->name('demo.activate');
-Route::post('/AppEn.php', LegacyGatewayController::class)
+Route::get('/demo/ios', fn () => response()->file(public_path('ios-demo.html')))
+    ->name('demo.ios');
+Route::get('/activation-query', [PublicCardQueryController::class, 'show'])
+    ->name('activation.query');
+Route::post('/activation-query', [PublicCardQueryController::class, 'query'])
     ->middleware('throttle:60,1')
+    ->name('activation.query.run');
+Route::post('/AppEn.php', LegacyGatewayController::class)
+    ->middleware(['client.enabled', 'throttle:60,1'])
     ->name('legacy.gateway');
+
+Route::prefix('agent')->name('agent.')->group(function (): void {
+    Route::get('/index.php', [AgentAuthController::class, 'show'])->name('login');
+    Route::post('/index.php', [AgentAuthController::class, 'login'])->name('login.store');
+
+    Route::middleware('agent.auth')->group(function (): void {
+        Route::get('/dashboard', [AgentPortalController::class, 'dashboard'])->name('dashboard');
+        Route::get('/cards', [AgentPortalController::class, 'cards'])->name('cards.index');
+        Route::post('/cards/{card}/action', [AgentPortalController::class, 'cardAction'])->name('cards.action');
+        Route::get('/purchase', [AgentPortalController::class, 'purchase'])->name('cards.purchase');
+        Route::post('/purchase', [AgentPortalController::class, 'storePurchase'])->name('cards.purchase.store');
+        Route::get('/tools/unbind', [AgentPortalController::class, 'unbind'])->name('tools.unbind');
+        Route::post('/tools/unbind', [AgentPortalController::class, 'runUnbind'])->name('tools.unbind.run');
+        Route::get('/finance', [AgentPortalController::class, 'finance'])->name('finance');
+        Route::post('/logout', [AgentAuthController::class, 'logout'])->name('logout');
+    });
+});
 
 Route::prefix('install')->group(function (): void {
     Route::get('/reinstall', [InstallController::class, 'authorizeReinstallation'])
@@ -46,10 +77,21 @@ Route::prefix('{adminPath}')
             Route::get('/dashboard', AdminDashboardController::class)
                 ->middleware('can:'.AdminPermission::DashboardView->value)
                 ->name('admin.dashboard');
+            Route::get('/system-logs/{type}', [AdminSystemLogController::class, 'index'])
+                ->where('type', 'login|card-making|protection')
+                ->middleware('can:'.AdminPermission::AuditView->value)
+                ->name('admin.system-logs.index');
+            Route::post('/system-logs/{type}/maintenance', [AdminSystemLogController::class, 'maintenance'])
+                ->where('type', 'login|card-making|protection')
+                ->middleware('can:'.AdminPermission::AuditView->value)
+                ->name('admin.system-logs.maintenance');
 
             Route::get('/administrators', [AdminAdministratorController::class, 'index'])
                 ->middleware('can:'.AdminPermission::AdministratorsView->value)
                 ->name('admin.administrators.index');
+            Route::get('/administrators/create', [AdminAdministratorController::class, 'create'])
+                ->middleware('can:'.AdminPermission::AdministratorsCreate->value)
+                ->name('admin.administrators.create');
             Route::post('/administrators', [AdminAdministratorController::class, 'store'])
                 ->middleware('can:'.AdminPermission::AdministratorsCreate->value)
                 ->name('admin.administrators.store');
@@ -58,6 +100,36 @@ Route::prefix('{adminPath}')
             Route::put('/administrators/{managedAdministrator}', [AdminAdministratorController::class, 'update'])
                 ->middleware('can:'.AdminPermission::AdministratorsUpdate->value)
                 ->name('admin.administrators.update');
+            Route::delete('/administrators/{managedAdministrator}', [AdminAdministratorController::class, 'destroy'])
+                ->middleware('can:'.AdminPermission::AdministratorsDelete->value)
+                ->name('admin.administrators.destroy');
+
+            Route::get('/agents', [AdminAgentController::class, 'index'])
+                ->middleware('can:'.AdminPermission::AgentsView->value)
+                ->name('admin.agents.index');
+            Route::get('/agents/create', [AdminAgentController::class, 'create'])
+                ->middleware('can:'.AdminPermission::UsersCreate->value)
+                ->name('admin.agents.create');
+            Route::post('/agents', [AdminAgentController::class, 'store'])
+                ->middleware('can:'.AdminPermission::UsersCreate->value)
+                ->name('admin.agents.store');
+            Route::put('/agents/{agent}', [AdminAgentController::class, 'update'])
+                ->middleware('can:'.AdminPermission::UsersManage->value)
+                ->name('admin.agents.update');
+            Route::delete('/agents/{agent}', [AdminAgentController::class, 'destroy'])
+                ->middleware('can:'.AdminPermission::UsersManage->value)
+                ->name('admin.agents.destroy');
+
+            Route::match(['get', 'post'], '/operation-plugins/{tool}', [AdminOperationPluginController::class, 'show'])
+                ->where('tool', 'monitor|batch-query|batch-freeze|batch-unfreeze|batch-delete')
+                ->name('admin.operation-plugins.show');
+
+            Route::get('/settings/system', [AdminSystemSettingController::class, 'index'])
+                ->middleware('can:'.AdminPermission::SettingsView->value)
+                ->name('admin.settings.system.index');
+            Route::put('/settings/system', [AdminSystemSettingController::class, 'update'])
+                ->middleware('can:'.AdminPermission::SettingsAppearanceUpdate->value)
+                ->name('admin.settings.system.update');
 
             Route::get('/applications', [AdminApplicationController::class, 'index'])
                 ->middleware('can:'.AdminPermission::ApplicationsView->value)
@@ -74,6 +146,21 @@ Route::prefix('{adminPath}')
             Route::get('/applications/{application}/users', [AdminApplicationUserController::class, 'index'])
                 ->middleware('can:'.AdminPermission::ApplicationsView->value)
                 ->name('admin.applications.users.index');
+            Route::post('/applications/{application}/users/bulk-action', [AdminApplicationUserController::class, 'bulkAction'])
+                ->middleware('can:'.AdminPermission::AppAccountsManage->value)
+                ->name('admin.applications.users.bulk-action');
+            Route::get('/application-users/maintenance', [AdminApplicationUserController::class, 'maintenance'])
+                ->middleware('can:'.AdminPermission::AppAccountsManage->value)
+                ->name('admin.application-users.maintenance.index');
+            Route::post('/application-users/maintenance', [AdminApplicationUserController::class, 'runMaintenance'])
+                ->middleware('can:'.AdminPermission::AppAccountsManage->value)
+                ->name('admin.application-users.maintenance.run');
+            Route::put('/applications/{application}/card-users/{card}', [AdminApplicationUserController::class, 'updateCard'])
+                ->middleware('can:'.AdminPermission::AppAccountsManage->value)
+                ->name('admin.applications.card-users.update');
+            Route::put('/applications/{application}/account-users/{account}', [AdminApplicationUserController::class, 'updateAccount'])
+                ->middleware('can:'.AdminPermission::AppAccountsManage->value)
+                ->name('admin.applications.account-users.update');
             Route::get('/applications/{application}/cards/make', [AdminCardController::class, 'make'])
                 ->middleware('can:'.AdminPermission::BatchesCreate->value)
                 ->name('admin.software-card-making.show');
@@ -86,13 +173,34 @@ Route::prefix('{adminPath}')
             Route::post('/applications/{application}/toggle', [AdminApplicationController::class, 'toggle'])
                 ->middleware('can:'.AdminPermission::ApplicationsStatusUpdate->value)
                 ->name('admin.applications.toggle');
+            Route::delete('/applications/{application}', [AdminApplicationController::class, 'destroy'])
+                ->middleware('can:'.AdminPermission::ApplicationsDelete->value)
+                ->name('admin.applications.destroy');
 
             Route::get('/cards', [AdminCardController::class, 'index'])
                 ->middleware('can:'.AdminPermission::CardsView->value)
                 ->name('admin.cards.index');
+            Route::post('/cards/bulk-action', [AdminCardController::class, 'bulkAction'])
+                ->middleware('can:'.AdminPermission::CardsRevokeAny->value)
+                ->name('admin.cards.bulk-action');
+            Route::get('/cards/maintenance', [AdminCardController::class, 'maintenance'])
+                ->middleware('can:'.AdminPermission::CardsBulkManage->value)
+                ->name('admin.cards.maintenance.index');
+            Route::post('/cards/maintenance', [AdminCardController::class, 'runMaintenance'])
+                ->middleware('can:'.AdminPermission::CardsBulkManage->value)
+                ->name('admin.cards.maintenance.run');
             Route::post('/card-types', [AdminCardController::class, 'storeType'])
                 ->middleware('can:'.AdminPermission::CardTypesManage->value)
                 ->name('admin.card-types.store');
+            Route::post('/card-types/quick', [AdminCardController::class, 'quickType'])
+                ->middleware('can:'.AdminPermission::CardTypesManage->value)
+                ->name('admin.card-types.quick');
+            Route::delete('/card-types', [AdminCardController::class, 'deleteTypes'])
+                ->middleware('can:'.AdminPermission::CardTypesManage->value)
+                ->name('admin.card-types.delete');
+            Route::put('/card-types/{cardType}', [AdminCardController::class, 'updateType'])
+                ->middleware('can:'.AdminPermission::CardTypesManage->value)
+                ->name('admin.card-types.update');
             Route::post('/card-batches', [AdminCardController::class, 'generateBatch'])
                 ->middleware('can:'.AdminPermission::BatchesCreate->value)
                 ->name('admin.card-batches.store');

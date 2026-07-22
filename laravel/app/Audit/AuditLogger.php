@@ -18,7 +18,14 @@ final class AuditLogger
         $request ??= request();
         $requestId = $request->attributes->get('request_id');
         $userAgent = $request->userAgent();
-        $actor = $request->user('admin') ?? $request->user();
+        // Admin and agent sessions may coexist in the same browser. Resolve the
+        // actor from the role declared by the event so an agent operation is
+        // never attributed to the concurrently signed-in administrator.
+        $actor = match ($event->actorRole) {
+            'agent' => $request->user('agent'),
+            'guest' => null,
+            default => $request->user('admin') ?? $request->user(),
+        };
 
         if (! is_string($requestId) || ! preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/', $requestId)) {
             $requestId = (string) Str::ulid();

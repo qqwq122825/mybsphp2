@@ -1,5 +1,0 @@
-API          系统接口目录
-encryption   加密解密文件存放
-examine      用户自定义检测文件存在目录,添加自定义的检测方案
-output       系统输出格式 xml、josn
-moshiset     模式控制器,控制用户账号 卡串模板等一切显示样式    核心分配配置

@@ -1,1 +1,0 @@
-'bsphp_addloginuser' : ['添加App用户','index.php?m=applib&c=admin_addloginuser&a=add',''],

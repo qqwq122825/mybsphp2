@@ -1,101 +1,135 @@
 @extends('admin.layout')
 
-@section('title', $application->name.' · 用户管理')
+@section('title', $application->name.' · 软件用户管理')
 
 @section('content')
-    <header class="page-heading page-heading-actions">
-        <div>
-            <p class="eyebrow">SOFTWARE USERS</p>
-            <h1>用户管理 · {{ $application->name }}</h1>
-            <p>
-                @if($application->mode === 'card_login')
-                    卡密模式以已发出/已激活卡串作为软件用户。
-                @else
-                    账户模式按用户名管理到期时间、余额、点数和绑定设备。
-                @endif
-            </p>
-        </div>
-        <a class="button button-secondary" href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">返回软件管理</a>
-    </header>
-
-    <section class="metric-grid">
-        <article class="metric-card metric-blue"><span>用户总数</span><strong>{{ $userMetrics['total'] }}</strong><small>{{ $application->mode === 'card_login' ? '已发出卡串' : '账户数' }}</small></article>
-        <article class="metric-card metric-green"><span>正常使用</span><strong>{{ $userMetrics['active'] }}</strong><small>当前有效</small></article>
-        <article class="metric-card metric-orange"><span>已冻结</span><strong>{{ $userMetrics['frozen'] }}</strong><small>已暂停使用</small></article>
-        <article class="metric-card metric-red"><span>已过期</span><strong>{{ $userMetrics['expired'] }}</strong><small>等待续期</small></article>
-    </section>
-
-    <section class="dashboard-panel data-panel">
-        <header>
-            <div>
-                <span>{{ $application->mode === 'card_login' ? 'CARD USERS' : 'ACCOUNT USERS' }}</span>
-                <h2>{{ $application->mode === 'card_login' ? '卡串用户' : '账户用户' }}</h2>
-            </div>
-            <em>{{ $users->total() }} 条</em>
+    <section class="dashboard-panel bsphp-user-panel">
+        <header class="bsphp-card-list-header">
+            <h2>软件用户管理 - {{ $application->name }}</h2>
+            <span class="bsphp-mode-chip">{{ $userType === 'card' ? '卡串验证模式' : '账号登录模式' }}</span>
         </header>
-        <form class="filter-bar" method="get">
-            <input name="keyword" value="{{ request('keyword') }}"
-                   placeholder="{{ $application->mode === 'card_login' ? '卡号后四位 / ULID' : '用户名' }}">
-            <select name="status">
-                <option value="">全部状态</option>
-                @foreach(['issued' => '已发出', 'active' => '正常', 'frozen' => '冻结', 'expired' => '过期', 'revoked' => '作废'] as $value => $label)
-                    @if($application->mode === 'card_login' || in_array($value, ['active', 'frozen', 'expired'], true))
-                        <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
-                    @endif
-                @endforeach
-            </select>
-            <button class="button button-secondary" type="submit">搜索</button>
-        </form>
 
-        @if($users->isEmpty())
-            <div class="empty-activity">
-                <b>◇</b>
-                <strong>暂无{{ $application->mode === 'card_login' ? '卡串用户' : '账户用户' }}</strong>
-                <p>{{ $application->mode === 'card_login' ? '现卡制作并发出后会显示在这里。' : '后续 registration.lg 注册的账户会显示在这里。' }}</p>
-            </div>
-        @else
-            <div class="table-scroll">
-                @if($application->mode === 'card_login')
-                    <table class="data-table">
-                        <thead><tr><th>卡串</th><th>卡串类型</th><th>状态</th><th>发出时间</th><th>激活时间</th><th>到期时间</th><th>绑定设备</th></tr></thead>
+        <x-admin.filter-bar button-label="⌕" :icon-only="true">
+            <x-slot:field><select aria-label="搜索字段"><option>{{ $userType === 'card' ? '充值卡号(激活码)' : '用户名' }}</option></select></x-slot:field>
+            <x-slot:keyword><input name="keyword" value="{{ request('keyword') }}" placeholder="请输入"></x-slot:keyword>
+            <x-slot:sort><select name="sort">
+                <option value="latest" @selected(request('sort', 'latest') === 'latest')>排序倒序</option>
+                <option value="oldest" @selected(request('sort') === 'oldest')>排序正序</option>
+            </select></x-slot:sort>
+        </x-admin.filter-bar>
+
+        <form class="bsphp-card-table-wrap bsphp-user-table-wrap uses-admin-data-table" method="post"
+              action="{{ route('admin.application-users.maintenance.run', ['adminPath' => $adminPath]) }}">
+            @csrf
+            <input type="hidden" name="selection_mode" value="ids">
+            <input type="hidden" name="application_id" value="{{ $application->id }}">
+            <input type="hidden" name="scope" value="all">
+            <input type="hidden" name="confirmed" value="1">
+            <input type="hidden" name="id_list" value="" data-user-bulk-ids>
+            <x-admin.table-frame frame-class="software-user-table-component">
+                <x-slot:toolbar><div><button type="button" data-user-bulk-open>批量操作</button></div><span>冻结软件用户后会阻止该用户继续登录。</span></x-slot:toolbar>
+                @if($userType === 'card')
+                    <table class="bsphp-card-table bsphp-user-table">
+                        <thead><tr>
+                            <th><input type="checkbox" data-card-select-all aria-label="全选"></th>
+                            <th>充值卡号(激活码)</th><th>状态</th><th>账号多开</th><th>机器用量</th>
+                            <th>到期时间</th><th>最后在线</th><th>绑定特征</th><th>备注</th><th>操作</th>
+                        </tr></thead>
                         <tbody>
-                        @foreach($users as $card)
+                        @forelse($users as $card)
+                            @php
+                                $accountLimit = $card->account_concurrency_limit ?: $card->cardType->account_concurrency_limit;
+                                $machineLimit = $card->machine_concurrency_limit ?: $card->cardType->machine_concurrency_limit;
+                            @endphp
                             <tr>
-                                <td><strong>••••-{{ $card->code_last4 }}</strong><small>{{ $card->public_id }}</small></td>
-                                <td>{{ $card->cardType->name }}</td>
-                                <td><span class="status-tag status-{{ $card->status }}">{{ $card->status }}</span></td>
-                                <td>{{ $card->issued_at?->format('Y-m-d H:i') ?? '—' }}</td>
-                                <td>{{ $card->activated_at?->format('Y-m-d H:i') ?? '—' }}</td>
-                                <td>{{ $card->expires_at?->format('Y-m-d H:i') ?? '—' }}</td>
-                                <td>{{ $card->bound_device_mask ?: '—' }}</td>
+                                <td><input type="checkbox" name="user_ids[]" value="{{ $card->id }}" data-card-select></td>
+                                <td><code>{{ $card->code_ciphertext }}</code></td>
+                                <td><span class="status-tag status-{{ $card->user_status ?? 'active' }}">{{ ($card->user_status ?? 'active') === 'frozen' ? '冻结' : '正常' }}</span></td>
+                                <td>{{ $accountLimit ?: '默认' }}</td><td>{{ $machineLimit ?: '默认' }}</td>
+                                <td>{{ $card->expires_at?->format('Y-m-d H:i:s') ?? '永久' }}</td>
+                                <td>{{ $card->last_online_at?->diffForHumans() ?? '—' }}</td>
+                                <td class="bsphp-binding-value">{{ $card->bound_device_ciphertext ?: '—' }}</td>
+                                <td>{{ $card->user_note ?: '—' }}</td>
+                                <td><button class="bsphp-detail-button" type="button" data-user-detail
+                                    data-title="卡号 {{ $card->code_ciphertext }}"
+                                    data-action="{{ route('admin.applications.card-users.update', ['adminPath' => $adminPath, 'application' => $application, 'card' => $card]) }}"
+                                    data-expires="{{ $card->expires_at?->format('Y-m-d\TH:i') }}"
+                                    data-binding="{{ $card->bound_device_ciphertext }}" data-account-limit="{{ $card->account_concurrency_limit }}"
+                                    data-machine-limit="{{ $card->machine_concurrency_limit }}" data-note="{{ $card->user_note }}">详情</button></td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr><td colspan="10" class="bsphp-table-empty">无数据</td></tr>
+                        @endforelse
                         </tbody>
                     </table>
                 @else
-                    <table class="data-table">
-                        <thead><tr><th>用户名</th><th>状态</th><th>到期时间</th><th>余额</th><th>点数</th><th>最后登录</th><th>绑定设备</th></tr></thead>
+                    <table class="bsphp-card-table bsphp-user-table">
+                        <thead><tr>
+                            <th><input type="checkbox" data-card-select-all aria-label="全选"></th>
+                            <th>用户名</th><th>状态</th><th>账号多开</th><th>机器用量</th><th>到期时间</th>
+                            <th>最后在线</th><th>绑定特征</th><th>备注</th><th>操作</th>
+                        </tr></thead>
                         <tbody>
-                        @foreach($users as $account)
+                        @forelse($users as $account)
                             <tr>
-                                <td><strong>{{ $account->username }}</strong><small>{{ $account->public_id }}</small></td>
-                                <td><span class="status-tag status-{{ $account->status }}">{{ $account->status }}</span></td>
-                                <td>{{ $account->expires_at?->format('Y-m-d H:i') ?? '—' }}</td>
-                                <td>¥{{ number_format($account->balance_cents / 100, 2) }}</td>
-                                <td>{{ $account->points }}</td>
-                                <td>{{ $account->last_login_at?->format('Y-m-d H:i') ?? '—' }}</td>
-                                <td>{{ $account->bound_device_mask ?: '—' }}</td>
+                                <td><input type="checkbox" name="user_ids[]" value="{{ $account->id }}" data-card-select></td>
+                                <td>{{ $account->username }}</td>
+                                <td><span class="status-tag status-{{ $account->status }}">{{ $account->status === 'frozen' ? '冻结' : '正常' }}</span></td>
+                                <td>{{ $account->account_concurrency_limit ?: '默认' }}</td><td>{{ $account->machine_concurrency_limit ?: '默认' }}</td>
+                                <td>{{ $account->expires_at?->format('Y-m-d H:i:s') ?? '永久' }}</td>
+                                <td>{{ $account->last_login_at?->diffForHumans() ?? '—' }}</td>
+                                <td class="bsphp-binding-value">{{ $account->bound_device_ciphertext ?: '—' }}</td>
+                                <td>{{ $account->note ?: '—' }}</td>
+                                <td><button class="bsphp-detail-button" type="button" data-user-detail
+                                    data-title="账号 {{ $account->username }}"
+                                    data-action="{{ route('admin.applications.account-users.update', ['adminPath' => $adminPath, 'application' => $application, 'account' => $account]) }}"
+                                    data-expires="{{ $account->expires_at?->format('Y-m-d\TH:i') }}"
+                                    data-binding="{{ $account->bound_device_ciphertext }}" data-account-limit="{{ $account->account_concurrency_limit }}"
+                                    data-machine-limit="{{ $account->machine_concurrency_limit }}" data-note="{{ $account->note }}">详情</button></td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr><td colspan="10" class="bsphp-table-empty">无数据</td></tr>
+                        @endforelse
                         </tbody>
                     </table>
                 @endif
-            </div>
-            <div class="pager">
-                @if($users->previousPageUrl())<a href="{{ $users->previousPageUrl() }}">上一页</a>@endif
-                <span>第 {{ $users->currentPage() }} / {{ $users->lastPage() }} 页</span>
-                @if($users->nextPageUrl())<a href="{{ $users->nextPageUrl() }}">下一页</a>@endif
-            </div>
-        @endif
+                <x-slot:footer>
+                    <span>共 {{ $users->total() }} 条数据</span>
+                    @if($users->hasPages())<div class="pager">{{ $users->links() }}</div>@else<span>已显示全部数据</span>@endif
+                </x-slot:footer>
+            </x-admin.table-frame>
+
+            <x-admin.window-dialog class="user-bulk-dialog" data-user-bulk-dialog content-class="user-bulk-dialog-card">
+                    <x-slot:heading><small>BULK OPERATION</small><h3>应用账号批量维护</h3></x-slot:heading>
+                    <div class="user-bulk-dialog-body">
+                        <div class="bulk-mode-line"><b>A.ID批量处理</b><span class="bulk-radio is-checked"></span><strong>通过索引ID维护</strong></div>
+                        <label class="bulk-id-line"><strong>ID：</strong><input data-user-bulk-id-display readonly><small>已选择 <b data-user-bulk-count>0</b> 个软件用户</small></label>
+                        <div class="bulk-mode-line"><b>B.筛选选处理</b><span class="bulk-radio"></span><strong>通过范围选择维护</strong></div>
+                        <div class="bulk-maintenance-actions"><b>选择维护功能</b><div>
+                            @foreach(['add_time'=>'添加时间N(秒/点)','subtract_time'=>'减少时间N(秒/点)','freeze'=>'冻结账号','unfreeze'=>'解除冻结','set_expiry'=>'到期时间N(点/时间截)','bind_feature'=>'绑定特征N','delete'=>'删除(谨慎操作)'] as $actionValue=>$actionLabel)
+                                <label><input type="radio" name="action" value="{{ $actionValue }}" required><span>{{ $actionLabel }}</span></label>
+                            @endforeach
+                        </div><small>选择要执行的结果功能</small></div>
+                        <label class="bulk-value-line" data-user-bulk-value-row hidden><strong>维护值 N：</strong><input name="action_value" data-user-bulk-value><small data-user-bulk-value-help></small></label>
+                        <p class="bulk-warning"><strong>注意</strong>在批量操作数据库时请先备份相关数据库，数据无价。</p>
+                    </div>
+                    <footer><button type="button" data-user-bulk-close>取消</button><button class="button button-primary" type="submit">确认操作</button></footer>
+            </x-admin.window-dialog>
+        </form>
     </section>
+
+    <x-admin.window-dialog class="bsphp-user-detail-card" data-user-detail-dialog>
+        <x-slot:heading><small>用户详情</small><h3 data-user-detail-title>编辑软件用户</h3></x-slot:heading>
+        <form method="post" data-user-detail-form>
+            @csrf @method('PUT')
+            <div class="bsphp-user-detail-fields">
+                <label><span>到期时间</span><input type="datetime-local" name="expires_at"></label>
+                <label><span>绑定特征</span><input name="bound_device" maxlength="160" placeholder="后台显示完整特征"></label>
+                <label><span>账号同时在线数</span><input type="number" name="account_concurrency_limit" min="-1" max="100" required><small>0 使用软件默认，-1 关闭此项</small></label>
+                <label><span>机器同时使用量</span><input type="number" name="machine_concurrency_limit" min="-1" max="100" required><small>0 使用软件默认，-1 关闭此项</small></label>
+                <label class="detail-note"><span>备注</span><textarea name="note" maxlength="500" rows="4"></textarea></label>
+            </div>
+            <footer><button type="button" data-user-detail-close>取消</button><button class="button button-primary" type="submit">确认保存</button></footer>
+        </form>
+    </x-admin.window-dialog>
 @endsection

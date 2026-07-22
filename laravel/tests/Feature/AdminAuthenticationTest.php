@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Install\InstallationManager;
 use App\Models\Administrator;
+use App\Models\AuditLog;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
@@ -76,12 +77,37 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('系统运行正常')
             ->assertSee('控制台')
             ->assertSee('应用管理')
-            ->assertSee('卡密管理')
+            ->assertDontSee('卡密管理')
             ->assertSee('账号管理')
             ->assertSee('系统配置')
+            ->assertDontSee('风险事件')
+            ->assertSee('管理登录日志')
+            ->assertSee('系统制卡日志')
+            ->assertSee('系统安全防护日志')
             ->assertDontSee('用户反馈')
             ->assertDontSee('邮件设置')
             ->assertDontSee('在线支付');
+
+        $loginLog = AuditLog::query()->where('action', 'admin.login')->firstOrFail();
+        $this->get('/private-console/system-logs/login')
+            ->assertOk()
+            ->assertSee('管理登录日志')
+            ->assertSee('admin.login')
+            ->assertSee('data-card-select-all', false)
+            ->assertSee('name="log_ids[]"', false)
+            ->assertSee('删除选定');
+        $this->post('/private-console/system-logs/login/maintenance', [
+            'action' => 'delete_selected',
+            'log_ids' => [$loginLog->getKey()],
+        ])->assertRedirect();
+        $this->assertDatabaseMissing('audit_logs', ['id' => $loginLog->getKey()]);
+        $this->get('/private-console/system-logs/card-making')
+            ->assertOk()
+            ->assertSee('代理制卡日志')
+            ->assertSee('data-table-density-toggle', false)
+            ->assertSee('data-table-export', false)
+            ->assertDontSee('<th>结果</th>', false);
+        $this->get('/private-console/system-logs/protection')->assertOk()->assertSee('系统安全防护日志')->assertSee('admin.login_failed');
 
         $this->post('/private-console/logout')
             ->assertRedirect('/private-console');

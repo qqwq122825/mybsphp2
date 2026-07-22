@@ -141,6 +141,12 @@
             }
         };
 
+        const openAutomaticWindows = (scope = document) => {
+            scope.querySelectorAll('[data-window-dialog][data-window-auto-open]').forEach((dialog) => {
+                if (dialog instanceof HTMLDialogElement && !dialog.open) dialog.showModal();
+            });
+        };
+
         const renderWorkspace = (key) => {
             const tab = temporaryTabs.get(key);
             if (!tab) return;
@@ -150,6 +156,7 @@
                 item.element.classList.toggle('is-active', itemKey === key);
             });
             workspaceContent.innerHTML = tab.content;
+            openAutomaticWindows(workspaceContent);
             document.title = tab.documentTitle || baseTitle;
             tab.element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
             window.scrollTo({ top: 0, behavior: 'auto' });
@@ -160,6 +167,7 @@
             temporaryTabs.forEach((item) => item.element.classList.remove('is-active'));
             setBaseTabState(true);
             workspaceContent.innerHTML = baseContent;
+            openAutomaticWindows(workspaceContent);
             document.title = baseTitle;
             window.scrollTo({ top: 0, behavior: 'auto' });
         };
@@ -285,6 +293,9 @@
             if (!tab) return;
             const method = (form.method || 'get').toUpperCase();
             const formData = new FormData(form);
+            if (event.submitter instanceof HTMLButtonElement && event.submitter.name) {
+                formData.set(event.submitter.name, event.submitter.value);
+            }
             let requestUrl = form.action || tab.url;
             const options = { method };
             if (method === 'GET') {
@@ -306,4 +317,278 @@
             }
         });
     }
+
+    const cardExportPanel = (target) => target instanceof Element
+        ? target.closest('[data-card-export-panel]')
+        : null;
+    const exportCredentials = (panel) => {
+        const source = panel?.querySelector('[data-card-export-json]');
+        if (!(source instanceof HTMLScriptElement)) return [];
+        try {
+            const rows = JSON.parse(source.textContent || '[]');
+            return Array.isArray(rows) ? rows : [];
+        } catch {
+            return [];
+        }
+    };
+    const formatCredentials = (rows, format) => rows.map((row, index) => {
+        const code = String(row.code || '');
+        const secret = String(row.secret || '');
+        if (format === 'code') return code;
+        if (format === 'tab') return secret === '' ? code : `${code}\t${secret}`;
+        if (format === 'detail') return `${index + 1}. 卡号：${code}${secret === '' ? '' : `  密码：${secret}`}`;
+        if (format === 'code_secret') return secret === '' ? code : `${code} ${secret}`;
+        return secret === '' ? code : `${code}----${secret}`;
+    }).join('\n');
+    const setExportStatus = (panel, message) => {
+        const status = panel?.querySelector('[data-card-export-status]');
+        if (status instanceof HTMLElement) status.textContent = message;
+    };
+    const renderExportTemplate = (panel, rows, template) => rows.map((row) => template
+        .replaceAll('{KAID}', String(row.code || ''))
+        .replaceAll('{KAPWD}', String(row.secret || ''))
+        .replaceAll('{APPSDATES}', panel.dataset.cardExportStatusText || '')
+        .replaceAll('{APPTIME}', panel.dataset.cardExportTime || '')
+        .replaceAll('{APPNAME}', panel.dataset.cardExportApp || '')
+    ).join('\n');
+
+    document.addEventListener('click', async (event) => {
+        const panel = cardExportPanel(event.target);
+        if (!(panel instanceof HTMLElement)) return;
+        const output = panel.querySelector('[data-card-export-output]');
+        if (!(output instanceof HTMLTextAreaElement)) return;
+        const rows = exportCredentials(panel);
+
+        const searchButton = event.target instanceof Element
+            ? event.target.closest('[data-card-export-search]')
+            : null;
+        if (searchButton instanceof HTMLButtonElement) {
+            const templateInput = panel.querySelector('[data-card-export-template]');
+            const template = templateInput instanceof HTMLInputElement ? templateInput.value : '{KAID}';
+            output.value = renderExportTemplate(panel, rows, template);
+            setExportStatus(panel, `已按显示格式生成，共 ${rows.length} 张。`);
+            return;
+        }
+
+        const formatButton = event.target instanceof Element
+            ? event.target.closest('[data-card-export-format]')
+            : null;
+        if (formatButton instanceof HTMLButtonElement) {
+            const templates = {
+                code: '{KAID}',
+                code_secret: '卡号:{KAID} 密码:{KAPWD}',
+                standard: '卡号:{KAID} 密码:{KAPWD} 状态:{APPSDATES} 时间:{APPTIME} 软件:{APPNAME}',
+                dash: '{KAID}----{KAPWD}',
+            };
+            const format = formatButton.dataset.cardExportFormat || 'standard';
+            const template = templates[format];
+            const templateInput = panel.querySelector('[data-card-export-template]');
+            if (template && templateInput instanceof HTMLInputElement) {
+                templateInput.value = template;
+                output.value = renderExportTemplate(panel, rows, template);
+            } else {
+                output.value = formatCredentials(rows, format);
+            }
+            setExportStatus(panel, `已切换格式，共 ${rows.length} 张。`);
+            return;
+        }
+
+        const copyButton = event.target instanceof Element
+            ? event.target.closest('[data-card-export-copy]')
+            : null;
+        if (copyButton instanceof HTMLButtonElement) {
+            await navigator.clipboard.writeText(output.value);
+            setExportStatus(panel, `已复制 ${rows.length} 张卡。`);
+            return;
+        }
+
+        const csvButton = event.target instanceof Element
+            ? event.target.closest('[data-card-export-csv]')
+            : null;
+        if (csvButton instanceof HTMLButtonElement) {
+            const escapeCsv = (value) => `"${String(value).replaceAll('"', '""')}"`;
+            const csv = ['card_code,card_password', ...rows.map((row) => (
+                `${escapeCsv(row.code || '')},${escapeCsv(row.secret || '')}`
+            ))].join('\n');
+            const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `cards-${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+            setExportStatus(panel, `CSV 已生成，共 ${rows.length} 张。`);
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' || !(event.target instanceof HTMLInputElement)) return;
+        if (!event.target.matches('[data-card-export-template]')) return;
+        event.preventDefault();
+        const panel = cardExportPanel(event.target);
+        const searchButton = panel?.querySelector('[data-card-export-search]');
+        if (searchButton instanceof HTMLButtonElement) searchButton.click();
+    });
+
+    document.addEventListener('change', (event) => {
+        if (event.target instanceof HTMLInputElement && event.target.matches('[data-delete-application-master]')) {
+            if (event.target.checked) {
+                event.target.closest('dialog')?.querySelectorAll('input[type="checkbox"][name^="delete_"]').forEach((input) => {
+                    if (input instanceof HTMLInputElement) input.checked = true;
+                });
+            }
+            return;
+        }
+
+        if (!(event.target instanceof HTMLInputElement) || !event.target.matches('[data-card-select-all]')) return;
+        const scope = event.target.closest('form') || document;
+        scope.querySelectorAll('[data-card-select]').forEach((checkbox) => {
+            if (checkbox instanceof HTMLInputElement) checkbox.checked = event.target.checked;
+        });
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!(event.target instanceof Element)) return;
+
+        if (event.target instanceof HTMLDialogElement && event.target.matches('[data-window-dialog]')) {
+            event.target.close();
+            event.target.classList.remove('is-minimized');
+            event.target.classList.add('is-maximized');
+            return;
+        }
+
+        const windowAction = event.target.closest('[data-window-action]');
+        if (windowAction instanceof HTMLButtonElement) {
+            const dialog = windowAction.closest('[data-window-dialog]');
+            if (!(dialog instanceof HTMLDialogElement)) return;
+            if (windowAction.dataset.windowAction === 'close') {
+                dialog.close();
+                dialog.classList.remove('is-minimized');
+                dialog.classList.add('is-maximized');
+            } else if (windowAction.dataset.windowAction === 'minimize') {
+                dialog.classList.toggle('is-minimized');
+                dialog.classList.remove('is-maximized');
+            } else if (windowAction.dataset.windowAction === 'maximize') {
+                dialog.classList.remove('is-minimized');
+                dialog.classList.toggle('is-maximized');
+            }
+            return;
+        }
+
+        const densityButton = event.target.closest('[data-table-density-toggle]');
+        if (densityButton instanceof HTMLButtonElement) {
+            densityButton.closest('.admin-data-table')?.classList.toggle('is-compact');
+            return;
+        }
+
+        const exportButton = event.target.closest('[data-table-export]');
+        if (exportButton instanceof HTMLButtonElement) {
+            const table = exportButton.closest('.admin-data-table')?.querySelector('table');
+            if (!(table instanceof HTMLTableElement)) return;
+            const rows = [...table.rows].map((row) => [...row.cells]
+                .filter((cell) => !cell.classList.contains('admin-select-column'))
+                .map((cell) => `"${cell.innerText.trim().replaceAll('"', '""')}"`)
+                .join(','));
+            const blob = new Blob([`\uFEFF${rows.join('\n')}`], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `table-${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+            return;
+        }
+
+        const openButton = event.target.closest('[data-user-bulk-open]');
+        if (openButton instanceof HTMLButtonElement) {
+            const form = openButton.closest('form');
+            const dialog = form?.querySelector('[data-user-bulk-dialog]');
+            if (!(form instanceof HTMLFormElement) || !(dialog instanceof HTMLDialogElement)) return;
+            const selected = form.querySelectorAll('[name="user_ids[]"]:checked').length;
+            const selectedIds = [...form.querySelectorAll('[name="user_ids[]"]:checked')]
+                .map((input) => input.value);
+            const count = dialog.querySelector('[data-user-bulk-count]');
+            if (count instanceof HTMLElement) count.textContent = String(selected);
+            if (selected < 1) {
+                window.alert('请先勾选至少一个软件用户。');
+                return;
+            }
+            const idsInput = form.querySelector('[data-user-bulk-ids]');
+            const idsDisplay = dialog.querySelector('[data-user-bulk-id-display]');
+            if (idsInput instanceof HTMLInputElement) idsInput.value = selectedIds.join(',');
+            if (idsDisplay instanceof HTMLInputElement) idsDisplay.value = selectedIds.join(',');
+            dialog.showModal();
+            return;
+        }
+
+        const closeButton = event.target.closest('[data-user-bulk-close]');
+        if (closeButton) closeButton.closest('dialog')?.close();
+    });
+
+    document.querySelectorAll('[data-window-dialog]').forEach((dialog) => {
+        if (!(dialog instanceof HTMLDialogElement)) return;
+        new MutationObserver(() => {
+            if (!dialog.open) return;
+            dialog.classList.remove('is-minimized');
+            dialog.classList.add('is-maximized');
+        }).observe(dialog, { attributes: true, attributeFilter: ['open'] });
+    });
+
+    document.querySelectorAll('[data-window-dialog][data-window-auto-open]').forEach((dialog) => {
+        if (dialog instanceof HTMLDialogElement && !dialog.open) dialog.showModal();
+    });
+
+    document.addEventListener('click', (event) => {
+        if (event.target instanceof HTMLDialogElement && event.target.matches('[data-user-bulk-dialog]')) {
+            event.target.close();
+        }
+    });
+
+    document.addEventListener('change', (event) => {
+        if (!(event.target instanceof HTMLInputElement) || !event.target.matches('[data-user-bulk-dialog] [name="action"]')) return;
+        const dialog = event.target.closest('[data-user-bulk-dialog]');
+        if (!(dialog instanceof HTMLDialogElement)) return;
+        const row = dialog.querySelector('[data-user-bulk-value-row]');
+        const input = dialog.querySelector('[data-user-bulk-value]');
+        const help = dialog.querySelector('[data-user-bulk-value-help]');
+        if (!(row instanceof HTMLElement) || !(input instanceof HTMLInputElement) || !(help instanceof HTMLElement)) return;
+        const hints = {
+            add_time: '填写要增加的秒数',
+            subtract_time: '填写要减少的秒数',
+            set_expiry: '填写日期时间或 Unix 时间戳',
+            bind_feature: '填写新的绑定特征',
+        };
+        const hint = hints[event.target.value] || '';
+        row.hidden = hint === '';
+        input.required = hint !== '';
+        if (hint === '') input.value = '';
+        help.textContent = hint;
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!(event.target instanceof Element)) return;
+        const openButton = event.target.closest('[data-user-detail]');
+        const dialog = document.querySelector('[data-user-detail-dialog]');
+        if (openButton instanceof HTMLButtonElement && dialog instanceof HTMLDialogElement) {
+            const form = dialog.querySelector('[data-user-detail-form]');
+            if (!(form instanceof HTMLFormElement)) return;
+            form.action = openButton.dataset.action || '';
+            const values = {
+                expires_at: openButton.dataset.expires || '',
+                bound_device: openButton.dataset.binding || '',
+                account_concurrency_limit: openButton.dataset.accountLimit || '0',
+                machine_concurrency_limit: openButton.dataset.machineLimit || '0',
+                note: openButton.dataset.note || '',
+            };
+            Object.entries(values).forEach(([name, value]) => {
+                const input = form.elements.namedItem(name);
+                if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) input.value = value;
+            });
+            const title = dialog.querySelector('[data-user-detail-title]');
+            if (title instanceof HTMLElement) title.textContent = openButton.dataset.title || '编辑软件用户';
+            dialog.showModal();
+            return;
+        }
+        const closeButton = event.target.closest('[data-user-detail-close]');
+        if (closeButton && dialog instanceof HTMLDialogElement) dialog.close();
+    });
 })();

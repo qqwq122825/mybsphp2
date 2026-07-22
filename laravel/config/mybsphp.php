@@ -16,4 +16,9 @@ return [
         'decay_seconds' => (int) env('ADMIN_LOGIN_DECAY_SECONDS', 900),
         'failure_delay_ms' => (int) env('ADMIN_LOGIN_FAILURE_DELAY_MS', 250),
     ],
+
+    'agent_login' => [
+        'language_enabled' => (bool) env('AGENT_LOGIN_LANGUAGE_ENABLED', false),
+        'captcha_enabled' => (bool) env('AGENT_LOGIN_CAPTCHA_ENABLED', false),
+    ],
 ];

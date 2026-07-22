@@ -1,0 +1,68 @@
+@extends('admin.layout')
+
+@section('title', '系统信息设置')
+
+@section('content')
+<section class="dashboard-panel system-settings-panel">
+    <header>
+        <div><h2>系统信息设置</h2><small>站点显示、时区与客户端服务状态</small></div>
+    </header>
+
+    <form method="post" action="{{ route('admin.settings.system.update', ['adminPath' => $adminPath]) }}">
+        @csrf @method('PUT')
+        <div class="system-settings-rows">
+            <label class="system-settings-row">
+                <strong>系统名称</strong>
+                <input name="app_name" value="{{ old('app_name', $settings['app_name']) }}" minlength="2" maxlength="80" required>
+                <small>后台顶部、页面标题和系统信息中显示的名称</small>
+            </label>
+
+            <label class="system-settings-row">
+                <strong>系统地址</strong>
+                <input type="url" name="app_url" value="{{ old('app_url', $settings['app_url']) }}" maxlength="255" required placeholder="https://example.com">
+                <small>填写对外访问地址，用于生成客户端接口和后台链接</small>
+            </label>
+
+            <label class="system-settings-row">
+                <strong>时区设置</strong>
+                <select name="app_timezone" required>
+                    @foreach($timezones as $value => $label)
+                        <option value="{{ $value }}" @selected(old('app_timezone', $settings['app_timezone']) === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <small>日志、卡片到期时间和后台统计统一使用该时区</small>
+            </label>
+
+            <div class="system-settings-row system-settings-readonly">
+                <strong>服务器时间</strong>
+                <span>{{ $serverTime }}</span>
+                <small>时间直接取服务器时钟，避免额外时间差造成授权判断偏移</small>
+            </div>
+
+            <label class="system-settings-row">
+                <strong>客户端服务</strong>
+                <select name="client_service_enabled" required>
+                    <option value="1" @selected(old('client_service_enabled', $settings['client_service_enabled']) === '1')>正常开放</option>
+                    <option value="0" @selected(old('client_service_enabled', $settings['client_service_enabled']) === '0')>暂停客户端接口</option>
+                </select>
+                <small>暂停后后台仍可管理，客户端登录、注册、激活及心跳接口返回维护提示</small>
+            </label>
+
+            <label class="system-settings-row system-settings-textarea-row">
+                <strong>暂停提示</strong>
+                <textarea name="client_service_message" rows="4" minlength="2" maxlength="500" required>{{ old('client_service_message', $settings['client_service_message']) }}</textarea>
+                <small>客户端服务暂停时返回的提示内容</small>
+            </label>
+
+            <div class="system-settings-security-note">
+                <strong>安全配置</strong>
+                <p>系统加密密钥与 Cookie 密钥继续由服务器环境配置管理，页面仅维护日常运营参数。</p>
+            </div>
+
+            @can('settings.appearance.update')
+                <div class="system-settings-actions"><button class="button button-primary" type="submit">确认保存</button></div>
+            @endcan
+        </div>
+    </form>
+</section>
+@endsection

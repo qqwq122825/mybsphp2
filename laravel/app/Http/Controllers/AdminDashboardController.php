@@ -25,6 +25,8 @@ final class AdminDashboardController extends Controller
             'adminPath' => $adminPath,
             'administrator' => Auth::guard('admin')->user(),
             'metrics' => $this->dashboard->metrics(),
+            'business' => $this->dashboard->businessMetrics(),
+            'applications' => $this->dashboard->applications(),
             'recentActivity' => $canViewAudit ? $this->dashboard->recentActivity() : [],
             'canViewAudit' => $canViewAudit,
             'databaseHealthy' => $this->dashboard->databaseHealthy(),

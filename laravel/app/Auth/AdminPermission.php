@@ -17,14 +17,15 @@ enum AdminPermission: string
     case ApplicationsView = 'applications.view';
     case ApplicationsCreate = 'applications.create';
     case ApplicationsUpdate = 'applications.update';
+    case ApplicationsDelete = 'applications.delete';
     case ApplicationsStatusUpdate = 'applications.status.update';
-    case ApplicationsProtocolManage = 'applications.protocol.manage';
     case AppAccountsManage = 'app_accounts.manage';
 
     case CardsView = 'cards.view';
     case CardsSecretView = 'cards.secret.view';
     case CardsDelete = 'cards.delete';
     case CardsRevokeAny = 'cards.revoke_any';
+    case CardsBulkManage = 'cards.bulk_manage';
     case CardTypesManage = 'card_types.manage';
     case BatchesView = 'batches.view';
     case BatchesCreate = 'batches.create';
@@ -60,13 +61,14 @@ enum AdminPermission: string
             self::ApplicationsView,
             self::ApplicationsCreate,
             self::ApplicationsUpdate,
-            self::ApplicationsStatusUpdate,
-            self::ApplicationsProtocolManage => 'applications',
+            self::ApplicationsDelete,
+            self::ApplicationsStatusUpdate => 'applications',
             self::AppAccountsManage => 'app_accounts',
             self::CardsView,
             self::CardsSecretView,
             self::CardsDelete,
             self::CardsRevokeAny,
+            self::CardsBulkManage,
             self::CardsImport,
             self::CardsIssue,
             self::CardsIssueBulk,
@@ -102,13 +104,14 @@ enum AdminPermission: string
             self::ApplicationsView => '查看应用',
             self::ApplicationsCreate => '创建应用',
             self::ApplicationsUpdate => '修改应用',
+            self::ApplicationsDelete => '删除应用',
             self::ApplicationsStatusUpdate => '启停应用',
-            self::ApplicationsProtocolManage => '管理授权协议',
             self::AppAccountsManage => '管理软件账户',
             self::CardsView => '查看卡密',
             self::CardsSecretView => '查看完整卡密',
             self::CardsDelete => '删除卡密',
             self::CardsRevokeAny => '作废任意卡密',
+            self::CardsBulkManage => '充值卡批量维护',
             self::CardTypesManage => '管理卡种',
             self::BatchesView => '查看制卡批次',
             self::BatchesCreate => '创建制卡批次',
@@ -139,12 +142,13 @@ enum AdminPermission: string
             self::PermissionsManage,
             self::DevicesUnbind,
             self::DevicesRebindApprove,
+            self::ApplicationsDelete,
             self::ApplicationsStatusUpdate => 'high',
             self::CardsSecretView,
             self::CardsExport,
             self::CardsIssue,
             self::CardsIssueBulk,
-            self::ApplicationsProtocolManage,
+            self::CardsBulkManage,
             self::AppAccountsManage,
             self::AdministratorsCreate,
             self::AdministratorsUpdate => 'sensitive',

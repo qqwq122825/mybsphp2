@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1b3473">
     <title>@yield('title', '管理后台') · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260719-w419-card-workspace">
-    <script src="/assets/js/mybsphp.js?v=20260719-w419-card-workspace" defer></script>
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260722-window-dialog-component">
+    <script src="/assets/js/mybsphp.js?v=20260722-window-dialog-component" defer></script>
     @stack('head')
 </head>
 <body class="dashboard-page">
@@ -28,15 +28,8 @@
             <summary>快捷入口指引 <i aria-hidden="true"></i></summary>
             <div class="quick-entry-dropdown">
                 <header><strong>{{ $administrator->username }}</strong><small>{{ ($databaseHealthy ?? true) ? '系统运行正常' : '数据库异常' }}</small></header>
-                @can('applications.view')
-                    <a href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">软件管理</a>
-                @endcan
-                @can('cards.view')
-                    <a href="{{ route('admin.cards.index', ['adminPath' => $adminPath]) }}">卡密查询</a>
-                @endcan
-                @can('cards.issue')
-                    <a href="{{ route('admin.card-issues.index', ['adminPath' => $adminPath]) }}">手动发卡</a>
-                @endcan
+                <a href="{{ route('agent.login') }}" target="_blank" rel="noopener">代理后端</a>
+                <a href="{{ route('activation.query') }}" target="_blank" rel="noopener">激活码查询</a>
                 <a href="{{ route('admin.administrators.index', ['adminPath' => $adminPath]) }}#current-security">修改密码</a>
                 <form method="post" action="{{ route('admin.logout', ['adminPath' => $adminPath]) }}">
                     @csrf
@@ -85,10 +78,6 @@
     @can('applications.view')
         <a class="{{ request()->routeIs('admin.applications.*') ? 'is-active' : '' }}"
            href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}"><span>◫</span>应用</a>
-    @endcan
-    @can('cards.view')
-        <a class="{{ request()->routeIs('admin.cards.*') ? 'is-active' : '' }}"
-           href="{{ route('admin.cards.index', ['adminPath' => $adminPath]) }}"><span>◇</span>卡密</a>
     @endcan
     <a href="{{ route('demo.activate') }}"><span>⌁</span>激活</a>
 </nav>

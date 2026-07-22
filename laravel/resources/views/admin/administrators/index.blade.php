@@ -3,122 +3,64 @@
 @section('title', '后台管理员')
 
 @section('content')
-    <header class="page-heading">
-        <div>
-            <p class="eyebrow">ADMINISTRATORS</p>
-            <h1>后台管理员</h1>
-            <p>创建管理员或代理后台账号，并使用系统角色控制菜单和操作权限。</p>
+@php($canUpdateAdministrators = \Illuminate\Support\Facades\Gate::allows('administrators.update'))
+<x-admin.table-shell title="系统管理员" subtitle="管理后台登录账号与角色权限" panel-class="administrator-list-panel">
+    <x-slot:headingActions>
+        @can('administrators.create')<a class="button button-primary" href="{{ route('admin.administrators.create', ['adminPath' => $adminPath]) }}">添加管理员</a>@endcan
+    </x-slot:headingActions>
+    <x-slot:search><x-admin.filter-bar>
+        <x-slot:field><select aria-label="搜索字段"><option>管理员账号</option></select></x-slot:field>
+        <x-slot:keyword><input name="keyword" value="{{ request('keyword') }}" placeholder="搜索内容"></x-slot:keyword>
+        <x-slot:sort><select name="sort"><option value="oldest" @selected(request('sort')==='oldest')>正序</option><option value="latest" @selected(request('sort','latest')==='latest')>倒序</option></select></x-slot:sort>
+    </x-admin.filter-bar></x-slot:search>
+    <x-slot:toolbar>
+        <div class="admin-table-toolbar-summary"><strong>管理员列表</strong><span>共 {{ $administrators->total() }} 条数据</span></div>
+        <div class="admin-table-utility-tools">
+            <button type="button" data-table-density-toggle aria-label="切换表格密度" title="切换表格密度"><span aria-hidden="true">▥</span></button>
+            <button type="button" data-table-export aria-label="导出当前表格" title="导出当前表格"><span aria-hidden="true">↥</span></button>
+            <button type="button" onclick="window.print()" aria-label="打印" title="打印"><span aria-hidden="true">▤</span></button>
         </div>
-    </header>
+    </x-slot:toolbar>
+        <table>
+            <thead><tr><th>管理员账号</th><th>账号状态</th><th>角色/权限</th><th>二级密码</th><th>最后活动时间</th><th>操作</th></tr></thead>
+            <tbody>
+            @forelse($administrators as $managed)
+                @php($isSystemAdministrator = $managed->role === 'super_admin' || $managed->roles->contains('code','super_admin'))
+                <tr>
+                    <td><strong>{{ $managed->username }}</strong><small>#{{ $managed->id }}{{ $isSystemAdministrator ? ' · 系统管理员' : '' }}</small></td>
+                    <td><span class="status-tag status-{{ $managed->status }}">{{ $managed->status === 'active' ? '正常' : '冻结' }}</span></td>
+                    <td>{{ $managed->roles->pluck('name')->join('、') ?: $managed->role }}</td>
+                    <td>{{ $managed->secondary_password_required ? '已启用' : '关闭' }}</td>
+                    <td>{{ $managed->last_login_at?->diffForHumans() ?? '—' }}</td>
+                    <td><button class="administrator-manage-button" type="button" data-admin-manage
+                        data-title="{{ $managed->username }}" data-role="{{ $managed->roles->first()?->code ?? $managed->role }}" data-status="{{ $managed->status }}"
+                        data-protected="{{ $isSystemAdministrator || $managed->is($administrator) || !$canUpdateAdministrators ? '1' : '0' }}"
+                        data-update-url="{{ route('admin.administrators.update',['adminPath'=>$adminPath,'managedAdministrator'=>$managed]) }}"
+                        data-delete-url="{{ route('admin.administrators.destroy',['adminPath'=>$adminPath,'managedAdministrator'=>$managed]) }}">
+                        {{ $isSystemAdministrator || $managed->is($administrator) || !$canUpdateAdministrators ? '查看' : '操作' }}
+                    </button></td>
+                </tr>
+            @empty<tr><td colspan="6" class="empty-cell">暂无管理员数据。</td></tr>@endforelse
+            </tbody>
+        </table>
+    @if($administrators->hasPages())
+        <x-slot:footer><div class="pager">{{ $administrators->links() }}</div></x-slot:footer>
+    @endif
+</x-admin.table-shell>
 
-    <section class="management-grid">
-        <form class="dashboard-panel form-panel" method="post"
-              action="{{ route('admin.administrators.security.update', ['adminPath' => $adminPath]) }}">
-            @csrf @method('PUT')
-            <header>
-                <div><span>MY SECURITY</span><h2>当前账号安全</h2></div>
-                <em class="{{ $administrator->secondary_password_required ? 'ok-badge' : '' }}">
-                    二级密码{{ $administrator->secondary_password_required ? '已启用' : '关闭' }}
-                </em>
-            </header>
-            <div class="panel-body stack-form compact-form">
-                <label class="field">
-                    <span>当前登录密码</span>
-                    <input type="password" name="current_password" maxlength="128" required autocomplete="current-password">
-                </label>
-                <div class="field-grid">
-                    <label class="field"><span>新二级密码</span><input type="password" name="secondary_password" minlength="6" maxlength="128"></label>
-                    <label class="field"><span>确认二级密码</span><input type="password" name="secondary_password_confirmation" minlength="6" maxlength="128"></label>
-                </div>
-                <div class="info-panel"><span>i</span><p>启用后，登录需要同时提交主密码与二级密码；二者至少 6 位且内容需要不同。</p></div>
-                <div class="form-action-row">
-                    <button class="button button-primary" type="submit" name="secondary_action" value="enable">
-                        {{ $administrator->secondary_password_required ? '更新二级密码' : '启用二级密码' }}
-                    </button>
-                    @if($administrator->secondary_password_required)
-                        <button class="button button-secondary" type="submit" name="secondary_action" value="disable">关闭二级密码</button>
-                    @endif
-                </div>
+<x-admin.window-dialog class="administrator-manage-dialog" data-admin-manage-dialog>
+    <x-slot:heading><small>ADMINISTRATOR</small><h3 data-admin-manage-title>管理员操作</h3></x-slot:heading>
+        <form method="post" data-admin-update-form>@csrf @method('PUT')
+            <div class="administrator-dialog-fields">
+                <label><span>角色权限</span><select name="role_code" data-admin-role>@foreach($roles as $role)<option value="{{ $role->code }}">{{ $role->name }}</option>@endforeach</select></label>
+                <label><span>账号状态</span><select name="status" data-admin-status><option value="active">启用</option><option value="frozen">冻结</option></select></label>
+                <div><label><span>新登录密码（可选）</span><input type="password" name="password" minlength="6"></label><label><span>确认新密码</span><input type="password" name="password_confirmation" minlength="6"></label></div>
+                <p data-admin-protected-note hidden>该账号是系统管理员或当前登录账号，仅供查看。</p>
             </div>
+            <footer><button type="button" data-admin-manage-close>取消</button><button class="button button-primary" type="submit" data-admin-save>保存修改</button></footer>
         </form>
+        @can('administrators.delete')<form method="post" data-admin-delete-form onsubmit="return confirm('确定删除该后台管理员吗？')">@csrf @method('DELETE')<button class="administrator-dialog-delete" type="submit" data-admin-delete>删除账号</button></form>@endcan
+</x-admin.window-dialog>
+<script>(()=>{const d=document.querySelector('[data-admin-manage-dialog]');if(!d)return;const update=d.querySelector('[data-admin-update-form]'),del=d.querySelector('[data-admin-delete-form]'),role=d.querySelector('[data-admin-role]'),status=d.querySelector('[data-admin-status]'),save=d.querySelector('[data-admin-save]'),deleteButton=d.querySelector('[data-admin-delete]'),note=d.querySelector('[data-admin-protected-note]');document.querySelectorAll('[data-admin-manage]').forEach(button=>button.addEventListener('click',()=>{const locked=button.dataset.protected==='1';d.querySelector('[data-admin-manage-title]').textContent=button.dataset.title;update.action=button.dataset.updateUrl;if(del)del.action=button.dataset.deleteUrl;role.value=button.dataset.role;status.value=button.dataset.status;[role,status,...update.querySelectorAll('input[type=password]')].forEach(field=>field.disabled=locked);save.hidden=locked;if(deleteButton)deleteButton.hidden=locked;note.hidden=!locked;d.showModal()}));d.querySelectorAll('[data-admin-manage-close]').forEach(b=>b.addEventListener('click',()=>d.close()));d.addEventListener('click',e=>{if(e.target===d)d.close()})})();</script>
 
-        @can('administrators.create')
-            <form class="dashboard-panel form-panel" method="post" action="{{ route('admin.administrators.store', ['adminPath' => $adminPath]) }}">
-                @csrf
-                <header><div><span>NEW ACCOUNT</span><h2>创建后台账号</h2></div><em>密码至少 6 位</em></header>
-                <div class="panel-body stack-form compact-form">
-                    <label class="field"><span>登录账号</span><input name="username" minlength="3" maxlength="32" required></label>
-                    <div class="field-grid">
-                        <label class="field"><span>登录密码</span><input type="password" name="password" minlength="6" required></label>
-                        <label class="field"><span>确认密码</span><input type="password" name="password_confirmation" minlength="6" required></label>
-                    </div>
-                    <div class="field-grid">
-                        <label class="field"><span>二级密码（可选）</span><input type="password" name="secondary_password" minlength="6"></label>
-                        <label class="field"><span>确认二级密码</span><input type="password" name="secondary_password_confirmation" minlength="6"></label>
-                    </div>
-                    <label class="field"><span>系统角色</span>
-                        <select name="role_code" required>
-                            @foreach($roles as $role)
-                                <option value="{{ $role->code }}">{{ $role->name }} · {{ $role->description }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                    <div class="info-panel"><span>i</span><p>代理角色默认没有删卡、作废任意卡密、设备解绑、软件账户管理和角色权限管理能力。</p></div>
-                    <button class="button button-primary" type="submit">创建后台账号</button>
-                </div>
-            </form>
-        @endcan
-
-        <section class="dashboard-panel status-panel">
-            <header><div><span>ROLE BASELINE</span><h2>角色基线</h2></div><em class="ok-badge">默认拒绝</em></header>
-            <dl>
-                <div><dt>超级管理员</dt><dd>全部权限</dd></div>
-                <div><dt>管理员</dt><dd>运营管理，排除删卡/删管理员</dd></div>
-                <div><dt>代理</dt><dd>应用、库存和自身发卡</dd></div>
-                <div><dt>权限来源</dt><dd>Gate + Policy</dd></div>
-            </dl>
-        </section>
-    </section>
-
-    <section class="dashboard-panel data-panel">
-        <header><div><span>ACCOUNT LIST</span><h2>账号列表</h2></div><em>{{ $administrators->total() }} 个</em></header>
-        <div class="table-scroll">
-            <table class="data-table">
-                <thead><tr><th>账号</th><th>角色</th><th>状态</th><th>二级密码</th><th>最近登录</th><th>维护</th></tr></thead>
-                <tbody>
-                @foreach($administrators as $managed)
-                    <tr>
-                        <td><strong>{{ $managed->username }}</strong><small>#{{ $managed->id }}</small></td>
-                        <td>{{ $managed->roles->pluck('name')->join('、') ?: $managed->role }}</td>
-                        <td><span class="status-tag status-{{ $managed->status }}">{{ $managed->status }}</span></td>
-                        <td>{{ $managed->secondary_password_required ? '已启用' : '关闭' }}</td>
-                        <td>{{ $managed->last_login_at?->format('Y-m-d H:i') ?? '—' }}</td>
-                        <td>
-                            @can('administrators.update')
-                                @if(!$managed->is($administrator))
-                                    <form class="inline-admin-form" method="post"
-                                          action="{{ route('admin.administrators.update', ['adminPath' => $adminPath, 'managedAdministrator' => $managed]) }}">
-                                        @csrf @method('PUT')
-                                        <select name="role_code">
-                                            @foreach($roles as $role)
-                                                <option value="{{ $role->code }}" @selected($managed->roles->contains('code', $role->code))>{{ $role->name }}</option>
-                                            @endforeach
-                                        </select>
-                                        <select name="status">
-                                            <option value="active" @selected($managed->status === 'active')>启用</option>
-                                            <option value="frozen" @selected($managed->status === 'frozen')>冻结</option>
-                                        </select>
-                                        <button type="submit">保存</button>
-                                    </form>
-                                @else
-                                    <small>当前账号</small>
-                                @endif
-                            @endcan
-                        </td>
-                    </tr>
-                @endforeach
-                </tbody>
-            </table>
-        </div>
-    </section>
 @endsection

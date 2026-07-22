@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
 
 class AuditLog extends Model
@@ -33,6 +34,11 @@ class AuditLog extends Model
             'after_data' => 'array',
             'created_at' => 'immutable_datetime',
         ];
+    }
+
+    public function actorAdministrator(): BelongsTo
+    {
+        return $this->belongsTo(Administrator::class, 'actor_user_id');
     }
 
     protected static function booted(): void

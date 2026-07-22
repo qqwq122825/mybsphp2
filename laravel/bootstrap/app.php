@@ -4,7 +4,9 @@ use App\Console\Commands\IssueReinstallationLink;
 use App\Http\ApiResponse;
 use App\Http\Middleware\AttachRequestId;
 use App\Http\Middleware\EnsureAdministratorAuthenticated;
+use App\Http\Middleware\EnsureAgentAuthenticated;
 use App\Http\Middleware\EnsureAdminPath;
+use App\Http\Middleware\EnsureClientServiceEnabled;
 use App\Http\Middleware\PreserveWorkspaceReturnUrl;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -30,8 +32,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: ['AppEn.php']);
         $middleware->alias([
             'admin.auth' => EnsureAdministratorAuthenticated::class,
+            'agent.auth' => EnsureAgentAuthenticated::class,
             'admin.path' => EnsureAdminPath::class,
             'admin.workspace' => PreserveWorkspaceReturnUrl::class,
+            'client.enabled' => EnsureClientServiceEnabled::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

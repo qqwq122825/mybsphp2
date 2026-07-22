@@ -73,6 +73,7 @@ final class SystemAccessSynchronizer
             static fn (AdminPermission $permission): bool => ! in_array($permission, [
                 AdminPermission::CardsDelete,
                 AdminPermission::AdministratorsDelete,
+                AdminPermission::ApplicationsDelete,
             ], true),
         );
         $agentPermissions = array_filter(

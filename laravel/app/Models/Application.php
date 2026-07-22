@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'mode',
     'entitlement_kind',
     'status',
+    'closed_message',
     'payload_mode',
     'payload_value_ciphertext',
     'client_secret_hash',
@@ -28,6 +29,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'bind_device_enabled',
     'max_bound_devices',
     'max_concurrent_sessions',
+    'heartbeat_interval_seconds',
+    'connection_timeout_seconds',
+    'registration_bonus_value',
+    'registration_bonus_unit',
+    'rebind_deduction_value',
+    'rebind_deduction_unit',
+    'invitation_bonus_value',
+    'invitation_bonus_unit',
     'version_name',
     'announcement',
     'created_by_administrator_id',
@@ -35,6 +44,35 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Application extends Model
 {
     use SoftDeletes;
+
+    public function invitationBonusSeconds(): int
+    {
+        return $this->durationSeconds($this->invitation_bonus_value, $this->invitation_bonus_unit, 'day');
+    }
+
+    public function registrationBonusSeconds(): int
+    {
+        return $this->durationSeconds($this->registration_bonus_value, $this->registration_bonus_unit, 'hour');
+    }
+
+    public function rebindDeductionSeconds(): int
+    {
+        return $this->durationSeconds($this->rebind_deduction_value, $this->rebind_deduction_unit, 'hour');
+    }
+
+    private function durationSeconds(mixed $rawValue, mixed $rawUnit, string $defaultUnit): int
+    {
+        $value = max(0, (int) $rawValue);
+        $unit = is_string($rawUnit) ? $rawUnit : $defaultUnit;
+
+        return $value * match ($unit) {
+            'minute' => 60,
+            'hour' => 3600,
+            'month' => 2592000,
+            'year' => 31536000,
+            default => 86400,
+        };
+    }
 
     public function defaultLoginApiName(): string
     {
@@ -120,6 +158,16 @@ class Application extends Model
             'bind_device_enabled' => 'boolean',
             'max_bound_devices' => 'integer',
             'max_concurrent_sessions' => 'integer',
+            'heartbeat_interval_seconds' => 'integer',
+            'connection_timeout_seconds' => 'integer',
+            'registration_bonus_value' => 'integer',
+            'rebind_deduction_value' => 'integer',
+            'invitation_bonus_value' => 'integer',
         ];
+    }
+
+    public function closedMessage(): string
+    {
+        return filled($this->closed_message) ? (string) $this->closed_message : '系统维护，暂时关闭，请稍后再访问！';
     }
 }

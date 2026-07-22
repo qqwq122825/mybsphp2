@@ -27,21 +27,32 @@ final class CardGenerationService
         int $quantity,
         ?Administrator $administrator,
         ?string $note = null,
+        string $saleFlag = 'normal',
+        ?string $makerReference = null,
     ): array {
         if ($quantity < 1 || $quantity > 500) {
             throw new InvalidArgumentException('单批制卡数量必须在 1 到 500 之间。');
         }
 
-        return DB::transaction(function () use ($cardType, $quantity, $administrator, $note): array {
+        return DB::transaction(function () use (
+            $cardType,
+            $quantity,
+            $administrator,
+            $note,
+            $saleFlag,
+            $makerReference,
+        ): array {
             $batch = CardBatch::query()->create([
                 'public_id' => (string) Str::ulid(),
                 'card_type_id' => $cardType->getKey(),
                 'batch_no' => 'B'.now()->format('YmdHis').strtoupper(Str::random(5)),
                 'source' => 'generated',
+                'sale_flag' => $saleFlag,
                 'planned_quantity' => $quantity,
                 'actual_quantity' => 0,
                 'status' => 'generating',
                 'created_by_administrator_id' => $administrator?->getKey(),
+                'maker_reference' => $makerReference,
                 'note' => $note,
             ]);
 
@@ -85,10 +96,6 @@ final class CardGenerationService
         $alphabet = is_string($alphabetValue) && $alphabetValue !== ''
             ? $alphabetValue
             : self::DEFAULT_ALPHABET;
-        $secretAlphabetValue = $cardType->getAttribute('secret_alphabet');
-        $secretAlphabet = is_string($secretAlphabetValue) && $secretAlphabetValue !== ''
-            ? $secretAlphabetValue
-            : $alphabet;
         $prefix = (string) $cardType->code_prefix;
         $bodyLength = $cardType->code_length - strlen($prefix);
 
@@ -101,7 +108,7 @@ final class CardGenerationService
             if (! Card::query()->where('code_lookup_hash', $this->hasher->lookupHash($code))->exists()) {
                 return [
                     $code,
-                    $this->randomFromAlphabet($secretAlphabet, $cardType->secret_length),
+                    '',
                 ];
             }
         }

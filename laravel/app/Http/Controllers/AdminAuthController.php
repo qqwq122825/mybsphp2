@@ -65,6 +65,7 @@ final class AdminAuthController extends Controller
         if (
             $valid
             && $administrator->secondary_password_required
+            && ! ($administrator->role === 'agent' || $administrator->hasRole('agent'))
         ) {
             $secondary = (string) ($validated['secondary_password'] ?? '');
             $valid = $secondary !== ''

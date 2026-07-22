@@ -2,14 +2,18 @@
 
 namespace App\Cards;
 
+use App\Applications\DailyVerificationCodec;
 use App\Models\Card;
+use App\Sessions\ClientSessionException;
+use App\Sessions\ClientSessionService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 final class CardActivationService
 {
     public function __construct(
         private readonly CardCredentialHasher $hasher,
+        private readonly DailyVerificationCodec $dailyCodec,
+        private readonly ClientSessionService $sessions,
     ) {}
 
     /**
@@ -20,40 +24,43 @@ final class CardActivationService
         string $secret,
         string $deviceId,
         string $appsafecode = '',
+        string $sessionHandle = '',
     ): array {
-        return DB::transaction(function () use ($code, $secret, $deviceId, $appsafecode): array {
+        return DB::transaction(function () use ($code, $secret, $deviceId, $appsafecode, $sessionHandle): array {
             $card = Card::query()
                 ->with(['application', 'cardType'])
                 ->where('code_lookup_hash', $this->hasher->lookupHash($code))
                 ->lockForUpdate()
                 ->first();
 
-            if (! $card instanceof Card || ! is_string($card->secret_hash) || ! Hash::check($secret, $card->secret_hash)) {
-                throw new CardActivationException('INVALID_CARD', '卡号或卡密密码错误。', 404);
+            if (! $card instanceof Card) {
+                throw new CardActivationException('INVALID_CARD', '充值卡号错误。', 404);
             }
 
             $application = $card->application;
             $cardType = $card->cardType;
 
             if ($application->status !== 'active') {
-                throw new CardActivationException('APP_DISABLED', '该应用当前未启用。');
+                throw new CardActivationException('APP_DISABLED', $application->closedMessage(), 403);
             }
             if ($cardType->status !== 'active') {
                 throw new CardActivationException('CARD_TYPE_DISABLED', '该卡种当前未启用。');
             }
-            if (in_array($card->status, ['frozen', 'revoked', 'expired', 'consumed'], true)) {
+            if ($card->status !== 'active' && ($card->card_is_frozen || $card->status === 'frozen')) {
+                throw new CardActivationException('CARD_FROZEN', '你选择卡串已冻结！');
+            }
+            if (in_array($card->status, ['revoked', 'expired', 'consumed'], true)) {
                 throw new CardActivationException('CARD_UNAVAILABLE', '该卡密当前状态不可激活。');
             }
-            if ($card->status === 'inventory') {
-                throw new CardActivationException('CARD_NOT_ISSUED', '该卡密尚未发出。');
-            }
-
             $normalizedDevice = trim($deviceId);
             if ($application->bind_device_enabled && $normalizedDevice === '') {
                 throw new CardActivationException('DEVICE_REQUIRED', '当前应用要求提供设备标识。');
             }
 
             if ($card->status === 'active') {
+                if ($card->user_status === 'frozen') {
+                    throw new CardActivationException('USER_FROZEN', '该软件用户已冻结。', 403);
+                }
                 if (
                     $application->bind_device_enabled
                     && is_string($card->bound_device_ciphertext)
@@ -67,7 +74,9 @@ final class CardActivationService
                     throw new CardActivationException('CARD_EXPIRED', '该卡密已经到期。');
                 }
 
-                return $this->result($card, $appsafecode);
+                $card->forceFill(['last_online_at' => now()])->save();
+
+                return $this->result($card->refresh(), $appsafecode, $this->bindSession($card, $sessionHandle, $normalizedDevice));
             }
 
             $expiresAt = match ($cardType->benefit_kind) {
@@ -78,7 +87,9 @@ final class CardActivationService
 
             $card->forceFill([
                 'status' => 'active',
+                'user_status' => 'active',
                 'activated_at' => now(),
+                'last_online_at' => now(),
                 'expires_at' => $expiresAt,
                 'bound_device_ciphertext' => $normalizedDevice !== '' ? $normalizedDevice : null,
                 'bound_device_mask' => $this->maskDevice($normalizedDevice),
@@ -89,35 +100,32 @@ final class CardActivationService
             $card->refresh();
             $card->load(['application', 'cardType']);
 
-            return $this->result($card, $appsafecode);
+            return $this->result($card, $appsafecode, $this->bindSession($card, $sessionHandle, $normalizedDevice));
         }, 3);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function result(Card $card, string $appsafecode): array
+    private function result(Card $card, string $appsafecode, string $sessionHandle = ''): array
     {
         $application = $card->application;
         $payload = $application->verificationData();
-        $signature = strtoupper(substr(hash_hmac(
-            'sha256',
-            $application->code.'|'.now()->utc()->format('Y-m-d'),
-            (string) config('app.key'),
-        ), 0, 10));
+        $encryptedPayload = $this->dailyCodec->encodePayload($payload);
+        $signature = $this->dailyCodec->dailySignature();
         $expiresAt = $card->expires_at?->toISOString();
         $device = (string) ($card->bound_device_ciphertext ?? '');
         $legacy = implode('|', [
             '01',
             'xx',
-            $payload,
+            $encryptedPayload,
             $appsafecode,
             $signature,
             '1',
             $expiresAt ?? '',
             '1',
             $device,
-            '',
+            $sessionHandle,
             '',
         ]);
 
@@ -138,10 +146,20 @@ final class CardActivationService
             ],
             'device' => $card->bound_device_mask,
             'payload' => $payload,
+            'encrypted_payload' => $encryptedPayload,
             'daily_signature' => $signature,
             'appsafecode' => $appsafecode,
+            'BSphpSeSsL' => $sessionHandle,
             'legacy_response' => $legacy,
         ];
+    }
+
+    private function bindSession(Card $card, string $handle, string $deviceId): string
+    {
+        try { return $this->sessions->bindCard($card->application, $card, $handle, $deviceId); }
+        catch (ClientSessionException $exception) {
+            throw new CardActivationException($exception->errorCode, $exception->getMessage(), $exception->status);
+        }
     }
 
     private function maskDevice(string $device): ?string

@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Applications\HybridPacketCipher;
+use App\Accounts\AccountAuthException;
+use App\Accounts\AccountAuthService;
 use App\Applications\PacketCipherException;
 use App\Cards\CardActivationException;
 use App\Cards\CardActivationService;
 use App\Http\ApiResponse;
 use App\Models\Application;
+use App\Sessions\ClientSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -18,6 +21,8 @@ final class LegacyGatewayController extends Controller
         Request $request,
         HybridPacketCipher $cipher,
         CardActivationService $activation,
+        AccountAuthService $accountAuth,
+        ClientSessionService $clientSessions,
     ): JsonResponse {
         $appCode = (string) $request->query('appid', '');
         $gatewayToken = (string) $request->query('md5', '');
@@ -37,13 +42,21 @@ final class LegacyGatewayController extends Controller
             return ApiResponse::error('INVALID_GATEWAY', '服务器地址参数错误。', 404, request: $request);
         }
         if ($application->status !== 'active') {
-            return ApiResponse::error('APP_DISABLED', '软件当前未开放。', 403, request: $request);
+            return ApiResponse::error('APP_DISABLED', $application->closedMessage(), 403, [
+                'application_status' => $application->status,
+                'is_open' => false,
+            ], request: $request);
         }
         if ($application->encryption_mode !== 'hybrid_rsa_aes_hmac') {
             return ApiResponse::error('ENCRYPTION_MODE_MISMATCH', '当前软件使用旧版数据包模式。', 409, request: $request);
         }
 
-        $envelope = $request->json()->all();
+        $wirePacket = $request->json()->all();
+        $compactWire = array_is_list($wirePacket);
+        $envelope = $compactWire ? $this->expandCompactRequest($wirePacket) : $wirePacket;
+        if ($envelope === null) {
+            return ApiResponse::error('INVALID_PACKET', '数据包结构错误。', 400, request: $request);
+        }
         $legacy = $application->legacyConfig()->firstOrCreate([], [
             'api_param' => 'api',
             'device_param' => 'key',
@@ -77,30 +90,62 @@ final class LegacyGatewayController extends Controller
         $secret = $this->parameter($parameters, $legacy->credential_secret_param);
         $device = $this->parameter($parameters, $legacy->device_param);
         $appsafecode = $this->parameter($parameters, $legacy->appsafecode_param);
-
-        if ($api !== $legacy->login_api_name) {
-            return ApiResponse::error('UNKNOWN_API', '接口名称不存在。', 404, request: $request);
-        }
-        if ($code === '' || $secret === '' || mb_strlen($code) > 64 || mb_strlen($secret) > 64) {
-            return ApiResponse::error('INVALID_PARAMETERS', '卡密参数格式错误。', 422, request: $request);
-        }
+        $sessionHandle = $this->firstParameter($parameters, ['BSphpSeSsL', 'bsphpsessl', 'session_token']);
 
         try {
-            $result = $activation->activate($code, $secret, $device, $appsafecode);
-        } catch (CardActivationException $exception) {
+            if ($api === 'BSphpSeSsL.in') {
+                $result = ['legacy_response' => $clientSessions->issueHandle($sessionHandle)];
+            } elseif (in_array($api, ['timeout.ic', 'timeout.lg'], true)) {
+                $expected = $application->mode === 'account_recharge' ? 'timeout.lg' : 'timeout.ic';
+                if ($api !== $expected) throw new AccountAuthException('MODE_MISMATCH', '心跳接口后缀与软件模式不一致。', 409);
+                $heartbeat = $clientSessions->heartbeat($application, $sessionHandle, $device);
+                $result = ['legacy_response' => implode('|', [$heartbeat['code'], $heartbeat['handle'], $appsafecode, $heartbeat['server_time']])];
+            } elseif ($application->mode === 'account_recharge') {
+                $result = match ($api) {
+                    'login.lg' => $accountAuth->login($application, $code, $secret, $device, $appsafecode, $sessionHandle),
+                    'registration.lg', 'registrationaska.lg' => $accountAuth->register(
+                        $application, $code, $secret, $device,
+                        $this->firstParameter($parameters, ['icid', 'ka', 'card', 'card_code']),
+                        $this->firstParameter($parameters, ['icpwd', 'mi', 'card_password', 'card_secret']),
+                        $this->firstParameter($parameters, ['invite', 'invitation', 'invitation_code', 'u']),
+                        $appsafecode,
+                        $sessionHandle,
+                    ),
+                    'chong.lg' => $accountAuth->recharge(
+                        $application, $code,
+                        $this->firstParameter($parameters, ['icid', 'ka', 'card', 'card_code']),
+                        $this->firstParameter($parameters, ['icpwd', 'mi', 'card_password', 'card_secret']),
+                        $appsafecode,
+                    ),
+                    'GetPleaseregister.lg' => [
+                        'legacy_response' => $application->accounts()->where('username', $code)->exists() ? '00|账号已存在' : '01|账号可注册',
+                    ],
+                    default => throw new AccountAuthException('UNKNOWN_API', '接口名称不存在。', 404),
+                };
+            } else {
+                if ($api !== 'login.ic') throw new CardActivationException('UNKNOWN_API', '接口名称不存在。', 404);
+                if ($code === '' || mb_strlen($code) > 64 || mb_strlen($secret) > 64) throw new CardActivationException('INVALID_PARAMETERS', '卡密参数格式错误。', 422);
+                $result = $activation->activate($code, $secret, $device, $appsafecode, $sessionHandle);
+            }
+        } catch (CardActivationException|AccountAuthException $exception) {
             return ApiResponse::error(
                 $exception->errorCode,
                 $exception->getMessage(),
                 $exception->status,
+                $exception instanceof AccountAuthException ? $exception->details : null,
                 request: $request,
             );
         }
 
-        return response()->json($cipher->sealResponse(
+        $responseEnvelope = $cipher->sealResponse(
             (string) $result['legacy_response'],
             $opened['session_key'],
             $opened['request_nonce'],
-        ));
+        );
+
+        return response()->json($compactWire
+            ? $this->compactResponse($responseEnvelope)
+            : $responseEnvelope);
     }
 
     /**
@@ -111,5 +156,59 @@ final class LegacyGatewayController extends Controller
         $value = $parameters[$name] ?? '';
 
         return is_string($value) ? trim($value) : '';
+    }
+
+    /** @param array<string, mixed> $parameters @param list<string> $names */
+    private function firstParameter(array $parameters, array $names): string
+    {
+        foreach ($names as $name) {
+            $value = $this->parameter($parameters, $name);
+            if ($value !== '') return $value;
+        }
+        return '';
+    }
+
+    /**
+     * Wire v3 request: [3, ts, nonce, wrappedKey, iv, ciphertext, mac, auth].
+     * The cryptographic canonical form remains protocol v2 internally.
+     *
+     * @param  array<int, mixed>  $packet
+     * @return array<string, mixed>|null
+     */
+    private function expandCompactRequest(array $packet): ?array
+    {
+        if (count($packet) !== 8 || ($packet[0] ?? null) !== 3) return null;
+
+        return [
+            'v' => 2,
+            'alg' => HybridPacketCipher::ALGORITHM,
+            'ts' => $packet[1],
+            'nonce' => $packet[2],
+            'ek' => $packet[3],
+            'iv' => $packet[4],
+            'data' => $packet[5],
+            'mac' => $packet[6],
+            'auth' => $packet[7],
+        ];
+    }
+
+    /**
+     * Wire v3 response: [3, ts, responseNonce, requestNonce, iv, ciphertext, mac].
+     * Error responses remain ordinary JSON objects so clients can display the message.
+     *
+     * @param array<string, mixed> $envelope
+     * @return list<mixed>
+     */
+    private function compactResponse(array $envelope): array
+    {
+        return [
+            3,
+            $envelope['ts'],
+            $envelope['nonce'],
+            $envelope['request_nonce'],
+            $envelope['iv'],
+            $envelope['data'],
+            $envelope['mac'],
+        ];
     }
 }

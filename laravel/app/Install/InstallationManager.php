@@ -2,7 +2,9 @@
 
 namespace App\Install;
 
+use App\Models\SystemSetting;
 use RuntimeException;
+use Throwable;
 
 final class InstallationManager
 {
@@ -30,6 +32,15 @@ final class InstallationManager
 
     public function applicationName(): string
     {
+        try {
+            $configuredName = SystemSetting::query()->whereKey('app_name')->value('value');
+            if (is_string($configuredName) && trim($configuredName) !== '') {
+                return trim($configuredName);
+            }
+        } catch (Throwable) {
+            // The installer also calls this method before the settings table exists.
+        }
+
         return (string) ($this->metadata()['app_name'] ?? config('app.name', 'MyBsPHP2'));
     }
 

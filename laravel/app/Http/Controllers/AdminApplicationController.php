@@ -9,9 +9,14 @@ use App\Auth\AdminPermission;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
+use App\Models\ApplicationAccount;
+use App\Models\Card;
+use App\Models\CardBatch;
+use App\Models\CardType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -129,9 +134,18 @@ final class AdminApplicationController extends Controller
             'name',
             'description',
             'status',
+            'closed_message',
             'bind_device_enabled',
             'max_bound_devices',
             'max_concurrent_sessions',
+            'heartbeat_interval_seconds',
+            'connection_timeout_seconds',
+            'registration_bonus_value',
+            'registration_bonus_unit',
+            'rebind_deduction_value',
+            'rebind_deduction_unit',
+            'invitation_bonus_value',
+            'invitation_bonus_unit',
             'version_name',
         ]);
         $validated = $this->validateApplicationConfiguration($request);
@@ -152,13 +166,12 @@ final class AdminApplicationController extends Controller
         $application->fill($validated)->save();
 
         $legacy = $request->validate([
-            'legacy_enabled' => ['nullable', 'boolean'],
             'max_clock_skew_seconds' => ['nullable', 'integer', 'min:30', 'max:3600'],
         ]);
         $application->legacyConfig()->updateOrCreate(
             ['application_id' => $application->getKey()],
             [
-                'legacy_enabled' => (bool) ($legacy['legacy_enabled'] ?? false),
+                'legacy_enabled' => true,
                 'login_api_name' => $application->defaultLoginApiName(),
                 'max_clock_skew_seconds' => $legacy['max_clock_skew_seconds'] ?? 300,
             ],
@@ -202,6 +215,88 @@ final class AdminApplicationController extends Controller
         return back()->with('success', $application->status === 'active' ? '应用已启用。' : '应用已停用。');
     }
 
+    public function destroy(
+        Request $request,
+        string $adminPath,
+        Application $application,
+    ): RedirectResponse {
+        $validated = $request->validate([
+            'delete_application' => ['nullable', 'boolean'],
+            'delete_users' => ['nullable', 'boolean'],
+            'delete_cards' => ['nullable', 'boolean'],
+            'delete_card_types' => ['nullable', 'boolean'],
+        ]);
+        $administrator = $this->administrator();
+        $deleteApplication = (bool) ($validated['delete_application'] ?? false);
+        $deleteUsers = (bool) ($validated['delete_users'] ?? false);
+        $deleteCards = (bool) ($validated['delete_cards'] ?? false);
+        $deleteCardTypes = (bool) ($validated['delete_card_types'] ?? false);
+
+        if (! $deleteApplication && ! $deleteUsers && ! $deleteCards && ! $deleteCardTypes) {
+            return back()->withErrors(['delete' => '请至少选择一项需要删除的数据。']);
+        }
+
+        $before = [
+            'code' => $application->code,
+            'name' => $application->name,
+            'status' => $application->status,
+        ];
+
+        DB::transaction(function () use ($application, $administrator, $request, $before, $deleteApplication, $deleteUsers, $deleteCards, $deleteCardTypes): void {
+            $cardTypeIds = CardType::query()
+                ->where('application_id', $application->getKey())
+                ->pluck('id');
+
+            if ($deleteCards) {
+                $cardIds = Card::query()
+                    ->where('application_id', $application->getKey())
+                    ->pluck('id');
+
+                DB::table('manual_issue_items')->whereIn('card_id', $cardIds)->delete();
+                Card::query()->whereIn('id', $cardIds)->delete();
+                CardBatch::query()->whereIn('card_type_id', $cardTypeIds)->delete();
+            }
+
+            if ($deleteUsers) {
+                ApplicationAccount::query()
+                    ->where('application_id', $application->getKey())
+                    ->delete();
+            }
+
+            if ($deleteCardTypes) {
+                CardType::query()->whereIn('id', $cardTypeIds)->delete();
+            }
+
+            if ($deleteApplication) {
+                $application->delete();
+            }
+
+            $this->audit->record(new AuditEvent(
+                action: $deleteApplication ? 'application.deleted' : 'application.related_data_deleted',
+                targetType: 'application',
+                targetId: (string) $application->public_id,
+                applicationId: (int) $application->getKey(),
+                before: $before,
+                after: [
+                    'delete_application' => $deleteApplication,
+                    'delete_users' => $deleteUsers,
+                    'delete_cards' => $deleteCards,
+                    'delete_card_types' => $deleteCardTypes,
+                ],
+                actorRole: $administrator->role,
+                reason: $deleteApplication ? '后台删除软件' : '后台清理软件关联数据',
+            ), $request);
+        });
+
+        $message = $deleteApplication
+            ? "软件 {$application->name} 已删除。"
+            : "软件 {$application->name} 的选中关联数据已清理，软件本身保留。";
+
+        return redirect()
+            ->route('admin.applications.index', ['adminPath' => $adminPath])
+            ->with('success', $message);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -230,11 +325,20 @@ final class AdminApplicationController extends Controller
             'name' => ['required', 'string', 'min:2', 'max:120'],
             'description' => ['nullable', 'string', 'max:500'],
             'status' => ['required', Rule::in(['draft', 'active', 'suspended', 'archived'])],
+            'closed_message' => ['nullable', 'string', 'max:500'],
             'verification_data' => ['nullable', 'string', 'max:262144'],
             'encryption_mode' => ['required', Rule::in(['hybrid_rsa_aes_hmac'])],
             'bind_device_enabled' => ['nullable', 'boolean'],
             'max_bound_devices' => ['required', 'integer', 'min:1', 'max:20'],
             'max_concurrent_sessions' => ['required', 'integer', 'min:1', 'max:100'],
+            'heartbeat_interval_seconds' => ['sometimes', 'integer', 'min:5', 'max:3600'],
+            'connection_timeout_seconds' => ['sometimes', 'integer', 'min:15', 'max:86400', 'gt:heartbeat_interval_seconds'],
+            'registration_bonus_value' => ['sometimes', 'integer', 'min:0', 'max:3650'],
+            'registration_bonus_unit' => ['sometimes', Rule::in(['minute', 'hour', 'day', 'month', 'year'])],
+            'rebind_deduction_value' => ['sometimes', 'integer', 'min:0', 'max:3650'],
+            'rebind_deduction_unit' => ['sometimes', Rule::in(['minute', 'hour', 'day', 'month', 'year'])],
+            'invitation_bonus_value' => ['sometimes', 'integer', 'min:0', 'max:3650'],
+            'invitation_bonus_unit' => ['sometimes', Rule::in(['minute', 'hour', 'day', 'month', 'year'])],
             'version_name' => ['nullable', 'string', 'max:60'],
             'announcement' => ['nullable', 'string', 'max:5000'],
         ]);
