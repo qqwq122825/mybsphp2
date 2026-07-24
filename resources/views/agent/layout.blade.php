@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', '代理控制台') - {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260722-quick-card-actions">
-    <link rel="stylesheet" href="/assets/css/agent.css?v=20260722-agent-portal">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-custom-select">
+    <link rel="stylesheet" href="/assets/css/agent.css?v=20260725-custom-select">
+    <script src="/assets/js/mybsphp.js?v=20260725-custom-select" defer></script>
 </head>
 <body class="agent-portal-page">
 <div class="agent-shell" data-agent-shell>

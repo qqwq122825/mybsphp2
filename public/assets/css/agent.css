@@ -89,6 +89,14 @@ button, input, select, textarea { font: inherit; }
     font-size: 15px;
 }
 .agent-login-form input:focus,.agent-login-form select:focus { border-color: #4e8df0; box-shadow: 0 0 0 4px rgba(73,139,237,.12); }
+.agent-login-form .custom-select .custom-select-trigger {
+    min-height: 50px;
+    border-color: #d7deea;
+    border-radius: 12px;
+    color: #1b2435;
+    background: #f0f4ff;
+    font-size: 15px;
+}
 .agent-captcha-row { display: grid; grid-template-columns: 1fr 150px; gap: 14px; }
 .agent-captcha-code { border: 0; border-radius: 13px; color: #fff; background: linear-gradient(135deg,#c6c9ce,#959da9); font: 800 24px/1 Georgia,serif; letter-spacing: .45em; text-indent: .45em; cursor: pointer; }
 .agent-login-submit { height: 50px; margin-top: 0; border: 0; border-radius: 12px; color: #fff; background: linear-gradient(90deg,#376fe8,#3c66e1); font-size: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 12px 28px rgba(54,100,224,.18); }
@@ -169,6 +177,7 @@ button, input, select, textarea { font: inherit; }
 
 .agent-card-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 28px 34px; }
 .agent-card-filter select,.agent-card-filter input { min-width: 160px; height: 43px; padding: 0 13px; border: 1px solid #dce2ea; border-radius: 8px; color: #242b36; background: #fff; outline: 0; font-size: 13px; }
+.agent-card-filter .custom-select .custom-select-trigger { min-height: 43px; padding: 0 13px; border-color: #dce2ea; border-radius: 8px; color: #242b36; font-size: 13px; }
 .agent-card-filter input { min-width: 205px; }
 .agent-search-button { width: 56px; height: 43px; border: 0; border-radius: 8px; color: #fff; background: var(--agent-blue); font-size: 23px; box-shadow: 0 8px 18px rgba(72,151,238,.2); cursor: pointer; }
 .agent-card-list-panel .agent-table-frame,.agent-finance-panel .agent-table-frame { margin: 0 20px 20px; border-radius: 10px; }
@@ -189,6 +198,9 @@ button, input, select, textarea { font: inherit; }
 .agent-business-form > label > strong,.agent-business-form fieldset > legend { color: #2c3443; text-align: right; font-size: 14px; font-weight: 750; }
 .agent-business-form input,.agent-business-form select { width: 100%; height: 45px; padding: 0 13px; border: 1px solid #dbe2eb; border-radius: 8px; background: #fff; outline: 0; }
 .agent-business-form input:focus,.agent-business-form select:focus { border-color: var(--agent-blue); box-shadow: 0 0 0 3px rgba(72,151,238,.1); }
+.agent-business-form .custom-select .custom-select-trigger { min-height: 45px; border-color: #dbe2eb; border-radius: 8px; color: #2b3445; }
+.agent-business-form .custom-select .custom-select-trigger:focus-visible,
+.agent-business-form .custom-select.is-open .custom-select-trigger { border-color: var(--agent-blue); box-shadow: 0 0 0 3px rgba(72,151,238,.1); }
 .agent-business-form small { color: #9299a4; font-size: 12px; }
 .agent-business-form fieldset { display: grid; grid-template-columns: 130px minmax(260px,520px) 1fr; align-items: center; gap: 14px; padding: 0; border: 0; }
 .agent-business-form fieldset > legend { float: left; width: 130px; margin-right: 14px; }

@@ -1,4 +1,154 @@
 (() => {
+    const customSelects = new Set();
+    let openCustomSelect = null;
+
+    const closeCustomSelect = (instance) => {
+        if (!instance) return;
+        instance.wrapper.classList.remove('is-open');
+        instance.trigger.setAttribute('aria-expanded', 'false');
+        instance.menu.hidden = true;
+        if (openCustomSelect === instance) openCustomSelect = null;
+    };
+
+    const closeAllCustomSelects = (except = null) => {
+        customSelects.forEach((instance) => {
+            if (instance !== except) closeCustomSelect(instance);
+        });
+    };
+
+    const initializeCustomSelects = (scope = document) => {
+        if (!(scope instanceof Document || scope instanceof DocumentFragment || scope instanceof Element)) return;
+        scope.querySelectorAll('select:not([multiple]):not([data-native-select])').forEach((select) => {
+            if (!(select instanceof HTMLSelectElement) || select.dataset.customSelectReady === '1') return;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'custom-select';
+            wrapper.dataset.selectName = select.name || '';
+            wrapper.dataset.selectClass = select.className || '';
+            select.parentNode?.insertBefore(wrapper, select);
+            wrapper.append(select);
+
+            const trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.className = 'custom-select-trigger';
+            trigger.setAttribute('aria-haspopup', 'listbox');
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.setAttribute('aria-label', select.getAttribute('aria-label') || '');
+            const label = document.createElement('span');
+            label.className = 'custom-select-label';
+            const chevron = document.createElement('span');
+            chevron.className = 'custom-select-chevron';
+            chevron.setAttribute('aria-hidden', 'true');
+            trigger.append(label, chevron);
+            wrapper.append(trigger);
+
+            const menu = document.createElement('div');
+            menu.className = 'custom-select-menu';
+            menu.hidden = true;
+            menu.setAttribute('role', 'listbox');
+            menu.id = `custom-select-menu-${Math.random().toString(36).slice(2)}`;
+            trigger.setAttribute('aria-controls', menu.id);
+            wrapper.append(menu);
+
+            const instance = { select, wrapper, trigger, label, menu, options: [], highlighted: -1 };
+            const sync = () => {
+                const selected = select.options[select.selectedIndex];
+                label.textContent = selected?.textContent?.trim() || '';
+                trigger.disabled = select.disabled;
+                menu.setAttribute('aria-label', select.getAttribute('aria-label') || '');
+                instance.options.forEach(({ button, option }) => {
+                    const active = option.value === select.value && !option.disabled;
+                    button.setAttribute('aria-selected', active ? 'true' : 'false');
+                });
+            };
+            const renderOptions = () => {
+                menu.replaceChildren();
+                instance.options = [];
+                [...select.options].forEach((option) => {
+                    if (option.hidden) return;
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'custom-select-option';
+                    button.textContent = option.textContent?.trim() || '';
+                    button.disabled = option.disabled;
+                    button.dataset.value = option.value;
+                    button.setAttribute('role', 'option');
+                    button.setAttribute('aria-selected', option.value === select.value ? 'true' : 'false');
+                    button.addEventListener('mouseenter', () => {
+                        instance.highlighted = instance.options.findIndex((item) => item.button === button);
+                        instance.options.forEach((item, index) => item.button.classList.toggle('is-highlighted', index === instance.highlighted));
+                    });
+                    button.addEventListener('click', () => {
+                        if (option.disabled) return;
+                        select.value = option.value;
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                        sync();
+                        closeCustomSelect(instance);
+                        trigger.focus();
+                    });
+                    menu.append(button);
+                    instance.options.push({ option, button });
+                });
+                sync();
+            };
+            const open = () => {
+                if (trigger.disabled) return;
+                closeAllCustomSelects(instance);
+                renderOptions();
+                instance.highlighted = Math.max(0, instance.options.findIndex((item) => item.option.value === select.value));
+                instance.options.forEach((item, index) => item.button.classList.toggle('is-highlighted', index === instance.highlighted));
+                wrapper.classList.add('is-open');
+                trigger.setAttribute('aria-expanded', 'true');
+                menu.hidden = false;
+                openCustomSelect = instance;
+            };
+            const moveHighlight = (delta) => {
+                if (instance.options.length === 0) return;
+                let next = instance.highlighted;
+                for (let i = 0; i < instance.options.length; i += 1) {
+                    next = (next + delta + instance.options.length) % instance.options.length;
+                    if (!instance.options[next].button.disabled) break;
+                }
+                instance.highlighted = next;
+                instance.options.forEach((item, index) => item.button.classList.toggle('is-highlighted', index === next));
+                instance.options[next]?.button.scrollIntoView({ block: 'nearest' });
+            };
+            trigger.addEventListener('click', () => {
+                if (menu.hidden) open(); else closeCustomSelect(instance);
+            });
+            trigger.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !menu.hidden) {
+                    event.preventDefault();
+                    const item = instance.options[instance.highlighted];
+                    item?.button.click();
+                } else if (['Enter', ' ', 'ArrowDown'].includes(event.key)) {
+                    event.preventDefault();
+                    if (menu.hidden) open(); else moveHighlight(1);
+                } else if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    if (menu.hidden) open(); else moveHighlight(-1);
+                } else if (event.key === 'Escape') {
+                    closeCustomSelect(instance);
+                } else if (event.key === 'Tab') {
+                    closeCustomSelect(instance);
+                }
+            });
+            select.addEventListener('change', sync);
+            select.form?.addEventListener('reset', () => window.setTimeout(sync, 0));
+            select.dataset.customSelectReady = '1';
+            customSelects.add(instance);
+            renderOptions();
+        });
+    };
+
+    document.addEventListener('click', (event) => {
+        if (!(event.target instanceof Element) || !event.target.closest('.custom-select')) {
+            closeAllCustomSelects();
+        }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeAllCustomSelects();
+    });
+
     const errorSummary = document.querySelector('[data-error-summary]');
     if (errorSummary instanceof HTMLElement) {
         errorSummary.focus();
@@ -203,6 +353,7 @@
                 item.element.classList.toggle('is-active', itemKey === key);
             });
             workspaceContent.innerHTML = tab.content;
+            initializeCustomSelects(workspaceContent);
             openAutomaticWindows(workspaceContent);
             initializeConfigTabs(workspaceContent, false);
             document.title = tab.documentTitle || baseTitle;
@@ -215,6 +366,7 @@
             temporaryTabs.forEach((item) => item.element.classList.remove('is-active'));
             setBaseTabState(true);
             workspaceContent.innerHTML = baseContent;
+            initializeCustomSelects(workspaceContent);
             openAutomaticWindows(workspaceContent);
             initializeConfigTabs(workspaceContent, false);
             document.title = baseTitle;
@@ -701,4 +853,6 @@
         const closeButton = event.target.closest('[data-user-detail-close]');
         if (closeButton && dialog instanceof HTMLDialogElement) dialog.close();
     });
+
+    initializeCustomSelects(document);
 })();

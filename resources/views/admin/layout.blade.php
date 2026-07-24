@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1b3473">
     <title>@yield('title', '管理后台') · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-card-type-delete">
-    <script src="/assets/js/mybsphp.js?v=20260725-ipad-dialog" defer></script>
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-custom-select">
+    <script src="/assets/js/mybsphp.js?v=20260725-custom-select" defer></script>
     @stack('head')
 </head>
 <body class="dashboard-page">
