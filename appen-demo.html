@@ -233,6 +233,9 @@ function diagnoseRaw(status, contentType, text) {
     tips.push('正文不是 HTML，连通性基本正常。');
   }
   if ((contentType || '').includes('application/json')) tips.push('Content-Type 为 JSON。');
+  if (status === 404 && (contentType || '').includes('application/json')) {
+    tips.push('这是远程业务层返回的 404，不是本地 HTML 路径错误；卡号不存在时会出现 INVALID_CARD。');
+  }
   if (status === 0) tips.push('可能被 CORS 拦截，确认服务端已部署 config/cors.php 并清缓存。');
   return tips;
 }
@@ -300,7 +303,9 @@ async function runProbe() {
     $('parsedOut').textContent = parsed ? JSON.stringify(parsed, null, 2) : '无法解析为 JSON。';
     showSummary(
       Boolean(parsed && parsed.error),
-      parsed?.error ? `${parsed.error.code} / ${parsed.error.message}` : `HTTP ${meta.status} · ${tips[0]}`,
+      parsed?.error
+        ? `HTTP ${meta.status} · ${parsed.error.code} / ${parsed.error.message}`
+        : `HTTP ${meta.status} · ${tips[0]}`,
     );
   } catch (error) {
     showSummary(false, '请求失败：' + error.message);
@@ -336,7 +341,7 @@ async function runLogin() {
     }
     if (parsed.ok === false) {
       $('parsedOut').textContent = JSON.stringify(parsed, null, 2);
-      showSummary(false, `${parsed.error?.code || 'ERROR'} / ${parsed.error?.message || '业务失败'}`);
+      showSummary(false, `HTTP ${meta.status} · ${parsed.error?.code || 'ERROR'} / ${parsed.error?.message || '业务失败'}`);
       return;
     }
     const plaintext = await openResponse(parsed, sealed.sessionKey, sealed.requestNonce);
