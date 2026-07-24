@@ -28,7 +28,7 @@ class SystemInformationSettingsTest extends TestCase
         $this->environmentPath = storage_path('framework/testing/system-information-settings.env');
         @unlink($this->lockPath);
         @unlink($this->environmentPath);
-        file_put_contents($this->environmentPath, "ADMIN_PATH=\"private-console\"\n");
+        file_put_contents($this->environmentPath, "ADMIN_PATH=\"private-console\"\nAGENT_PATH=\"agent\"\n");
         config([
             'mybsphp.install_lock' => $this->lockPath,
             'mybsphp.environment_file' => $this->environmentPath,
@@ -65,6 +65,7 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('系统名称')
             ->assertSee('系统地址')
             ->assertSee('后台入口')
+            ->assertSee('代理入口')
             ->assertSee('时区设置')
             ->assertSee('当前模式')
             ->assertSee('上线运行')
@@ -84,6 +85,7 @@ class SystemInformationSettingsTest extends TestCase
             'app_url' => 'https://license.example.test',
             'app_timezone' => 'Asia/Shanghai',
             'admin_path' => 'new-control-center',
+            'agent_path' => 'partner-gateway',
             'operational_mode' => 'debug',
             'client_service_enabled' => '0',
             'client_service_message' => '服务升级维护中，请稍后重新连接。',
@@ -91,16 +93,20 @@ class SystemInformationSettingsTest extends TestCase
 
         $this->assertDatabaseHas('system_settings', ['key' => 'app_name', 'value' => '授权运营中心']);
         $this->assertDatabaseHas('system_settings', ['key' => 'admin_path', 'value' => 'new-control-center']);
+        $this->assertDatabaseHas('system_settings', ['key' => 'agent_path', 'value' => 'partner-gateway']);
         $this->assertDatabaseHas('system_settings', ['key' => 'client_service_enabled', 'value' => '0']);
         $this->assertDatabaseHas('system_settings', ['key' => 'operational_mode', 'value' => 'debug', 'group' => 'security']);
         $this->assertSame('new-control-center', app(InstallationManager::class)->adminPath());
+        $this->assertSame('partner-gateway', app(InstallationManager::class)->agentPath());
         $this->assertStringContainsString('ADMIN_PATH="new-control-center"', (string) file_get_contents($this->environmentPath));
+        $this->assertStringContainsString('AGENT_PATH="partner-gateway"', (string) file_get_contents($this->environmentPath));
 
         $this->get('/private-console/settings/system')->assertNotFound();
         $this->get('/new-control-center/settings/system')
             ->assertOk()
             ->assertSee('授权运营中心')
             ->assertSee('new-control-center')
+            ->assertSee('partner-gateway')
             ->assertSee('调试信息正在开放')
             ->assertSee('服务升级维护中，请稍后重新连接。');
 

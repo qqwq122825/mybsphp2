@@ -30,6 +30,13 @@ final class InstallationManager
         return trim($path, '/') ?: 'admin';
     }
 
+    public function agentPath(): string
+    {
+        $path = (string) ($this->metadata()['agent_path'] ?? config('mybsphp.agent_path', 'agent'));
+
+        return trim($path, '/') ?: 'agent';
+    }
+
     public function applicationName(): string
     {
         try {

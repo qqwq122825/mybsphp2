@@ -18,6 +18,7 @@ use App\Http\Controllers\InstallController;
 use App\Http\Controllers\LegacyGatewayController;
 use App\Http\Controllers\PublicCardQueryController;
 use App\Http\Controllers\SiteController;
+use App\Install\InstallationManager;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', SiteController::class)->name('site.home');
@@ -34,7 +35,8 @@ Route::post('/AppEn.php', LegacyGatewayController::class)
     ->middleware(['client.enabled', 'throttle:60,1'])
     ->name('legacy.gateway');
 
-Route::prefix('agent')->name('agent.')->group(function (): void {
+$agentPath = app(InstallationManager::class)->agentPath();
+Route::prefix($agentPath)->name('agent.')->group(function (): void {
     Route::get('/index.php', [AgentAuthController::class, 'show'])->name('login');
     Route::post('/index.php', [AgentAuthController::class, 'login'])->name('login.store');
 

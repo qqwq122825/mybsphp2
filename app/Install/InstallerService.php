@@ -60,7 +60,7 @@ final class InstallerService
      * @param  array<string, mixed>  $database
      * @param  array<string, mixed>  $site
      * @param  array<string, mixed>  $admin
-     * @return array{admin_path:string,app_name:string,username:string,secondary_password_enabled:bool}
+     * @return array{admin_path:string,agent_path:string,app_name:string,username:string,secondary_password_enabled:bool}
      */
     public function install(
         array $database,
@@ -145,6 +145,7 @@ final class InstallerService
                     ['key' => 'app_timezone', 'value' => $site['timezone'], 'type' => 'string', 'group' => 'site'],
                     ['key' => 'operational_mode', 'value' => 'production', 'type' => 'string', 'group' => 'security'],
                     ['key' => 'admin_path', 'value' => $site['admin_path'], 'type' => 'string', 'group' => 'security'],
+                    ['key' => 'agent_path', 'value' => 'agent', 'type' => 'string', 'group' => 'security'],
                     [
                         'key' => 'admin_secondary_password_enabled',
                         'value' => $admin['secondary_password_enabled'] ? '1' : '0',
@@ -176,6 +177,7 @@ final class InstallerService
 
         $metadata = [
             'admin_path' => $site['admin_path'],
+            'agent_path' => 'agent',
             'app_name' => $site['app_name'],
             'secondary_password_enabled' => $admin['secondary_password_enabled'],
         ];
@@ -186,6 +188,7 @@ final class InstallerService
             'APP_TIMEZONE' => $site['timezone'],
             'APP_INSTALLED' => false,
             'ADMIN_PATH' => $site['admin_path'],
+            'AGENT_PATH' => 'agent',
             'ADMIN_SECONDARY_PASSWORD_ENABLED' => $admin['secondary_password_enabled'],
             'DB_CONNECTION' => 'mysql',
             'DB_HOST' => $database['host'],

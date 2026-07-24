@@ -10,14 +10,15 @@ use App\Models\Administrator;
 use App\Models\SystemSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 final class AdminSystemSettingController extends Controller
 {
-    private const RESERVED_ADMIN_PATHS = [
-        'activation-query', 'agent', 'api', 'assets', 'demo', 'install', 'storage', 'up', 'vendor',
+    private const RESERVED_ENTRY_PATHS = [
+        'activation-query', 'api', 'assets', 'demo', 'install', 'storage', 'up', 'vendor',
     ];
 
     private const TIMEZONES = [
@@ -38,7 +39,7 @@ final class AdminSystemSettingController extends Controller
     public function index(string $adminPath): View
     {
         $settings = SystemSetting::query()->whereIn('key', [
-            'app_name', 'app_url', 'app_timezone', 'admin_path', 'operational_mode', 'client_service_enabled', 'client_service_message',
+            'app_name', 'app_url', 'app_timezone', 'admin_path', 'agent_path', 'operational_mode', 'client_service_enabled', 'client_service_message',
         ])->pluck('value', 'key');
 
         return view('admin.settings.system', [
@@ -51,6 +52,7 @@ final class AdminSystemSettingController extends Controller
                 'app_url' => (string) ($settings['app_url'] ?? config('app.url')),
                 'app_timezone' => (string) ($settings['app_timezone'] ?? config('app.timezone', 'Asia/Shanghai')),
                 'admin_path' => $this->installation->adminPath(),
+                'agent_path' => $this->installation->agentPath(),
                 'operational_mode' => (string) ($settings['operational_mode'] ?? 'production'),
                 'client_service_enabled' => (string) ($settings['client_service_enabled'] ?? '1'),
                 'client_service_message' => (string) ($settings['client_service_message'] ?? '系统维护中，请稍后再试。'),
@@ -64,6 +66,7 @@ final class AdminSystemSettingController extends Controller
     {
         $request->merge([
             'admin_path' => strtolower(trim((string) $request->input('admin_path'), "/ \t\n\r\0\x0B")),
+            'agent_path' => strtolower(trim((string) $request->input('agent_path'), "/ \t\n\r\0\x0B")),
         ]);
         $validated = $request->validate([
             'app_name' => ['required', 'string', 'min:2', 'max:80'],
@@ -75,7 +78,17 @@ final class AdminSystemSettingController extends Controller
                 'min:3',
                 'max:48',
                 'regex:/^[a-z0-9_-]+$/',
-                Rule::notIn(self::RESERVED_ADMIN_PATHS),
+                Rule::notIn(self::RESERVED_ENTRY_PATHS),
+                'different:agent_path',
+            ],
+            'agent_path' => [
+                'required',
+                'string',
+                'min:3',
+                'max:48',
+                'regex:/^[a-z0-9_-]+$/',
+                Rule::notIn(self::RESERVED_ENTRY_PATHS),
+                'different:admin_path',
             ],
             'operational_mode' => ['required', Rule::in(['production', 'debug'])],
             'client_service_enabled' => ['required', 'boolean'],
@@ -91,7 +104,7 @@ final class AdminSystemSettingController extends Controller
                 'type' => $types[$key] ?? 'string',
                 'group' => match ($key) {
                     'client_service_enabled', 'client_service_message' => 'service',
-                    'admin_path', 'operational_mode' => 'security',
+                    'admin_path', 'agent_path', 'operational_mode' => 'security',
                     default => 'site',
                 },
                 'updated_at' => $now,
@@ -105,11 +118,29 @@ final class AdminSystemSettingController extends Controller
         ]);
         date_default_timezone_set($validated['app_timezone']);
 
+        $oldAdminPath = $this->installation->adminPath();
+        $oldAgentPath = $this->installation->agentPath();
         $newAdminPath = $validated['admin_path'];
-        if (! hash_equals($this->installation->adminPath(), $newAdminPath)) {
-            $this->environment->update(['ADMIN_PATH' => $newAdminPath]);
-            $this->installation->updateMetadata(['admin_path' => $newAdminPath]);
-            config(['mybsphp.admin_path' => $newAdminPath]);
+        $newAgentPath = $validated['agent_path'];
+        $adminPathChanged = ! hash_equals($oldAdminPath, $newAdminPath);
+        $agentPathChanged = ! hash_equals($oldAgentPath, $newAgentPath);
+
+        if ($adminPathChanged || $agentPathChanged) {
+            $this->environment->update([
+                'ADMIN_PATH' => $newAdminPath,
+                'AGENT_PATH' => $newAgentPath,
+            ]);
+            $this->installation->updateMetadata([
+                'admin_path' => $newAdminPath,
+                'agent_path' => $newAgentPath,
+            ]);
+            config([
+                'mybsphp.admin_path' => $newAdminPath,
+                'mybsphp.agent_path' => $newAgentPath,
+            ]);
+            if ($agentPathChanged && app()->routesAreCached()) {
+                Artisan::call('route:clear');
+            }
         }
 
         $this->audit->record(new AuditEvent(
@@ -121,11 +152,15 @@ final class AdminSystemSettingController extends Controller
             actorRole: $this->actor()->role,
         ), $request);
 
+        $entryChanges = [];
+        if ($adminPathChanged) $entryChanges[] = "后台入口 /{$newAdminPath}";
+        if ($agentPathChanged) $entryChanges[] = "代理入口 /{$newAgentPath}/index.php";
+
         return redirect()
             ->route('admin.settings.system.index', ['adminPath' => $newAdminPath])
-            ->with('success', $adminPath === $newAdminPath
+            ->with('success', $entryChanges === []
                 ? '系统信息设置已保存。'
-                : "系统信息设置已保存，后台入口已更新为 /{$newAdminPath}。");
+                : '系统信息设置已保存，'.implode('，', $entryChanges).' 已生效。');
     }
 
     private function actor(): Administrator

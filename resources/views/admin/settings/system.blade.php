@@ -35,6 +35,18 @@
             </label>
 
             <label class="system-settings-row">
+                <strong>代理入口</strong>
+                <span class="system-admin-path-control">
+                    <i aria-hidden="true">/</i>
+                    <input name="agent_path" value="{{ old('agent_path', $settings['agent_path']) }}"
+                           minlength="3" maxlength="48" pattern="[a-z0-9_-]+" required
+                           autocomplete="off" spellcheck="false">
+                    <i aria-hidden="true">/index.php</i>
+                </span>
+                <small>保存后代理登录页将使用新入口，旧的代理地址随即失效；代理入口不能与后台入口相同</small>
+            </label>
+
+            <label class="system-settings-row">
                 <strong>时区设置</strong>
                 <select name="app_timezone" required>
                     @foreach($timezones as $value => $label)

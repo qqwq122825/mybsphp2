@@ -3,6 +3,7 @@
 return [
     'installed' => env('APP_INSTALLED', false),
     'admin_path' => env('ADMIN_PATH', 'admin'),
+    'agent_path' => env('AGENT_PATH', 'agent'),
     'secondary_password_enabled' => env('ADMIN_SECONDARY_PASSWORD_ENABLED', false),
     'install_lock' => env('INSTALL_LOCK_PATH', storage_path('installed.lock')),
     'environment_file' => env('INSTALL_ENV_PATH', base_path('.env')),
