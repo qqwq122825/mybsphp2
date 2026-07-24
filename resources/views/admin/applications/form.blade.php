@@ -88,7 +88,6 @@
                     <h1>软件配置</h1>
                     <p>软件代号 {{ $application->code }}，验证数据将作为客户端返回数组的 a[2]。</p>
                 </div>
-                <a class="button button-secondary" href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">返回列表</a>
             </header>
 
             <nav class="software-config-tabs" role="tablist" aria-label="软件配置分类">

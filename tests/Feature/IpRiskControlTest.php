@@ -178,8 +178,8 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('请求 4 · 仍计 3 次')
                 ->assertSee('当前软件策略')
                 ->assertSee('上线运行：谨慎响应')
-                ->assertSee('返回软件配置')
-                ->assertSee('/private-console/applications/'.$application->public_id.'/edit', false)
+                ->assertDontSee('返回软件配置')
+                ->assertDontSee('/private-console/applications/'.$application->public_id.'/edit', false)
                 ->assertSee('低级封控')
                 ->assertSee('高级封控')
                 ->assertSee('风险 IP 列表');

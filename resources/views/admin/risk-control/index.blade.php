@@ -11,9 +11,6 @@
     </div>
     @if($applications->isNotEmpty())
         <div class="risk-heading-tools">
-            @if($selectedApplication)
-                <a class="button button-secondary" href="{{ route('admin.applications.edit', ['adminPath' => $adminPath, 'application' => $selectedApplication]) }}">返回软件配置</a>
-            @endif
             <form class="risk-app-switcher" method="get">
                 <label for="risk-application">当前软件策略</label>
                 <select id="risk-application" name="application" onchange="this.form.submit()">
