@@ -135,6 +135,11 @@ class ApplicationManagementTest extends TestCase
         $this->assertDatabaseHas('card_batches', ['id' => $batchId, 'deleted_at' => null]);
         $this->assertDatabaseHas('cards', ['id' => $cardIds[0], 'status' => 'active']);
         $this->assertDatabaseMissing('cards', ['id' => $cardIds[1]]);
+        $this->post('/activation-query', ['credential' => $generated['credentials'][0]['code']])
+            ->assertOk()
+            ->assertSee('浏览器密码测试卡')
+            ->assertSee('已激活')
+            ->assertSee('到期时间');
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'card_types.deleted',
             'target_id' => $application->public_id,
