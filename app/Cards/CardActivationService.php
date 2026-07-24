@@ -26,7 +26,7 @@ final class CardActivationService
         string $appsafecode = '',
         string $sessionHandle = '',
     ): array {
-        return DB::transaction(function () use ($code, $secret, $deviceId, $appsafecode, $sessionHandle): array {
+        return DB::transaction(function () use ($code, $deviceId, $appsafecode, $sessionHandle): array {
             $card = Card::query()
                 ->with(['application', 'cardType'])
                 ->where('code_lookup_hash', $this->hasher->lookupHash($code))
@@ -34,7 +34,7 @@ final class CardActivationService
                 ->first();
 
             if (! $card instanceof Card) {
-                throw new CardActivationException('INVALID_CARD', '充值卡号错误。', 404);
+                throw new CardActivationException('INVALID_CARD', '卡密不存在。', 404);
             }
 
             $application = $card->application;
@@ -156,8 +156,9 @@ final class CardActivationService
 
     private function bindSession(Card $card, string $handle, string $deviceId): string
     {
-        try { return $this->sessions->bindCard($card->application, $card, $handle, $deviceId); }
-        catch (ClientSessionException $exception) {
+        try {
+            return $this->sessions->bindCard($card->application, $card, $handle, $deviceId);
+        } catch (ClientSessionException $exception) {
             throw new CardActivationException($exception->errorCode, $exception->getMessage(), $exception->status);
         }
     }

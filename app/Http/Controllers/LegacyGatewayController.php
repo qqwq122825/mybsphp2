@@ -144,11 +144,20 @@ final class LegacyGatewayController extends Controller
                 $result = $activation->activate($code, $secret, $device, $appsafecode, $sessionHandle);
             }
         } catch (CardActivationException|AccountAuthException $exception) {
+            // Some Nginx installations internally rewrite upstream 404 responses
+            // to a GET error page, which turns the useful JSON into HTTP_405.
+            // Keep legacy business errors on a successful transport response.
+            $transportStatus = $exception->status === 404 ? 200 : $exception->status;
+            $details = $exception instanceof AccountAuthException ? $exception->details : null;
+            if ($exception->status === 404) {
+                $details = array_replace(['business_status' => 404], $details ?? []);
+            }
+
             return ApiResponse::error(
                 $exception->errorCode,
                 $exception->getMessage(),
-                $exception->status,
-                $exception instanceof AccountAuthException ? $exception->details : null,
+                $transportStatus,
+                $details,
                 request: $request,
             );
         }
