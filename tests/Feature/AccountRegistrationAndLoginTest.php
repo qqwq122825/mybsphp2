@@ -55,6 +55,11 @@ class AccountRegistrationAndLoginTest extends TestCase
             ->assertJsonPath('data.authorization.is_expired', true);
 
         $this->assertNotNull($registered->json('data.account.expires_at'));
+        $this->assertStringEndsWith('+08:00', $registered->json('data.account.expires_at'));
+        $this->assertSame(
+            $registered->json('data.account.expires_at'),
+            explode('|', $registered->json('data.legacy_response'))[4],
+        );
 
         $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', [
             'username' => 'emptytime', 'password' => 'secret123', 'device_id' => 'IOS-EMPTY-TIME-001',

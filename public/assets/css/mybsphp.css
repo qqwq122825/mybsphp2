@@ -4402,20 +4402,67 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 }
 
 .bsphp-user-table {
-    min-width: 1280px;
+    min-width: 1320px;
     table-layout: fixed;
 }
 
-.bsphp-user-table th:first-child,
-.bsphp-user-table td:first-child { width: 42px; }
-.bsphp-user-table th:nth-child(2),
-.bsphp-user-table td:nth-child(2) { width: 210px; }
-.bsphp-user-table th:nth-child(6),
-.bsphp-user-table td:nth-child(6) { width: 150px; }
+.software-user-table-component .bsphp-user-table { min-width: 1320px; }
+.bsphp-user-table .bsphp-user-select-column { width: 46px; }
+.bsphp-user-table .bsphp-user-identity-column { width: 210px; }
+.bsphp-user-table .bsphp-user-expiry-column { width: 190px; }
+.bsphp-user-table .bsphp-user-last-online-column { width: 112px; }
 .bsphp-user-table th:nth-child(8),
 .bsphp-user-table td:nth-child(8) { width: 250px; }
-.bsphp-user-table th:last-child,
-.bsphp-user-table td:last-child { width: 72px; text-align: center; }
+.bsphp-user-table .bsphp-user-note-column { width: 140px; }
+.bsphp-user-table .bsphp-user-action-column { width: 76px; text-align: center; }
+
+.bsphp-user-table .bsphp-user-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap !important;
+}
+.bsphp-user-table .bsphp-user-truncate > code {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bsphp-user-expiry {
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Keep selection, identity and actions reachable while the wide table scrolls. */
+.bsphp-user-table .bsphp-user-select-column,
+.bsphp-user-table .bsphp-user-identity-column,
+.bsphp-user-table .bsphp-user-action-column {
+    position: sticky;
+    z-index: 1;
+    background: #fff;
+}
+.bsphp-user-table .bsphp-user-select-column { left: 0; }
+.bsphp-user-table .bsphp-user-identity-column {
+    left: 46px;
+    box-shadow: 8px 0 12px -12px rgba(31, 45, 70, .75);
+}
+.bsphp-user-table .bsphp-user-action-column {
+    right: 0;
+    box-shadow: -8px 0 12px -12px rgba(31, 45, 70, .75);
+}
+.bsphp-user-table thead .bsphp-user-select-column,
+.bsphp-user-table thead .bsphp-user-identity-column,
+.bsphp-user-table thead .bsphp-user-action-column {
+    z-index: 4;
+    background: #fafbfc;
+}
+.bsphp-user-table tbody tr:nth-child(even) .bsphp-user-select-column,
+.bsphp-user-table tbody tr:nth-child(even) .bsphp-user-identity-column,
+.bsphp-user-table tbody tr:nth-child(even) .bsphp-user-action-column { background: #f6f6f6; }
+.bsphp-user-table tbody tr:hover .bsphp-user-select-column,
+.bsphp-user-table tbody tr:hover .bsphp-user-identity-column,
+.bsphp-user-table tbody tr:hover .bsphp-user-action-column { background: #f1f6fd; }
 
 .bsphp-detail-button {
     border: 0;
@@ -4441,9 +4488,6 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
     max-width: 250px;
     color: #323b4c;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    white-space: normal !important;
-    word-break: break-all;
-    overflow-wrap: anywhere;
     line-height: 1.55;
 }
 

@@ -73,6 +73,8 @@ class CardIssueAndActivationTest extends TestCase
         $legacy = $response->json('data.legacy_response');
         $this->assertIsString($legacy);
         $fields = explode('|', $legacy);
+        $this->assertStringEndsWith('+08:00', $response->json('data.card.expires_at'));
+        $this->assertSame($response->json('data.card.expires_at'), $fields[6]);
         $this->assertSame('01', $fields[0]);
         $this->assertSame('xx', $fields[1]);
         $this->assertMatchesRegularExpression('/^[0-9A-F]{10}$/', $fields[2]);

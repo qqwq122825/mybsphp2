@@ -244,7 +244,9 @@ final class AccountAuthService
     private function result(ApplicationAccount $account, Application $application, string $appsafecode, string $sessionHandle = ''): array
     {
         $signature = $this->dailyCodec->dailySignature();
-        $expires = $account->expires_at?->format('Y-m-d H:i:s') ?? '';
+        // An explicit offset keeps the JSON, legacy wire response and
+        // administration table on the same configured application timezone.
+        $expires = $account->expires_at?->toIso8601String() ?? '';
         $device = (string) ($account->bound_device_ciphertext ?? '');
         $payload = $application->verificationData();
         $encryptedPayload = $this->dailyCodec->encodePayload($payload);
@@ -255,7 +257,7 @@ final class AccountAuthService
                 'public_id' => $account->public_id,
                 'username' => $account->username,
                 'status' => $account->status,
-                'expires_at' => $account->expires_at?->toISOString(),
+                'expires_at' => $account->expires_at?->toIso8601String(),
                 'invitation_code' => $account->invitation_code,
                 'balance_cents' => $account->balance_cents,
                 'points' => $account->points,
@@ -287,7 +289,7 @@ final class AccountAuthService
             'account' => [
                 'username' => $account->username,
                 'status' => $account->status,
-                'expires_at' => $account->expires_at?->toISOString(),
+                'expires_at' => $account->expires_at?->toIso8601String(),
                 'invitation_code' => $account->invitation_code,
             ],
             'authorization' => $this->authorization($account),
@@ -303,7 +305,7 @@ final class AccountAuthService
         return [
             'status' => $expired ? 'expired' : 'active',
             'is_expired' => $expired,
-            'expires_at' => $expiresAt?->toISOString(),
+            'expires_at' => $expiresAt?->toIso8601String(),
             'remaining_seconds' => $expired ? 0 : (int) max(0, now()->diffInSeconds($expiresAt, false)),
         ];
     }

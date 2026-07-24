@@ -130,7 +130,10 @@ final class CardActivationService
         $payload = $application->verificationData();
         $encryptedPayload = $this->dailyCodec->encodePayload($payload);
         $signature = $this->dailyCodec->dailySignature();
-        $expiresAt = $card->expires_at?->toISOString();
+        // Keep the configured application timezone in the wire value. Carbon's
+        // toISOString() normalizes to UTC ("Z"), which made the raw server value
+        // appear eight hours behind the administration table in Asia/Shanghai.
+        $expiresAt = $card->expires_at?->toIso8601String();
         $device = (string) ($card->bound_device_ciphertext ?? '');
         $legacy = implode('|', [
             '01',
@@ -155,7 +158,7 @@ final class CardActivationService
                 'public_id' => $card->public_id,
                 'masked' => '••••-'.($card->code_last4),
                 'status' => $card->status,
-                'activated_at' => $card->activated_at?->toISOString(),
+                'activated_at' => $card->activated_at?->toIso8601String(),
                 'expires_at' => $expiresAt,
                 'points' => $card->cardType->benefit_kind === 'points'
                     ? $card->cardType->points_amount

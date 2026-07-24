@@ -27,13 +27,13 @@
             <input type="hidden" name="confirmed" value="1">
             <input type="hidden" name="id_list" value="" data-user-bulk-ids>
             <x-admin.table-frame frame-class="software-user-table-component">
-                <x-slot:toolbar><div><button type="button" data-user-bulk-open>批量操作</button></div><span>冻结软件用户后会阻止该用户继续登录。</span></x-slot:toolbar>
+                <x-slot:toolbar><div><button type="button" data-user-bulk-open>批量操作</button></div><span>冻结后会阻止继续登录；表格可横向滚动查看全部字段。</span></x-slot:toolbar>
                 @if($userType === 'card')
                     <table class="bsphp-card-table bsphp-user-table">
                         <thead><tr>
-                            <th><input type="checkbox" data-card-select-all aria-label="全选"></th>
-                            <th>充值卡号(激活码)</th><th>状态</th><th>账号多开</th><th>机器用量</th>
-                            <th>到期时间</th><th>最后在线</th><th>绑定特征</th><th>备注</th><th>操作</th>
+                            <th class="bsphp-user-select-column"><input type="checkbox" data-card-select-all aria-label="全选"></th>
+                            <th class="bsphp-user-identity-column">充值卡号(激活码)</th><th>状态</th><th>账号多开</th><th>机器用量</th>
+                            <th class="bsphp-user-expiry-column">到期时间</th><th class="bsphp-user-last-online-column">最后在线</th><th>绑定特征</th><th>备注</th><th class="bsphp-user-action-column">操作</th>
                         </tr></thead>
                         <tbody>
                         @forelse($users as $card)
@@ -42,15 +42,15 @@
                                 $machineLimit = $card->machine_concurrency_limit ?: $card->cardType->machine_concurrency_limit;
                             @endphp
                             <tr>
-                                <td><input type="checkbox" name="user_ids[]" value="{{ $card->id }}" data-card-select></td>
-                                <td><code>{{ $card->code_ciphertext }}</code></td>
+                                <td class="bsphp-user-select-column"><input type="checkbox" name="user_ids[]" value="{{ $card->id }}" data-card-select></td>
+                                <td class="bsphp-user-identity-column bsphp-user-truncate" title="{{ $card->code_ciphertext }}"><code>{{ $card->code_ciphertext }}</code></td>
                                 <td><span class="status-tag status-{{ $card->user_status ?? 'active' }}">{{ ($card->user_status ?? 'active') === 'frozen' ? '冻结' : '正常' }}</span></td>
                                 <td>{{ $accountLimit ?: '默认' }}</td><td>{{ $machineLimit ?: '默认' }}</td>
-                                <td>{{ $card->expires_at?->format('Y-m-d H:i:s') ?? '永久' }}</td>
-                                <td>{{ $card->last_online_at?->diffForHumans() ?? '—' }}</td>
-                                <td class="bsphp-binding-value">{{ $card->bound_device_ciphertext ?: '—' }}</td>
-                                <td>{{ $card->user_note ?: '—' }}</td>
-                                <td><button class="bsphp-detail-button" type="button" data-user-detail
+                                <td class="bsphp-user-expiry-column">@if($card->expires_at)<time class="bsphp-user-expiry" datetime="{{ $card->expires_at->toIso8601String() }}" title="{{ $card->expires_at->toIso8601String() }}">{{ $card->expires_at->format('Y-m-d H:i:s') }}</time>@else 永久 @endif</td>
+                                <td class="bsphp-user-last-online-column" title="{{ $card->last_online_at?->format('Y-m-d H:i:s') }}">{{ $card->last_online_at?->diffForHumans() ?? '—' }}</td>
+                                <td class="bsphp-binding-value bsphp-user-truncate" title="{{ $card->bound_device_ciphertext ?: '' }}">{{ $card->bound_device_ciphertext ?: '—' }}</td>
+                                <td class="bsphp-user-note-column bsphp-user-truncate" title="{{ $card->user_note ?: '' }}">{{ $card->user_note ?: '—' }}</td>
+                                <td class="bsphp-user-action-column"><button class="bsphp-detail-button" type="button" data-user-detail
                                     data-title="卡号 {{ $card->code_ciphertext }}"
                                     data-action="{{ route('admin.applications.card-users.update', ['adminPath' => $adminPath, 'application' => $application, 'card' => $card]) }}"
                                     data-expires="{{ $card->expires_at?->format('Y-m-d\TH:i') }}"
@@ -65,22 +65,22 @@
                 @else
                     <table class="bsphp-card-table bsphp-user-table">
                         <thead><tr>
-                            <th><input type="checkbox" data-card-select-all aria-label="全选"></th>
-                            <th>用户名</th><th>状态</th><th>账号多开</th><th>机器用量</th><th>到期时间</th>
-                            <th>最后在线</th><th>绑定特征</th><th>备注</th><th>操作</th>
+                            <th class="bsphp-user-select-column"><input type="checkbox" data-card-select-all aria-label="全选"></th>
+                            <th class="bsphp-user-identity-column">用户名</th><th>状态</th><th>账号多开</th><th>机器用量</th><th class="bsphp-user-expiry-column">到期时间</th>
+                            <th class="bsphp-user-last-online-column">最后在线</th><th>绑定特征</th><th>备注</th><th class="bsphp-user-action-column">操作</th>
                         </tr></thead>
                         <tbody>
                         @forelse($users as $account)
                             <tr>
-                                <td><input type="checkbox" name="user_ids[]" value="{{ $account->id }}" data-card-select></td>
-                                <td>{{ $account->username }}</td>
+                                <td class="bsphp-user-select-column"><input type="checkbox" name="user_ids[]" value="{{ $account->id }}" data-card-select></td>
+                                <td class="bsphp-user-identity-column bsphp-user-truncate" title="{{ $account->username }}">{{ $account->username }}</td>
                                 <td><span class="status-tag status-{{ $account->status }}">{{ $account->status === 'frozen' ? '冻结' : '正常' }}</span></td>
                                 <td>{{ $account->account_concurrency_limit ?: '默认' }}</td><td>{{ $account->machine_concurrency_limit ?: '默认' }}</td>
-                                <td>{{ $account->expires_at?->format('Y-m-d H:i:s') ?? '永久' }}</td>
-                                <td>{{ $account->last_login_at?->diffForHumans() ?? '—' }}</td>
-                                <td class="bsphp-binding-value">{{ $account->bound_device_ciphertext ?: '—' }}</td>
-                                <td>{{ $account->note ?: '—' }}</td>
-                                <td><button class="bsphp-detail-button" type="button" data-user-detail
+                                <td class="bsphp-user-expiry-column">@if($account->expires_at)<time class="bsphp-user-expiry" datetime="{{ $account->expires_at->toIso8601String() }}" title="{{ $account->expires_at->toIso8601String() }}">{{ $account->expires_at->format('Y-m-d H:i:s') }}</time>@else 永久 @endif</td>
+                                <td class="bsphp-user-last-online-column" title="{{ $account->last_login_at?->format('Y-m-d H:i:s') }}">{{ $account->last_login_at?->diffForHumans() ?? '—' }}</td>
+                                <td class="bsphp-binding-value bsphp-user-truncate" title="{{ $account->bound_device_ciphertext ?: '' }}">{{ $account->bound_device_ciphertext ?: '—' }}</td>
+                                <td class="bsphp-user-note-column bsphp-user-truncate" title="{{ $account->note ?: '' }}">{{ $account->note ?: '—' }}</td>
+                                <td class="bsphp-user-action-column"><button class="bsphp-detail-button" type="button" data-user-detail
                                     data-title="账号 {{ $account->username }}"
                                     data-action="{{ route('admin.applications.account-users.update', ['adminPath' => $adminPath, 'application' => $application, 'account' => $account]) }}"
                                     data-expires="{{ $account->expires_at?->format('Y-m-d\TH:i') }}"
