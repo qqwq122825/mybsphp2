@@ -102,6 +102,17 @@ final class InstallationManager
         }
     }
 
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    public function updateMetadata(array $metadata): void
+    {
+        $this->writeLock([
+            ...$this->metadata(),
+            ...$metadata,
+        ]);
+    }
+
     private function lockPath(): string
     {
         return (string) config('mybsphp.install_lock', storage_path('installed.lock'));

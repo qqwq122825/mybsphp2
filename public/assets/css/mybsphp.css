@@ -4250,6 +4250,10 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 .system-settings-row > input,.system-settings-row > select { height:44px; }
 .system-settings-row > textarea { min-height:96px; padding-top:12px; resize:vertical; line-height:1.65; }
 .system-settings-row > input:focus,.system-settings-row > select:focus,.system-settings-row > textarea:focus { border-color:#4a8ef0; box-shadow:0 0 0 3px rgba(66,137,238,.1); }
+.system-admin-path-control { width:100%; height:44px; display:flex; align-items:center; overflow:hidden; border:1px solid #dfe3e9; border-radius:8px; background:#fff; transition:border-color .16s ease,box-shadow .16s ease; }
+.system-admin-path-control:focus-within { border-color:#4a8ef0; box-shadow:0 0 0 3px rgba(66,137,238,.1); }
+.system-admin-path-control i { align-self:stretch; display:grid; place-items:center; padding:0 11px; color:#7f8ba2; background:#f5f7fa; font-style:normal; }
+.system-admin-path-control input { min-width:0; flex:1; align-self:stretch; padding:0 12px; border:0; outline:0; color:#303744; background:#fff; font:600 14px/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
 .system-settings-row > small { color:#999fa8; font-size:13px; line-height:1.55; }
 .system-settings-readonly > span { min-height:44px; display:flex; align-items:center; padding:0 14px; border:1px solid #e6e9ed; border-radius:8px; color:#687180; background:#f7f8fa; font-size:14px; }
 .system-settings-security-note { margin-left:164px; padding:13px 16px; border-radius:8px; color:#645536; background:#fff8e9; }

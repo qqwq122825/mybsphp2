@@ -24,6 +24,17 @@
             </label>
 
             <label class="system-settings-row">
+                <strong>后台入口</strong>
+                <span class="system-admin-path-control">
+                    <i aria-hidden="true">/</i>
+                    <input name="admin_path" value="{{ old('admin_path', $settings['admin_path']) }}"
+                           minlength="3" maxlength="48" pattern="[a-z0-9_-]+" required
+                           autocomplete="off" spellcheck="false">
+                </span>
+                <small>支持 3～48 位小写字母、数字、短横线和下划线；保存后自动进入新的后台地址</small>
+            </label>
+
+            <label class="system-settings-row">
                 <strong>时区设置</strong>
                 <select name="app_timezone" required>
                     @foreach($timezones as $value => $label)

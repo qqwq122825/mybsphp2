@@ -18,13 +18,21 @@ class SystemInformationSettingsTest extends TestCase
 
     private string $lockPath;
 
+    private string $environmentPath;
+
     protected function setUp(): void
     {
         parent::setUp();
         app(SystemAccessSynchronizer::class)->sync();
         $this->lockPath = storage_path('framework/testing/system-information-settings.lock');
+        $this->environmentPath = storage_path('framework/testing/system-information-settings.env');
         @unlink($this->lockPath);
-        config(['mybsphp.install_lock' => $this->lockPath]);
+        @unlink($this->environmentPath);
+        file_put_contents($this->environmentPath, "ADMIN_PATH=\"private-console\"\n");
+        config([
+            'mybsphp.install_lock' => $this->lockPath,
+            'mybsphp.environment_file' => $this->environmentPath,
+        ]);
         app(InstallationManager::class)->writeLock([
             'admin_path' => 'private-console',
             'app_name' => 'Original System',
@@ -35,6 +43,8 @@ class SystemInformationSettingsTest extends TestCase
     protected function tearDown(): void
     {
         @unlink($this->lockPath);
+        @unlink($this->environmentPath);
+        @unlink($this->environmentPath.'.installing');
         parent::tearDown();
     }
 
@@ -54,6 +64,7 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('系统信息设置')
             ->assertSee('系统名称')
             ->assertSee('系统地址')
+            ->assertSee('后台入口')
             ->assertSee('时区设置')
             ->assertSee('当前模式')
             ->assertSee('上线运行')
@@ -72,18 +83,24 @@ class SystemInformationSettingsTest extends TestCase
             'app_name' => '授权运营中心',
             'app_url' => 'https://license.example.test',
             'app_timezone' => 'Asia/Shanghai',
+            'admin_path' => 'new-control-center',
             'operational_mode' => 'debug',
             'client_service_enabled' => '0',
             'client_service_message' => '服务升级维护中，请稍后重新连接。',
-        ])->assertRedirect('/private-console/settings/system');
+        ])->assertRedirect('/new-control-center/settings/system');
 
         $this->assertDatabaseHas('system_settings', ['key' => 'app_name', 'value' => '授权运营中心']);
+        $this->assertDatabaseHas('system_settings', ['key' => 'admin_path', 'value' => 'new-control-center']);
         $this->assertDatabaseHas('system_settings', ['key' => 'client_service_enabled', 'value' => '0']);
         $this->assertDatabaseHas('system_settings', ['key' => 'operational_mode', 'value' => 'debug', 'group' => 'security']);
+        $this->assertSame('new-control-center', app(InstallationManager::class)->adminPath());
+        $this->assertStringContainsString('ADMIN_PATH="new-control-center"', (string) file_get_contents($this->environmentPath));
 
-        $this->get('/private-console/settings/system')
+        $this->get('/private-console/settings/system')->assertNotFound();
+        $this->get('/new-control-center/settings/system')
             ->assertOk()
             ->assertSee('授权运营中心')
+            ->assertSee('new-control-center')
             ->assertSee('调试信息正在开放')
             ->assertSee('服务升级维护中，请稍后重新连接。');
 
