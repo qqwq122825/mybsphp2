@@ -53,6 +53,24 @@ class InstallationFlowTest extends TestCase
         $this->get('/admin/dashboard')->assertRedirect('/install');
     }
 
+    public function test_installed_site_keeps_root_home_separate_from_default_admin_path(): void
+    {
+        app(InstallationManager::class)->writeLock([
+            'admin_path' => 'admin',
+            'app_name' => '动态授权平台',
+            'secondary_password_enabled' => false,
+        ]);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('我的生活记录')
+            ->assertDontSee('管理员登录');
+
+        $this->get('/admin')
+            ->assertOk()
+            ->assertSee('管理员登录');
+    }
+
     public function test_database_step_defaults_to_preserving_applications_and_cards(): void
     {
         $this->get('/install/database')

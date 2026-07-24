@@ -15,10 +15,6 @@ final class SiteController extends Controller
             return redirect()->route('install.show');
         }
 
-        if ($installation->adminPath() === 'admin') {
-            return redirect('/admin');
-        }
-
         return view('site.home', [
             'appName' => $installation->applicationName(),
             'isProduction' => ! $operationalMode->isDebug(),
