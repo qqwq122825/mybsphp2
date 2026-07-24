@@ -143,6 +143,7 @@ final class InstallerService
                     ['key' => 'app_name', 'value' => $site['app_name'], 'type' => 'string', 'group' => 'site'],
                     ['key' => 'app_url', 'value' => $site['app_url'], 'type' => 'string', 'group' => 'site'],
                     ['key' => 'app_timezone', 'value' => $site['timezone'], 'type' => 'string', 'group' => 'site'],
+                    ['key' => 'operational_mode', 'value' => 'production', 'type' => 'string', 'group' => 'security'],
                     ['key' => 'admin_path', 'value' => $site['admin_path'], 'type' => 'string', 'group' => 'security'],
                     [
                         'key' => 'admin_secondary_password_enabled',

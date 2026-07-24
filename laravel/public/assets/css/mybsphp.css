@@ -2045,14 +2045,15 @@ button.workspace-tab {
 .software-config-tabs {
     min-width: 0;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     overflow: hidden;
     padding: 0 22px;
     border-bottom: 1px solid #e6eaf1;
     background: #fff;
 }
 
-.software-config-tabs button {
+.software-config-tabs button,
+.software-config-tabs > a {
     position: relative;
     min-width: 0;
     min-height: 48px;
@@ -2067,7 +2068,8 @@ button.workspace-tab {
     cursor: pointer;
 }
 
-.software-config-tabs button::after {
+.software-config-tabs button::after,
+.software-config-tabs > a::after {
     position: absolute;
     right: 0;
     bottom: 0;
@@ -2077,29 +2079,50 @@ button.workspace-tab {
     content: "";
 }
 
-.software-config-tabs button > span {
+.software-config-tabs button > span,
+.software-config-tabs > a > span {
     display: none;
 }
 
 .software-config-tabs button > strong,
-.software-config-tabs button > small {
+.software-config-tabs button > small,
+.software-config-tabs > a > strong,
+.software-config-tabs > a > small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.software-config-tabs button > strong {
+.software-config-tabs button > strong,
+.software-config-tabs > a > strong {
     font-size: 12px;
 }
 
-.software-config-tabs button > small {
+.software-config-tabs button > small,
+.software-config-tabs > a > small {
     display: none;
 }
 
 .software-config-tabs button:hover,
-.software-config-tabs button.is-active {
+.software-config-tabs button.is-active,
+.software-config-tabs > a:hover {
     color: #3479ec;
     background: #f5f8fd;
+}
+
+.software-config-tabs > a {
+    text-decoration: none;
+}
+
+.software-config-tabs > a::before {
+    margin-right: 7px;
+    color: #d28a18;
+    content: "◇";
+    font-size: 16px;
+}
+
+.software-config-tabs > a:hover::after {
+    background: #e3a23b;
 }
 
 .software-config-tabs button.is-active::after {
@@ -2667,6 +2690,12 @@ dialog.admin-window-dialog.is-minimized {
     border-color: #f3b69b;
     color: #d65d2f;
     background: #fff8f4;
+}
+
+.software-card-actions .software-action-risk {
+    border-color: #e9c47d;
+    color: #a86708;
+    background: #fffaf0;
 }
 
 .software-pager {
@@ -3942,6 +3971,10 @@ dialog.admin-window-dialog.is-minimized {
 .system-settings-security-note { margin-left:164px; padding:13px 16px; border-radius:8px; color:#645536; background:#fff8e9; }
 .system-settings-security-note strong { font-size:13px; }
 .system-settings-security-note p { margin:4px 0 0; font-size:12px; line-height:1.65; }
+.system-settings-mode-note { margin-left:164px; padding:13px 16px; border:1px solid #cce9dd; border-radius:9px; color:#286b55; background:#f0fbf6; }
+.system-settings-mode-note strong { font-size:13px; }
+.system-settings-mode-note p { margin:4px 0 0; font-size:12px; line-height:1.65; }
+.system-settings-mode-note.is-debug { border-color:#f0cf91; color:#80550e; background:#fff9ec; }
 .system-settings-actions { margin:7px 0 0 164px; }
 .system-settings-actions .button { min-width:112px; min-height:42px; }
 
@@ -3954,7 +3987,7 @@ dialog.admin-window-dialog.is-minimized {
     .administrator-create-note,.administrator-create-actions,.administrator-create-access { margin-left:134px; }
     .system-settings-row { grid-template-columns:120px minmax(0,1fr); }
     .system-settings-row > small { grid-column:2; margin-top:-7px; }
-    .system-settings-security-note,.system-settings-actions { margin-left:134px; }
+    .system-settings-security-note,.system-settings-mode-note,.system-settings-actions { margin-left:134px; }
 }
 @media (max-width:600px) {
     .administrator-create-panel > header { display:grid; }
@@ -3968,7 +4001,7 @@ dialog.admin-window-dialog.is-minimized {
     .system-settings-row { grid-template-columns:1fr; gap:7px; }
     .system-settings-row > strong { text-align:left; }
     .system-settings-row > small { grid-column:1; }
-    .system-settings-security-note,.system-settings-actions { margin-left:0; }
+    .system-settings-security-note,.system-settings-mode-note,.system-settings-actions { margin-left:0; }
     .operation-plugin-query-form { padding:18px; }
     .operation-query-results,.operation-monitor-table { margin:0 18px 18px; }
 }
@@ -4866,12 +4899,14 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
         display: none;
     }
 
-    .software-config-tabs button {
+    .software-config-tabs button,
+    .software-config-tabs > a {
         flex: 0 0 145px;
         padding: 14px;
     }
 
-    .software-config-tabs button > small {
+    .software-config-tabs button > small,
+    .software-config-tabs > a > small {
         display: none;
     }
 
@@ -5103,4 +5138,173 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
         animation-iteration-count: 1 !important;
         transition-duration: .01ms !important;
     }
+}
+
+/* IP risk control */
+.risk-page-heading { margin-bottom: 18px; }
+.risk-heading-tools { display: flex; align-items: stretch; gap: 9px; }
+.risk-heading-tools > .button { align-self: center; white-space: nowrap; }
+.risk-app-switcher {
+    min-width: 300px;
+    padding: 10px 13px;
+    border: 1px solid #dce4f1;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(30, 54, 99, .06);
+}
+.risk-app-switcher label { display: block; margin: 0 0 4px 3px; color: #8692a8; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.risk-app-switcher select { width: 100%; padding: 3px 26px 3px 2px; border: 0; outline: 0; background: transparent; color: #1c2f55; font-weight: 800; }
+.risk-status-strip {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-height: 54px;
+    margin-bottom: 16px;
+    padding: 11px 17px;
+    border: 1px solid #ccecdf;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #f0fcf7, #f8fffc);
+    color: #487264;
+}
+.risk-status-strip > div { display: flex; align-items: center; gap: 9px; color: #157a5a; }
+.risk-status-strip p { flex: 1; margin: 0; font-size: 12px; }
+.risk-status-strip > span { padding: 5px 9px; border-radius: 999px; background: #dff6ec; color: #247b61; font-size: 10px; font-weight: 800; }
+.risk-status-strip.is-off { border-color: #e2e6ed; background: #f8f9fb; color: #788397; }
+.risk-status-strip.is-off > div { color: #667287; }
+.risk-status-strip.is-off > span { background: #e9edf3; color: #657188; }
+.risk-response-mode { display:flex; align-items:center; gap:14px; margin:-2px 0 16px; padding:12px 16px; border:1px solid #cce9dd; border-radius:11px; color:#416c5f; background:#f2fbf7; }
+.risk-response-mode > div { display:flex; align-items:center; gap:9px; white-space:nowrap; }
+.risk-response-mode > div span { padding:4px 7px; border-radius:5px; color:#fff; background:#2fa477; font-size:9px; font-weight:900; letter-spacing:.08em; }
+.risk-response-mode > div strong { color:#29654f; font-size:11px; }
+.risk-response-mode > p { flex:1; margin:0; font-size:10px; line-height:1.55; }
+.risk-response-mode > p code { color:inherit; }
+.risk-response-mode > a { color:#3479ec; font-size:10px; font-weight:800; white-space:nowrap; }
+.risk-response-mode.is-debug { border-color:#efcf95; color:#7b622e; background:#fff9ed; }
+.risk-response-mode.is-debug > div span { background:#d59325; }
+.risk-response-mode.is-debug > div strong { color:#785614; }
+.risk-pulse { width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: #20b881; box-shadow: 0 0 0 3px rgba(32,184,129,.18); }
+.risk-status-strip.is-on .risk-pulse { animation: risk-pulse 2s infinite; }
+@keyframes risk-pulse { 50% { box-shadow: 0 0 0 7px rgba(32,184,129,0); } }
+.risk-metric-grid { margin-bottom: 16px; }
+.risk-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .7fr); gap: 16px; margin-bottom: 16px; }
+.risk-policy-panel, .risk-feed-panel { overflow: visible; margin: 0; }
+.risk-policy-panel > header, .risk-feed-panel > header { display: flex; align-items: center; justify-content: space-between; }
+.risk-policy-panel > header h2, .risk-feed-panel > header h2 { margin: 1px 0 3px; color: #1c2f55; }
+.risk-policy-panel > header small { color: #8995aa; }
+.risk-policy-badge { padding: 6px 10px; border: 1px solid #bce9d9; border-radius: 999px; background: #effbf6; color: #18805e; font-size: 10px; font-weight: 900; }
+.risk-policy-panel > form { padding: 0 20px 20px; }
+.risk-enable-row { display: flex; align-items: center; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #edf0f5; }
+.risk-enable-row div { display: grid; gap: 3px; }
+.risk-enable-row strong { color: #273b60; font-size: 13px; }
+.risk-enable-row small { color: #8b97ab; font-size: 11px; }
+.risk-switch input { position: absolute; opacity: 0; }
+.risk-switch span { position: relative; display: block; width: 43px; height: 24px; border-radius: 999px; background: #c8d0dc; cursor: pointer; transition: .2s; }
+.risk-switch span::after { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,.16); content: ''; transition: .2s; }
+.risk-switch input:checked + span { background: #2fb887; }
+.risk-switch input:checked + span::after { transform: translateX(19px); }
+.risk-window-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px 0 5px; }
+.risk-window-row label > span, .risk-policy-fields label > span, .risk-filter label > span { display: block; margin-bottom: 6px; color: #596981; font-size: 10px; font-weight: 800; }
+.risk-window-row label > div { display: flex; align-items: center; border: 1px solid #dae2ee; border-radius: 9px; background: #fff; }
+.risk-window-row input { width: 100%; padding: 10px; border: 0; outline: 0; color: #263b61; font-weight: 800; }
+.risk-window-row em { padding: 0 11px; color: #8c98aa; font-size: 10px; font-style: normal; }
+.risk-window-explainer { margin: 12px 0 2px; padding: 14px; border: 1px solid #dce7f8; border-radius: 11px; background: linear-gradient(135deg, #f6f9ff, #fbfdff); }
+.risk-window-explainer > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 12px; border: 0; }
+.risk-window-explainer > header div { display: grid; gap: 3px; }
+.risk-window-explainer > header strong { color: #2b477b; font-size: 11px; }
+.risk-window-explainer > header small { color: #8190a8; font-size: 9px; }
+.risk-window-explainer > header > span { padding: 4px 7px; border-radius: 6px; background: #e5edfc; color: #486aa7; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.risk-timeline { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; padding: 5px 0 7px; }
+.risk-timeline::before { position: absolute; top: 11px; right: 8%; left: 8%; height: 2px; background: #d7e0ef; content: ''; }
+.risk-timeline > div { position: relative; z-index: 1; display: grid; justify-items: center; gap: 4px; color: #687892; text-align: center; }
+.risk-timeline i { width: 13px; height: 13px; border: 3px solid #fff; border-radius: 50%; background: #7596d0; box-shadow: 0 0 0 2px #cad8ee; }
+.risk-timeline i.is-low { background: #e9a331; box-shadow: 0 0 0 2px #f3d7a7; }
+.risk-timeline strong { color: #405677; font-size: 9px; }
+.risk-timeline span { font-size: 8px; }
+.risk-window-explainer > p { margin: 9px 0 0; padding-top: 9px; border-top: 1px dashed #d8e1ef; color: #66758e; font-size: 9px; line-height: 1.65; }
+.risk-level-stack { display: grid; gap: 8px; padding: 14px 0 16px; }
+.risk-level-card { display: grid; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: 11px; padding: 12px 13px; border: 1px solid #e4e9f1; border-left-width: 3px; border-radius: 10px; background: #fbfcfe; }
+.risk-level-card > b { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; background: #edf2f8; color: #70809a; font-size: 10px; }
+.risk-level-card > div strong { color: #263a60; font-size: 12px; }
+.risk-level-card > div p { margin: 2px 0 0; color: #8a96aa; font-size: 10px; }
+.risk-level-card > span { color: #718098; font-size: 11px; font-weight: 800; }
+.risk-level-card > label { display: flex; align-items: center; overflow: hidden; border: 1px solid #dce3ed; border-radius: 8px; background: #fff; }
+.risk-level-card > label input { width: 58px; padding: 7px 8px; border: 0; outline: 0; color: #25395e; font-weight: 900; text-align: center; }
+.risk-level-card > label span { padding-right: 8px; color: #8793a6; font-size: 9px; }
+.risk-level-normal { border-left-color: #55b998; }
+.risk-level-low { border-color: #f2d7a6; border-left-color: #eca935; background: #fffcf6; }
+.risk-level-low > b { background: #fff0d3; color: #bd7910; }
+.risk-level-high { border-color: #f2c6cc; border-left-color: #db5364; background: #fff8f9; }
+.risk-level-high > b { background: #ffe2e6; color: #c33e50; }
+.risk-policy-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 15px; border-top: 1px solid #edf0f5; }
+.risk-policy-fields label { min-width: 0; }
+.risk-policy-fields input, .risk-policy-fields select, .risk-filter input, .risk-filter select { width: 100%; min-height: 39px; padding: 8px 10px; border: 1px solid #dae2ee; border-radius: 8px; outline: 0; background: #fff; color: #273b60; }
+.risk-policy-fields input:focus, .risk-policy-fields select:focus, .risk-filter input:focus, .risk-filter select:focus { border-color: #799ee8; box-shadow: 0 0 0 3px rgba(70,112,205,.1); }
+.risk-policy-fields small { display: block; margin-top: 4px; color: #96a0b0; font-size: 9px; }
+.risk-field-wide { grid-column: 1 / -1; }
+.risk-policy-panel form > footer { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 15px; border-top: 1px solid #edf0f5; }
+.risk-policy-panel form > footer p { margin: 0; color: #7e8a9e; font-size: 10px; }
+.risk-policy-panel form > footer strong { color: #3e5479; }
+.risk-feed-panel > header > span { color: #929db0; font-size: 10px; }
+.risk-feed-list { max-height: 692px; overflow: auto; padding: 2px 17px 13px; }
+.risk-feed-list article { display: grid; grid-template-columns: 9px minmax(0,1fr) auto; gap: 10px; padding: 13px 0; border-bottom: 1px solid #edf0f5; }
+.risk-feed-list article:last-child { border-bottom: 0; }
+.risk-feed-dot { width: 8px; height: 8px; margin-top: 4px; border-radius: 50%; background: #eca935; box-shadow: 0 0 0 4px #fff4df; }
+.risk-feed-dot.is-high { background: #d94f62; box-shadow: 0 0 0 4px #ffe8eb; }
+.risk-feed-list article strong { color: #2a3d61; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.risk-feed-list article p { margin: 3px 0; color: #717e92; font-size: 10px; line-height: 1.45; }
+.risk-feed-list article small { color: #a0a9b8; font-size: 9px; }
+.risk-feed-list article em { padding: 3px 6px; border-radius: 5px; background: #fff3dd; color: #b67511; font-size: 9px; font-style: normal; font-weight: 800; }
+.risk-feed-list article:has(.is-high) em { background: #ffe5e9; color: #bd3e50; }
+.risk-feed-empty { display: grid; min-height: 240px; place-content: center; justify-items: center; color: #8c98aa; text-align: center; }
+.risk-feed-empty span { display: grid; width: 42px; height: 42px; margin-bottom: 10px; place-items: center; border-radius: 50%; background: #e9f8f2; color: #24946d; font-size: 20px; }
+.risk-feed-empty p { margin: 5px 0; font-size: 10px; }
+.risk-table-panel { overflow: visible; }
+.risk-filter { display: flex; align-items: end; gap: 10px; padding: 13px 16px; }
+.risk-filter label { min-width: 160px; }
+.risk-filter .risk-filter-keyword { min-width: 260px; }
+.risk-filter > a { padding: 10px; color: #718098; font-size: 11px; font-weight: 700; }
+.risk-table-panel table code { padding: 3px 5px; border-radius: 5px; background: #f0f3f8; color: #52647f; font-size: 9px; }
+.risk-level-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 999px; background: #fff2d9; color: #aa6d12; font-size: 10px; font-weight: 900; white-space: nowrap; }
+.risk-level-pill i { width: 6px; height: 6px; border-radius: 50%; background: #eca935; }
+.risk-level-pill.is-high { background: #ffe4e8; color: #b93649; }
+.risk-level-pill.is-high i { background: #d94f62; }
+.risk-ip { display: block; color: #263a5d; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.risk-note { display: block; max-width: 160px; overflow: hidden; margin-top: 3px; color: #909bad; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.risk-block-status { padding: 4px 7px; border-radius: 5px; background: #edf2f7; color: #69788f; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.risk-block-status.is-blocked { background: #ffe9ec; color: #bd4253; }
+.risk-actions-column { width: 82px; }
+.risk-action-menu { position: relative; }
+.risk-action-menu summary { display: inline-flex; align-items: center; gap: 4px; padding: 6px 9px; border: 1px solid #d9e1ec; border-radius: 7px; color: #4b6082; font-size: 10px; font-weight: 800; cursor: pointer; list-style: none; }
+.risk-action-menu summary::-webkit-details-marker { display: none; }
+.risk-action-menu > div { position: absolute; z-index: 20; top: calc(100% + 5px); right: 0; width: 138px; overflow: hidden; border: 1px solid #dce3ed; border-radius: 9px; background: #fff; box-shadow: 0 12px 30px rgba(26,44,78,.16); }
+.risk-action-menu form { margin: 0; }
+.risk-action-menu button { width: 100%; padding: 9px 11px; border: 0; border-bottom: 1px solid #eef1f5; background: #fff; color: #4c5d78; font-size: 10px; text-align: left; cursor: pointer; }
+.risk-action-menu button:hover { background: #f4f7fb; color: #244b9a; }
+.risk-empty { display: grid; min-height: 360px; place-content: center; justify-items: center; text-align: center; }
+.risk-empty > span { font-size: 36px; color: #86a3dd; }
+.risk-empty h2 { margin: 12px 0 5px; color: #263a5e; }
+.risk-empty p { margin: 0; color: #8793a7; }
+
+@media (max-width: 1100px) {
+    .risk-layout { grid-template-columns: 1fr; }
+    .risk-feed-list { max-height: 360px; }
+}
+
+@media (max-width: 700px) {
+    .risk-heading-tools { width: 100%; flex-direction: column-reverse; }
+    .risk-heading-tools > .button { width: 100%; }
+    .risk-app-switcher { width: 100%; min-width: 0; }
+    .risk-status-strip { align-items: flex-start; flex-direction: column; gap: 5px; }
+    .risk-status-strip > span { margin-top: 4px; }
+    .risk-window-row, .risk-policy-fields { grid-template-columns: 1fr; }
+    .risk-window-explainer > header { align-items: flex-start; flex-direction: column; }
+    .risk-timeline span { max-width: 62px; line-height: 1.35; }
+    .risk-field-wide { grid-column: auto; }
+    .risk-level-card { grid-template-columns: 35px minmax(0,1fr); }
+    .risk-level-card > span, .risk-level-card > label { grid-column: 2; justify-self: start; }
+    .risk-policy-panel > form { padding: 0 15px 16px; }
+    .risk-policy-panel form > footer { align-items: stretch; flex-direction: column; gap: 13px; }
+    .risk-policy-panel form > footer .button { width: 100%; }
+    .risk-filter { align-items: stretch; flex-direction: column; }
+    .risk-filter label, .risk-filter .risk-filter-keyword { width: 100%; min-width: 0; }
 }

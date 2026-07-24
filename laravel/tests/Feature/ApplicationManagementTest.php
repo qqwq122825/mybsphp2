@@ -13,6 +13,7 @@ use App\Models\CardBatch;
 use App\Models\CardType;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ApplicationManagementTest extends TestCase
@@ -151,6 +152,8 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('游戏 iOS')
             ->assertSee('卡串验证限时模式')
             ->assertSee('软件配置')
+            ->assertSee('封控设置')
+            ->assertSee('/private-console/risk-control?application='.$application->public_id, false)
             ->assertSee('用户管理')
             ->assertSee('充值卡列表')
             ->assertSee('充值卡批量维护')
@@ -369,6 +372,9 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-config-tab="basic"', false)
             ->assertSee('data-config-tab="communication"', false)
             ->assertSee('data-config-tab="limits"', false)
+            ->assertSee('封控策略')
+            ->assertSee('IP 频率和阻断规则')
+            ->assertSee('/private-console/risk-control?application='.$application->public_id, false)
             ->assertSee('基本配置')
             ->assertSee('软件开关')
             ->assertSee('关闭提示')
@@ -433,7 +439,7 @@ class ApplicationManagementTest extends TestCase
             ->assertDontSee('用户分组');
 
         $account = ApplicationAccount::query()->create([
-            'public_id' => (string) \Illuminate\Support\Str::ulid(),
+            'public_id' => (string) Str::ulid(),
             'application_id' => $accountApplication->getKey(),
             'username' => 'test01', 'password_hash' => bcrypt('secret123'), 'status' => 'active',
             'bound_device_ciphertext' => 'IOS-FULL-BINDING-81FA', 'bound_device_mask' => 'IOS-••••81FA',

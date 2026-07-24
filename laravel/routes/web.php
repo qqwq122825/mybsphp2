@@ -3,12 +3,13 @@
 use App\Auth\AdminPermission;
 use App\Http\Controllers\AdminAdministratorController;
 use App\Http\Controllers\AdminAgentController;
-use App\Http\Controllers\AdminOperationPluginController;
 use App\Http\Controllers\AdminApplicationController;
 use App\Http\Controllers\AdminApplicationUserController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminCardController;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\AdminOperationPluginController;
+use App\Http\Controllers\AdminRiskControlController;
 use App\Http\Controllers\AdminSystemLogController;
 use App\Http\Controllers\AdminSystemSettingController;
 use App\Http\Controllers\AgentAuthController;
@@ -85,6 +86,15 @@ Route::prefix('{adminPath}')
                 ->where('type', 'login|card-making|protection')
                 ->middleware('can:'.AdminPermission::AuditView->value)
                 ->name('admin.system-logs.maintenance');
+            Route::get('/risk-control', [AdminRiskControlController::class, 'index'])
+                ->middleware('can:'.AdminPermission::RiskEventsView->value)
+                ->name('admin.risk-control.index');
+            Route::put('/risk-control/applications/{application}/policy', [AdminRiskControlController::class, 'updatePolicy'])
+                ->middleware('can:'.AdminPermission::RiskEventsView->value)
+                ->name('admin.risk-control.policy.update');
+            Route::post('/risk-control/states/{state}/action', [AdminRiskControlController::class, 'stateAction'])
+                ->middleware('can:'.AdminPermission::RiskEventsView->value)
+                ->name('admin.risk-control.states.action');
 
             Route::get('/administrators', [AdminAdministratorController::class, 'index'])
                 ->middleware('can:'.AdminPermission::AdministratorsView->value)

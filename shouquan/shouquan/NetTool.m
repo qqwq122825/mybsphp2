@@ -3,6 +3,9 @@
 #import "BSPHPTransportCrypto.h"
 
 static NSString * const NetToolErrorDomain = @"com.mybsphp.nettool";
+NSString * const BSPHPErrorCodeUserInfoKey = @"BSPHPErrorCode";
+NSString * const BSPHPErrorDetailsUserInfoKey = @"BSPHPErrorDetails";
+NSString * const BSPHPRetryAfterUserInfoKey = @"BSPHPRetryAfter";
 
 @implementation NetTool
 
@@ -82,8 +85,11 @@ static NSString * const NetToolErrorDomain = @"com.mybsphp.nettool";
             NSString *message = [errorData[@"message"] isKindOfClass:NSString.class] ? errorData[@"message"] : @"请求失败";
             NSInteger statusCode = [(NSHTTPURLResponse *)response statusCode];
             NSMutableDictionary *userInfo = [@{NSLocalizedDescriptionKey: message} mutableCopy];
-            if ([errorData[@"code"] isKindOfClass:NSString.class]) userInfo[@"BSPHPErrorCode"] = errorData[@"code"];
-            if ([errorData[@"details"] isKindOfClass:NSDictionary.class]) userInfo[@"BSPHPErrorDetails"] = errorData[@"details"];
+            if ([errorData[@"code"] isKindOfClass:NSString.class]) userInfo[BSPHPErrorCodeUserInfoKey] = errorData[@"code"];
+            if ([errorData[@"details"] isKindOfClass:NSDictionary.class]) userInfo[BSPHPErrorDetailsUserInfoKey] = errorData[@"details"];
+            NSString *retryAfter = [(NSHTTPURLResponse *)response valueForHTTPHeaderField:@"Retry-After"];
+            NSInteger retryAfterSeconds = retryAfter.integerValue;
+            if (retryAfterSeconds > 0) userInfo[BSPHPRetryAfterUserInfoKey] = @(retryAfterSeconds);
             NSError *serverError = [NSError errorWithDomain:NetToolErrorDomain code:statusCode ?: -5 userInfo:userInfo];
             [self finishFailure:failure error:serverError];
             return;

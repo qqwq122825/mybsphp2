@@ -125,6 +125,14 @@ class Application extends Model
     }
 
     /**
+     * @return HasOne<RiskPolicy, $this>
+     */
+    public function riskPolicy(): HasOne
+    {
+        return $this->hasOne(RiskPolicy::class);
+    }
+
+    /**
      * @return HasMany<CardType, $this>
      */
     public function cardTypes(): HasMany

@@ -6,6 +6,7 @@ use App\Accounts\AccountAuthException;
 use App\Accounts\AccountAuthService;
 use App\Http\ApiResponse;
 use App\Models\Application;
+use App\Risk\IpRiskControlService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,6 +15,7 @@ final class AccountAuthController extends Controller
     public function exists(Request $request, Application $application): JsonResponse
     {
         $username = trim((string) $request->input('username', ''));
+
         return ApiResponse::success(['exists' => $application->accounts()->where('username', $username)->exists()], request: $request);
     }
 
@@ -26,6 +28,7 @@ final class AccountAuthController extends Controller
             'appsafecode' => ['nullable', 'string', 'max:255'],
             'BSphpSeSsL' => ['nullable', 'string', 'size:64'],
         ]);
+
         return $this->run($request, fn () => $auth->register(
             $application, $validated['username'], $validated['password'], $validated['device_id'] ?? '',
             $validated['card_code'] ?? '', $validated['card_secret'] ?? '', $validated['invitation_code'] ?? '',
@@ -34,14 +37,23 @@ final class AccountAuthController extends Controller
         ), 201);
     }
 
-    public function login(Request $request, Application $application, AccountAuthService $auth): JsonResponse
+    public function login(Request $request, Application $application, AccountAuthService $auth, IpRiskControlService $risk): JsonResponse
     {
         $validated = $request->validate([
             'username' => ['required', 'string', 'max:64'], 'password' => ['required', 'string', 'max:72'],
             'device_id' => ['nullable', 'string', 'max:160'], 'appsafecode' => ['nullable', 'string', 'max:255'],
             'BSphpSeSsL' => ['nullable', 'string', 'size:64'],
         ]);
-        return $this->run($request, fn () => $auth->login($application, $validated['username'], $validated['password'], $validated['device_id'] ?? '', $validated['appsafecode'] ?? '', $validated['BSphpSeSsL'] ?? ''));
+        $decision = $risk->evaluate($application, $request, 'accounts.login', $validated['device_id'] ?? '');
+        if ($decision->shouldBlock()) {
+            return $risk->blockedResponse($decision, $request);
+        }
+
+        return $this->run($request, fn () => $risk->applyDecoy(
+            $auth->login($application, $validated['username'], $validated['password'], $validated['device_id'] ?? '', $validated['appsafecode'] ?? '', $validated['BSphpSeSsL'] ?? ''),
+            $application,
+            $decision,
+        ));
     }
 
     public function recharge(Request $request, Application $application, AccountAuthService $auth): JsonResponse
@@ -50,14 +62,16 @@ final class AccountAuthController extends Controller
             'username' => ['required', 'string', 'max:64'], 'card_code' => ['required', 'string', 'max:64'],
             'card_secret' => ['nullable', 'string', 'max:64'], 'appsafecode' => ['nullable', 'string', 'max:255'],
         ]);
+
         return $this->run($request, fn () => $auth->recharge($application, $validated['username'], $validated['card_code'], $validated['card_secret'] ?? '', $validated['appsafecode'] ?? ''));
     }
 
     /** @param callable(): array<string, mixed> $callback */
     private function run(Request $request, callable $callback, int $status = 200): JsonResponse
     {
-        try { return ApiResponse::success($callback(), status: $status, request: $request); }
-        catch (AccountAuthException $exception) {
+        try {
+            return ApiResponse::success($callback(), status: $status, request: $request);
+        } catch (AccountAuthException $exception) {
             return ApiResponse::error(
                 $exception->errorCode,
                 $exception->getMessage(),

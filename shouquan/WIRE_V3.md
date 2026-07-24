@@ -87,3 +87,21 @@ expandResponsePacket:
 ```
 
 这样客户端仍可向开发者展示准确错误信息。
+
+调试模式下，登录触发高级封控时错误对象额外包含：
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "ACCESS_TEMPORARILY_RESTRICTED",
+    "message": "当前请求过于频繁，请稍后再试。",
+    "details": {
+      "control_level": "high",
+      "retry_after_seconds": 1800
+    }
+  }
+}
+```
+
+临时封控还会发送 HTTP `Retry-After` 响应头。上线运行时同一判定表现为普通 HTTP 503 `SERVER_UNAVAILABLE`，不暴露封控字段。`NetTool` 会把存在的业务错误码、详情和等待秒数分别写入 `NSError.userInfo`，不会把普通错误对象交给 Wire v3 解密器。

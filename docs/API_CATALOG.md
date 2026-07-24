@@ -197,7 +197,7 @@ W0-8 已确认二级密码为可选全局能力，新安装默认关闭；对被
 | W4-7 | `PUT /apps/{app}/payload-policy` | `apps.payload.update` | 配置 `arr[2]` 类型：`encrypted_value/empty/constant` 及诱饵值 | 需 Key / `write-sensitive` | 32 位值边界、10 位大写 HEX、空值、伪值 |
 | W4-8 | `POST /apps/{app}/daily-signature/preview` | `profiles.preview` | 按 UTC 日期预览每日签名 | 无业务写入 / `write-normal` | UTC 跨日、固定长度、测试向量 |
 | W4-9 | `GET/PUT /apps/{app}/binding-policy` | `apps.binding.view/update` | 设备绑定、并发数、换绑规则 | PUT 需 Key / `write-sensitive` | 首绑、禁绑、设备上限、并发边界 |
-| W9-0～8 | `GET/PUT /apps/{app}/risk-policy` | `risk.policy.view/update` | 风险开关、窗口、次数/设备阈值、`observe/decoy/block` | PUT 需 Key / `write-sensitive` | 关闭、阈值边界、非法诱饵、策略版本 |
+| W9-0～8 | `GET/PUT /apps/{app}/risk-policy` | `risk.policy.view/update` | 风险开关、滚动窗口、低级/高级次数阈值、`observe/decoy/block` | PUT 需 Key / `write-sensitive` | 10 秒边界、首次请求移出后的连续计数、非法诱饵、策略版本 |
 | W9-0～8 | `POST /apps/{app}/risk-policy/simulate` | `risk.policy.simulate` | 模拟请求序列并显示决策，不写真实风险状态 | 无业务写入 / `write-normal` | Observe/Decoy/Block、响应组装前决策 |
 
 响应处理器查找优先级固定为：

@@ -101,6 +101,13 @@
                 <button type="button" role="tab" data-config-tab="limits" aria-controls="software-panel-limits">
                     <span>03</span><strong>限开控制</strong><small>设备绑定和并发限制</small>
                 </button>
+                @can('risk.view')
+                    <a class="software-config-risk-link"
+                       href="{{ route('admin.risk-control.index', ['adminPath' => $adminPath, 'application' => $application->public_id]) }}"
+                       data-workspace-open data-workspace-title="{{ $application->code }}-封控策略">
+                        <span>04</span><strong>封控策略</strong><small>IP 频率和阻断规则</small>
+                    </a>
+                @endcan
             </nav>
 
             <div class="admin-form-grid software-config-panel" id="software-panel-communication"

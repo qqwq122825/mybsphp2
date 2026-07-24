@@ -4,10 +4,11 @@ use App\Console\Commands\IssueReinstallationLink;
 use App\Http\ApiResponse;
 use App\Http\Middleware\AttachRequestId;
 use App\Http\Middleware\EnsureAdministratorAuthenticated;
-use App\Http\Middleware\EnsureAgentAuthenticated;
 use App\Http\Middleware\EnsureAdminPath;
+use App\Http\Middleware\EnsureAgentAuthenticated;
 use App\Http\Middleware\EnsureClientServiceEnabled;
 use App\Http\Middleware\PreserveWorkspaceReturnUrl;
+use App\Support\OperationalMode;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -48,6 +49,15 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
+            $debugDetails = app(OperationalMode::class)->isDebug()
+                ? [
+                    'exception' => $exception::class,
+                    'message' => $exception->getMessage(),
+                    'file' => $exception->getFile(),
+                    'line' => $exception->getLine(),
+                ]
+                : null;
+
             return match (true) {
                 $exception instanceof ValidationException => ApiResponse::error(
                     code: 'VALIDATION_FAILED',
@@ -79,12 +89,14 @@ return Application::configure(basePath: dirname(__DIR__))
                     code: 'HTTP_'.$exception->getStatusCode(),
                     message: $exception->getStatusCode() >= 500 ? '服务暂时异常' : '请求处理失败',
                     status: $exception->getStatusCode(),
+                    details: $exception->getStatusCode() >= 500 ? $debugDetails : null,
                     request: $request,
                 ),
                 default => ApiResponse::error(
                     'INTERNAL_ERROR',
                     '服务暂时异常',
                     500,
+                    $debugDetails,
                     request: $request,
                 ),
             };

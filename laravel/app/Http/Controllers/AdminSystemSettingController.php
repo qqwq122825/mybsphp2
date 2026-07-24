@@ -10,6 +10,7 @@ use App\Models\SystemSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 final class AdminSystemSettingController extends Controller
@@ -31,7 +32,7 @@ final class AdminSystemSettingController extends Controller
     public function index(string $adminPath): View
     {
         $settings = SystemSetting::query()->whereIn('key', [
-            'app_name', 'app_url', 'app_timezone', 'client_service_enabled', 'client_service_message',
+            'app_name', 'app_url', 'app_timezone', 'operational_mode', 'client_service_enabled', 'client_service_message',
         ])->pluck('value', 'key');
 
         return view('admin.settings.system', [
@@ -43,6 +44,7 @@ final class AdminSystemSettingController extends Controller
                 'app_name' => (string) ($settings['app_name'] ?? $this->installation->applicationName()),
                 'app_url' => (string) ($settings['app_url'] ?? config('app.url')),
                 'app_timezone' => (string) ($settings['app_timezone'] ?? config('app.timezone', 'Asia/Shanghai')),
+                'operational_mode' => (string) ($settings['operational_mode'] ?? 'production'),
                 'client_service_enabled' => (string) ($settings['client_service_enabled'] ?? '1'),
                 'client_service_message' => (string) ($settings['client_service_message'] ?? '系统维护中，请稍后再试。'),
             ],
@@ -57,6 +59,7 @@ final class AdminSystemSettingController extends Controller
             'app_name' => ['required', 'string', 'min:2', 'max:80'],
             'app_url' => ['required', 'url:http,https', 'max:255'],
             'app_timezone' => ['required', 'timezone'],
+            'operational_mode' => ['required', Rule::in(['production', 'debug'])],
             'client_service_enabled' => ['required', 'boolean'],
             'client_service_message' => ['required', 'string', 'min:2', 'max:500'],
         ]);
@@ -68,7 +71,11 @@ final class AdminSystemSettingController extends Controller
             SystemSetting::query()->updateOrCreate(['key' => $key], [
                 'value' => (string) $value,
                 'type' => $types[$key] ?? 'string',
-                'group' => $key === 'client_service_enabled' || $key === 'client_service_message' ? 'service' : 'site',
+                'group' => match ($key) {
+                    'client_service_enabled', 'client_service_message' => 'service',
+                    'operational_mode' => 'security',
+                    default => 'site',
+                },
                 'updated_at' => $now,
             ]);
         }

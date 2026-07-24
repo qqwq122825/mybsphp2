@@ -266,7 +266,7 @@ typedef NS_ENUM(NSInteger, BSDemoMode) {
         if (error) [weakSelf showError:error.localizedDescription];
         else { [weakSelf showCardSuccess:data]; [weakSelf beginHeartbeat:BSDemoModeCard response:data]; }
     } failure:^(NSError *error) {
-        [weakSelf setLoading:NO]; [weakSelf showError:error.localizedDescription];
+        [weakSelf setLoading:NO]; [weakSelf showError:[weakSelf displayMessageForNetworkError:error]];
     }];
 }
 
@@ -305,15 +305,15 @@ typedef NS_ENUM(NSInteger, BSDemoMode) {
         else { [weakSelf showAccountSuccess:data action:api]; if (![api isEqualToString:@"chong.lg"]) [weakSelf beginHeartbeat:BSDemoModeAccount response:data]; }
     } failure:^(NSError *error) {
         [weakSelf setLoading:NO];
-        if ([error.userInfo[@"BSPHPErrorCode"] isEqualToString:@"ACCOUNT_EXPIRED"]) {
-            NSDictionary *details = error.userInfo[@"BSPHPErrorDetails"];
+        if ([error.userInfo[BSPHPErrorCodeUserInfoKey] isEqualToString:@"ACCOUNT_EXPIRED"]) {
+            NSDictionary *details = error.userInfo[BSPHPErrorDetailsUserInfoKey];
             NSDictionary *account = details[@"account"];
             weakSelf.rechargeButton.hidden = NO;
             weakSelf.resultLabel.text = [NSString stringWithFormat:@"✓ 账号密码验证成功\n\n授权状态：已过期\n用户：%@\n到期：%@\n\n请在上方输入充值卡续期。",
                 account[@"username"] ?: username, [weakSelf displayDate:account[@"expires_at"]]];
             [weakSelf showResult:NO];
         } else {
-            [weakSelf showError:error.localizedDescription];
+            [weakSelf showError:[weakSelf displayMessageForNetworkError:error]];
         }
     }];
 }
@@ -401,6 +401,29 @@ typedef NS_ENUM(NSInteger, BSDemoMode) {
 - (void)showError:(NSString *)message {
     self.resultLabel.text = [NSString stringWithFormat:@"验证失败\n\n%@", message ?: @"请求错误"];
     [self showResult:NO];
+}
+
+- (NSString *)displayMessageForNetworkError:(NSError *)error {
+    NSDictionary *details = [error.userInfo[BSPHPErrorDetailsUserInfoKey] isKindOfClass:NSDictionary.class]
+        ? error.userInfo[BSPHPErrorDetailsUserInfoKey]
+        : nil;
+    if (![details[@"control_level"] isEqualToString:@"high"]) {
+        return error.localizedDescription;
+    }
+
+    NSNumber *retryValue = [error.userInfo[BSPHPRetryAfterUserInfoKey] isKindOfClass:NSNumber.class]
+        ? error.userInfo[BSPHPRetryAfterUserInfoKey]
+        : ([details[@"retry_after_seconds"] isKindOfClass:NSNumber.class] ? details[@"retry_after_seconds"] : nil);
+    NSInteger seconds = retryValue.integerValue;
+    if (seconds > 0) {
+        NSString *duration = seconds < 60
+            ? [NSString stringWithFormat:@"%ld 秒", (long)seconds]
+            : [NSString stringWithFormat:@"约 %ld 分钟", (long)((seconds + 59) / 60)];
+        return [NSString stringWithFormat:@"%@\n\n当前登录请求已进入高级封控，请在 %@ 后重试。",
+                error.localizedDescription, duration];
+    }
+
+    return [NSString stringWithFormat:@"%@\n\n当前登录请求处于长期封控状态。", error.localizedDescription];
 }
 
 - (void)showResult:(BOOL)success {

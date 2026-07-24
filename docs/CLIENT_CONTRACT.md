@@ -141,6 +141,8 @@ UTC YYYYMMDD
 - `decoy`：用策略值替换 `arr[2]`。
 - `block`：稳定失败响应并记录。
 
+当前计数采用 `(当前时间 - 窗口秒数, 当前时间]` 滚动窗口，默认最近 10 秒达到 3 次进入 `decoy`、达到 5 次进入 `block`。上线运行时，`decoy` 仍返回原成功结构与到期时间且不带封控标记；`block` 表现为普通 HTTP 503 服务器故障。只有调试模式会返回 `risk_control`、`error.details.control_level=high`、`retry_after_seconds` 与 HTTP `Retry-After`。
+
 ## 8. Handler 优先级
 
 ```text

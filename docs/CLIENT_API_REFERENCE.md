@@ -288,6 +288,38 @@ REST/AppEn 业务错误外壳：
 | `SESSION_LIMIT_REACHED` | 已达到后台并发上限 |
 | `PACKET_REPLAYED` | 重新生成 nonce 后重发一次 |
 | `INVALID_PACKET` | 检查时间戳、RSA/AES/HMAC 和 Wire v3 字段 |
+| `SERVER_UNAVAILABLE` | 上线运行下统一按临时服务器故障处理；不推断封控状态，不自动高频重试 |
+| `ACCESS_TEMPORARILY_RESTRICTED`（仅调试模式默认值） | 根据 `error.details.control_level` 读取高级封控判定及 `Retry-After` |
+
+### 13.1 登录封控响应
+
+账号登录、卡串登录以及 AppEn `login.ic/login.lg` 共用同一套滚动窗口。上线运行时高级封控返回 HTTP 503、`SERVER_UNAVAILABLE` 和统一服务器故障提示，不携带 `details` 或 `Retry-After`。下例是调试模式响应：
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 1800
+Content-Type: application/json
+```
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "ACCESS_TEMPORARILY_RESTRICTED",
+    "message": "当前请求过于频繁，请稍后再试。",
+    "details": {
+      "control_level": "high",
+      "retry_after_seconds": 1800
+    }
+  },
+  "meta": {
+    "request_id": "REQUEST_ID",
+    "server_time": "2026-07-23T00:00:00.000000Z"
+  }
+}
+```
+
+调试模式下客户端可依据 `control_level=high` 展示封控诊断。上线运行时客户端只会看到普通服务器故障，应停止密集自动重试并使用常规退避。低级封控始终保持成功字段布局和到期时间；上线运行不增加字段，调试模式额外增加 `data.risk_control`。
 
 ## 14. 推荐客户端调用顺序
 
@@ -301,6 +333,7 @@ REST/AppEn 业务错误外壳：
 5. 登录成功后读取到期时间、验证数据和邀请码
 6. 定时调用 timeout.ic 或 timeout.lg
 7. 收到到期、冻结、设备不符或软件关闭错误后停止授权功能
+8. 收到 `control_level=high` 后停止自动重试，按 `Retry-After` 展示剩余等待时间
 ```
 
 ## 15. 现成客户端代码位置

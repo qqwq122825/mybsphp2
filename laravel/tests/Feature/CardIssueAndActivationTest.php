@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Applications\ApplicationCredentialService;
-use App\Applications\HybridPacketCipher;
 use App\Applications\DailyVerificationCodec;
+use App\Applications\HybridPacketCipher;
 use App\Cards\CardCredentialHasher;
 use App\Cards\CardGenerationService;
 use App\Cards\ManualIssueService;
@@ -24,6 +24,8 @@ class CardIssueAndActivationTest extends TestCase
     {
         $administrator = $this->administrator();
         [$application, $cardType] = $this->applicationAndType();
+        // 本用例验证制卡、协议与冻结语义；分档封控由 IpRiskControlTest 独立覆盖。
+        $application->riskPolicy()->create(['enabled' => false]);
 
         $generated = app(CardGenerationService::class)->generate($cardType, 2, $administrator, '测试批次');
         $credential = $generated['credentials'][0];

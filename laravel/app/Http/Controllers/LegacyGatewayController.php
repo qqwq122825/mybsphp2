@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Applications\HybridPacketCipher;
 use App\Accounts\AccountAuthException;
 use App\Accounts\AccountAuthService;
+use App\Applications\HybridPacketCipher;
 use App\Applications\PacketCipherException;
 use App\Cards\CardActivationException;
 use App\Cards\CardActivationService;
 use App\Http\ApiResponse;
 use App\Models\Application;
+use App\Risk\IpRiskControlService;
 use App\Sessions\ClientSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ final class LegacyGatewayController extends Controller
         CardActivationService $activation,
         AccountAuthService $accountAuth,
         ClientSessionService $clientSessions,
+        IpRiskControlService $risk,
     ): JsonResponse {
         $appCode = (string) $request->query('appid', '');
         $gatewayToken = (string) $request->query('md5', '');
@@ -92,12 +94,22 @@ final class LegacyGatewayController extends Controller
         $appsafecode = $this->parameter($parameters, $legacy->appsafecode_param);
         $sessionHandle = $this->firstParameter($parameters, ['BSphpSeSsL', 'bsphpsessl', 'session_token']);
 
+        $riskDecision = null;
+        if (in_array($api, ['login.ic', 'login.lg'], true)) {
+            $riskDecision = $risk->evaluate($application, $request, 'legacy.'.$api, $device);
+            if ($riskDecision->shouldBlock()) {
+                return $risk->blockedResponse($riskDecision, $request);
+            }
+        }
+
         try {
             if ($api === 'BSphpSeSsL.in') {
                 $result = ['legacy_response' => $clientSessions->issueHandle($sessionHandle)];
             } elseif (in_array($api, ['timeout.ic', 'timeout.lg'], true)) {
                 $expected = $application->mode === 'account_recharge' ? 'timeout.lg' : 'timeout.ic';
-                if ($api !== $expected) throw new AccountAuthException('MODE_MISMATCH', '心跳接口后缀与软件模式不一致。', 409);
+                if ($api !== $expected) {
+                    throw new AccountAuthException('MODE_MISMATCH', '心跳接口后缀与软件模式不一致。', 409);
+                }
                 $heartbeat = $clientSessions->heartbeat($application, $sessionHandle, $device);
                 $result = ['legacy_response' => implode('|', [$heartbeat['code'], $heartbeat['handle'], $appsafecode, $heartbeat['server_time']])];
             } elseif ($application->mode === 'account_recharge') {
@@ -123,8 +135,12 @@ final class LegacyGatewayController extends Controller
                     default => throw new AccountAuthException('UNKNOWN_API', '接口名称不存在。', 404),
                 };
             } else {
-                if ($api !== 'login.ic') throw new CardActivationException('UNKNOWN_API', '接口名称不存在。', 404);
-                if ($code === '' || mb_strlen($code) > 64 || mb_strlen($secret) > 64) throw new CardActivationException('INVALID_PARAMETERS', '卡密参数格式错误。', 422);
+                if ($api !== 'login.ic') {
+                    throw new CardActivationException('UNKNOWN_API', '接口名称不存在。', 404);
+                }
+                if ($code === '' || mb_strlen($code) > 64 || mb_strlen($secret) > 64) {
+                    throw new CardActivationException('INVALID_PARAMETERS', '卡密参数格式错误。', 422);
+                }
                 $result = $activation->activate($code, $secret, $device, $appsafecode, $sessionHandle);
             }
         } catch (CardActivationException|AccountAuthException $exception) {
@@ -135,6 +151,10 @@ final class LegacyGatewayController extends Controller
                 $exception instanceof AccountAuthException ? $exception->details : null,
                 request: $request,
             );
+        }
+
+        if ($riskDecision !== null) {
+            $result = $risk->applyDecoy($result, $application, $riskDecision);
         }
 
         $responseEnvelope = $cipher->sealResponse(
@@ -163,8 +183,11 @@ final class LegacyGatewayController extends Controller
     {
         foreach ($names as $name) {
             $value = $this->parameter($parameters, $name);
-            if ($value !== '') return $value;
+            if ($value !== '') {
+                return $value;
+            }
         }
+
         return '';
     }
 
@@ -177,7 +200,9 @@ final class LegacyGatewayController extends Controller
      */
     private function expandCompactRequest(array $packet): ?array
     {
-        if (count($packet) !== 8 || ($packet[0] ?? null) !== 3) return null;
+        if (count($packet) !== 8 || ($packet[0] ?? null) !== 3) {
+            return null;
+        }
 
         return [
             'v' => 2,
@@ -196,7 +221,7 @@ final class LegacyGatewayController extends Controller
      * Wire v3 response: [3, ts, responseNonce, requestNonce, iv, ciphertext, mac].
      * Error responses remain ordinary JSON objects so clients can display the message.
      *
-     * @param array<string, mixed> $envelope
+     * @param  array<string, mixed>  $envelope
      * @return list<mixed>
      */
     private function compactResponse(array $envelope): array

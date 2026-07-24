@@ -61,6 +61,12 @@ param[@"appsafecode"] = appSafeCode;
     NSLog(@"到期时间：%@", result[@"card"][@"expires_at"]);
     NSLog(@"验证数据：%@", result[@"payload"]);
 } failure:^(NSError *error) {
+    NSDictionary *details = error.userInfo[BSPHPErrorDetailsUserInfoKey];
+    NSNumber *retryAfter = error.userInfo[BSPHPRetryAfterUserInfoKey];
+    if ([details[@"control_level"] isEqualToString:@"high"]) {
+        NSLog(@"登录进入高级封控，%@ 秒后重试", retryAfter ?: @0);
+        return;
+    }
     NSLog(@"网络或服务端错误：%@", error.localizedDescription);
 }];
 ```
@@ -69,6 +75,8 @@ param[@"appsafecode"] = appSafeCode;
 `request_nonce` 或算法名称。`success` 回调中的 `responseObject` 是完成 HMAC 验证和第一层 AES 解密后的字符串。
 完整位置说明见 [`WIRE_V3.md`](WIRE_V3.md)。
 业务页面在回调中交给 `BSPHPResponseProcessor`，得到统一的字典结果。
+
+上线运行时高级封控表现为普通 HTTP 503 服务器故障，页面按常规退避停止密集重试；调试模式下 `NetTool` 可读取 `error.details.control_level` 和 HTTP `Retry-After` 并展示等待时间。低级封控保持成功字段布局和到期时间，客户端仍按原有位置校验验证数据。
 
 ## 账号模式规则
 

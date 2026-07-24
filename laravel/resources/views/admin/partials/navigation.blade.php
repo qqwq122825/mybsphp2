@@ -1,6 +1,6 @@
 <nav aria-label="管理后台导航">
-    @canany(['dashboard.view', 'online_users.view', 'audit.view', 'administrators.view', 'administrators.create'])
-        <details class="nav-group" {{ request()->routeIs('admin.dashboard', 'admin.system-logs.*', 'admin.administrators.*') ? 'open' : '' }}>
+    @canany(['dashboard.view', 'online_users.view', 'risk.view', 'audit.view', 'administrators.view', 'administrators.create'])
+        <details class="nav-group" {{ request()->routeIs('admin.dashboard', 'admin.system-logs.*', 'admin.risk-control.*', 'admin.administrators.*') ? 'open' : '' }}>
             <summary title="控制台">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M3 10.5 12 3l9 7.5"></path><path d="M5.5 9.5V21h13V9.5"></path>
@@ -13,6 +13,10 @@
                        href="{{ route('admin.dashboard', ['adminPath' => $adminPath]) }}">主页</a>
                 @endcan
                 @can('online_users.view')<a href="#online">在线用户管理</a>@endcan
+                @can('risk.view')
+                    <a class="{{ request()->routeIs('admin.risk-control.*') ? 'is-active' : '' }}"
+                       href="{{ route('admin.risk-control.index', ['adminPath' => $adminPath]) }}">IP 封控中心</a>
+                @endcan
                 @can('audit.view')
                     <details class="nav-subgroup" {{ request()->routeIs('admin.system-logs.*') ? 'open' : '' }}>
                         <summary>系统日志<i aria-hidden="true"></i></summary>
