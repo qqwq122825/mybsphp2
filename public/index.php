@@ -13,6 +13,9 @@ if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php'))
 // Register the Composer autoloader...
 require __DIR__.'/../vendor/autoload.php';
 
+// First deploy often has no .env (git-ignored). Create a bootable default before Laravel boots.
+\App\Install\EnsureEnvironmentFile::bootstrap(dirname(__DIR__));
+
 // Bootstrap Laravel and handle the request...
 /** @var Application $app */
 $app = require_once __DIR__.'/../bootstrap/app.php';
