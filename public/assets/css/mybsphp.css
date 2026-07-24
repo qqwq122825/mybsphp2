@@ -4409,8 +4409,7 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 .software-user-table-component .bsphp-user-table { min-width: 1320px; }
 .bsphp-user-table .bsphp-user-select-column {
     width: 46px;
-    padding-right: 8px;
-    padding-left: 8px;
+    padding: 12px 0 !important;
     text-align: center !important;
     vertical-align: middle;
 }

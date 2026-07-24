@@ -98,7 +98,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/agent/index.php', false)
             ->assertSee('激活码查询')
             ->assertSee('/activation-query', false)
-            ->assertSee('mybsphp.css?v=20260725-ipad-dialog', false)
+            ->assertSee('mybsphp.css?v=20260725-user-table-v2', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
