@@ -83,6 +83,60 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('最近接口与后台操作记录');
     }
 
+    public function test_deleting_a_card_type_also_deletes_its_existing_cards_and_batches(): void
+    {
+        $administrator = $this->administrator();
+        $this->actingAs($administrator, 'admin');
+
+        $this->post('/private-console/applications', [
+            'code' => '20000002',
+            'name' => '浏览器测试软件',
+            'mode' => 'card_login',
+        ])->assertRedirect();
+        $application = Application::query()->where('code', '20000002')->sole();
+
+        $this->post('/private-console/card-types', [
+            'application_id' => $application->getKey(),
+            'name' => '浏览器密码测试卡',
+            'code_prefix' => 'WEB',
+            'note' => '待删除类型',
+            'sort_order' => 0,
+            'duration_value' => 1,
+            'duration_unit' => 'day',
+            'face_price' => 1,
+            'agent_price' => 1,
+            'balance_recharge' => 0,
+            'code_length' => 25,
+            'code_charset' => 'mixed',
+            'secret_length' => 8,
+            'secret_charset' => 'mixed',
+            'account_concurrency_limit' => 0,
+            'machine_concurrency_limit' => 0,
+        ])->assertRedirect();
+        $cardType = $application->cardTypes()->sole();
+        $generated = app(CardGenerationService::class)->generate($cardType, 2, $administrator, '删除测试');
+        $batchId = $generated['batch']->getKey();
+        $cardIds = $generated['batch']->cards()->pluck('id')->all();
+
+        $this->from('/private-console/applications/'.$application->public_id.'/card-types')
+            ->delete('/private-console/card-types', [
+                'application_id' => $application->getKey(),
+                'card_type_ids' => [$cardType->getKey()],
+            ])
+            ->assertRedirect('/private-console/applications/'.$application->public_id.'/card-types')
+            ->assertSessionHas('success', '已删除 1 个充值卡类型、2 张关联卡和 1 个制卡批次。');
+
+        $this->assertSoftDeleted('card_types', ['id' => $cardType->getKey()]);
+        $this->assertSoftDeleted('card_batches', ['id' => $batchId]);
+        foreach ($cardIds as $cardId) {
+            $this->assertDatabaseMissing('cards', ['id' => $cardId]);
+        }
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'card_types.deleted',
+            'target_id' => $application->public_id,
+        ]);
+    }
+
     public function test_super_administrator_can_create_edit_and_disable_an_application(): void
     {
         $administrator = $this->administrator();
@@ -98,7 +152,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/agent/index.php', false)
             ->assertSee('激活码查询')
             ->assertSee('/activation-query', false)
-            ->assertSee('mybsphp.css?v=20260725-user-table-v2', false)
+            ->assertSee('mybsphp.css?v=20260725-card-type-delete', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')

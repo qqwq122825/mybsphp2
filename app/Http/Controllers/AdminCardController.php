@@ -524,16 +524,35 @@ final class AdminCardController extends Controller
             'card_type_ids' => ['required', 'array', 'min:1'], 'card_type_ids.*' => ['integer'],
         ]);
         $application = Application::query()->findOrFail($validated['application_id']);
-        $types = $application->cardTypes()->withCount('cards')->whereKey($validated['card_type_ids'])->get();
-        $deleted = 0;
-        foreach ($types as $type) {
-            if ($type->cards_count === 0) {
-                $type->delete();
-                $deleted++;
-            }
-        }
+        $types = $application->cardTypes()->whereKey($validated['card_type_ids'])->get();
+        $typeIds = $types->modelKeys();
+        $cardIds = Card::query()->whereIn('card_type_id', $typeIds)->pluck('id');
+        $deletedCards = $cardIds->count();
+        $deletedBatches = 0;
+        $deletedTypes = 0;
 
-        return back()->with('success', "已删除 {$deleted} 个未制卡类型；已有卡的类型已保留。");
+        DB::transaction(function () use ($typeIds, $cardIds, &$deletedBatches, &$deletedTypes): void {
+            DB::table('manual_issue_items')->whereIn('card_id', $cardIds)->delete();
+            Card::query()->whereIn('id', $cardIds)->delete();
+            $deletedBatches = CardBatch::query()->whereIn('card_type_id', $typeIds)->delete();
+            $deletedTypes = CardType::query()->whereIn('id', $typeIds)->delete();
+        }, 3);
+
+        $this->audit->record(new AuditEvent(
+            action: 'card_types.deleted',
+            targetType: 'application',
+            targetId: (string) $application->public_id,
+            applicationId: (int) $application->getKey(),
+            before: ['card_types' => $types->map->only(['id', 'public_id', 'name', 'code'])->all()],
+            after: [
+                'deleted_card_types' => $deletedTypes,
+                'deleted_cards' => $deletedCards,
+                'deleted_batches' => $deletedBatches,
+            ],
+            actorRole: $this->administrator()->role,
+        ), $request);
+
+        return back()->with('success', "已删除 {$deletedTypes} 个充值卡类型、{$deletedCards} 张关联卡和 {$deletedBatches} 个制卡批次。");
     }
 
     /** @return array<string, mixed> */

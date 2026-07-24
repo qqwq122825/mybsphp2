@@ -3297,6 +3297,8 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 .bsphp-type-toolbar > div { display: flex; flex-wrap: wrap; gap: 9px; }
 .bsphp-type-toolbar .button { min-height: 36px; display: inline-flex; align-items: center; border-radius: 7px; padding: 0 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
 .bsphp-type-toolbar .bsphp-type-quick { border: 1px solid #cdd1d8; color: #434a56; background: #fff; }
+.admin-data-table-toolbar .card-type-delete-button { border-color: #df5a64; background: #df5a64; }
+.admin-data-table-toolbar .card-type-delete-button:hover { border-color: #c9444f; background: #c9444f; }
 .bsphp-type-toolbar > span { color: #8d95a3; font-size: 12px; }
 .bsphp-type-table-scroll { scrollbar-color: #aaa #f1f1f1; scrollbar-width: auto; }
 

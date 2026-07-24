@@ -23,7 +23,8 @@
                 <x-admin.table-frame frame-class="card-type-table-component" scroll-class="bsphp-type-table-scroll">
                     <x-slot:toolbar>
                         <div>
-                        <button class="button button-primary" type="submit">删除选中</button>
+                        <button class="button card-type-delete-button" type="submit"
+                                onclick="return confirm('删除充值卡类型会同时删除该类型下的全部充值卡和制卡批次，已激活用户也会失效。确定继续吗？')">删除选中</button>
                         <a class="button button-primary" href="{{ route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application, 'create' => 1]) }}">添加新充值卡类型</a>
                         <button class="button bsphp-type-quick" type="submit" form="quick-card-type-form">快速添加模拟卡类型</button>
                         </div>
