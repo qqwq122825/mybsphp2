@@ -114,4 +114,26 @@ class SystemInformationSettingsTest extends TestCase
             ->assertJsonPath('error.details.exception', RuntimeException::class)
             ->assertJsonPath('error.details.message', '调试故障定位信息');
     }
+
+    public function test_public_home_uses_diary_page_only_in_production_mode(): void
+    {
+        SystemSetting::query()->updateOrCreate(['key' => 'operational_mode'], [
+            'value' => 'production', 'type' => 'string', 'group' => 'security',
+        ]);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('我的生活记录')
+            ->assertSee('今日随笔')
+            ->assertDontSee('Original System')
+            ->assertDontSee('授权与发卡管理服务正在运行');
+
+        SystemSetting::query()->whereKey('operational_mode')->update(['value' => 'debug']);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('Original System')
+            ->assertSee('授权与发卡管理服务正在运行')
+            ->assertDontSee('今日随笔');
+    }
 }

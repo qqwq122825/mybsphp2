@@ -111,7 +111,10 @@ class InstallationFlowTest extends TestCase
             ->assertOk()
             ->assertSee('管理员登录')
             ->assertSee('动态授权平台');
-        $this->get('/')->assertOk()->assertSee('动态授权平台');
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('我的生活记录')
+            ->assertDontSee('动态授权平台');
 
         config(['mybsphp.installed' => true]);
         @unlink($this->lockPath);
