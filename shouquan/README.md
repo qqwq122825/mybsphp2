@@ -23,9 +23,11 @@
 
 #define BSPHP_HOST @"https://HOST/AppEn.php?appid=APP_ID&md5=TOKEN"
 #define BSPHP_MUTUALKEY @"COMMUNICATION_KEY"
-#define BSPHP_SERVER_PUBLIC_KEY @"-----BEGIN RSA PUBLIC KEY-----\n...\n-----END RSA PUBLIC KEY-----\n"
+#define BSPHP_SERVER_PUBLIC_KEY @"MIIBCgKCAQEA...IDAQAB"
 #define BSPHP_APPSAFECODE @"YOUR_APP_PREFIX"
 ```
+
+服务器公钥是后台生成的单行 Base64，可整段直接粘贴，不含 PEM 头尾和换行。
 
 ## 2. 页面中的调用方式
 

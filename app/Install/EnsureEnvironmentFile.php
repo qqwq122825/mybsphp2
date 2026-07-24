@@ -6,10 +6,18 @@ use RuntimeException;
 
 /**
  * Ensures a bootable .env exists before Laravel boots.
- * git does not ship .env; first deploy / first visit should not 500 for that reason alone.
+ *
+ * This project uses a fixed APP_KEY so self-hosted migrations keep decrypting
+ * the same ciphertext without carrying a per-server random key.
  */
 final class EnsureEnvironmentFile
 {
+    /**
+     * Fixed application key for this personal deployment lineage.
+     * Changing it will invalidate existing encrypted database columns.
+     */
+    public const FIXED_APP_KEY = 'base64:7yDKi4hc0dYwgMk78A/9qfReTLYptmcv4p92sPBkv6o=';
+
     public static function bootstrap(string $basePath): void
     {
         $basePath = rtrim($basePath, DIRECTORY_SEPARATOR);
@@ -26,7 +34,9 @@ final class EnsureEnvironmentFile
                 throw new RuntimeException('读取 .env.example 失败。');
             }
 
-            self::writeAtomically($envPath, $example);
+            self::writeAtomically($envPath, self::setEnvValue($example, 'APP_KEY', self::FIXED_APP_KEY));
+
+            return;
         }
 
         $contents = file_get_contents($envPath);
@@ -38,8 +48,7 @@ final class EnsureEnvironmentFile
             return;
         }
 
-        $key = 'base64:'.base64_encode(random_bytes(32));
-        self::writeAtomically($envPath, self::setEnvValue($contents, 'APP_KEY', $key));
+        self::writeAtomically($envPath, self::setEnvValue($contents, 'APP_KEY', self::FIXED_APP_KEY));
     }
 
     public static function hasValidAppKey(string $contents): bool

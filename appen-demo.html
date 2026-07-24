@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AppEn 本地联调</title>
+<style>
+:root {
+  --bg: #f3f1ec; --ink: #1c1917; --muted: #78716c; --line: #d6d3d1;
+  --panel: #fffcf8; --accent: #0f766e; --accent-ink: #f0fdfa;
+  --bad: #9f1239; --bad-bg: #fff1f2; --ok: #166534; --ok-bg: #f0fdf4;
+  --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --sans: "Iowan Old Style", "Palatino Linotype", "Songti SC", serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; color: var(--ink);
+  background: radial-gradient(circle at 0% 0%, #a8dadc44, transparent 40%), linear-gradient(180deg, #faf7f2, var(--bg));
+  font: 16px/1.5 var(--sans);
+}
+main { width: min(920px, 100%); margin: 0 auto; padding: 36px 20px 64px; }
+h1 { margin: 0 0 8px; font-size: clamp(1.8rem, 4vw, 2.4rem); letter-spacing: -0.03em; }
+.lead { margin: 0 0 28px; color: var(--muted); max-width: 40rem; }
+.grid { display: grid; gap: 16px; }
+.card { padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); }
+.card h2 { margin: 0 0 14px; font-size: 1.05rem; }
+label { display: grid; gap: 6px; margin-bottom: 12px; font-size: 0.86rem; font-weight: 700; }
+input, textarea {
+  width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+  background: #fff; color: inherit; font: 14px/1.45 var(--mono);
+}
+textarea { min-height: 120px; resize: vertical; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+button {
+  border: 0; border-radius: 999px; padding: 11px 18px; background: var(--accent);
+  color: var(--accent-ink); font: 700 14px/1 var(--sans); cursor: pointer;
+}
+button.secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+button:disabled { opacity: 0.55; cursor: wait; }
+.note { margin-top: 10px; color: var(--muted); font-size: 0.88rem; }
+pre {
+  margin: 0; padding: 14px; border-radius: 12px; background: #1c1917; color: #f5f5f4;
+  overflow: auto; white-space: pre-wrap; word-break: break-word; font: 12px/1.55 var(--mono);
+}
+.badge {
+  display: inline-flex; margin-bottom: 10px; padding: 6px 10px; border-radius: 999px;
+  font: 700 12px/1 var(--sans);
+}
+.badge.ok { background: var(--ok-bg); color: var(--ok); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); }
+.stack { display: grid; gap: 14px; }
+@media (max-width: 720px) { .row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>AppEn 本地联调</h1>
+  <p class="lead">
+    本地静态页。默认指向线上 <code>https://yz.jk92.cc/AppEn.php</code>，可直接从本地文件发起请求。
+    服务端同时提供物理 AppEn.php 入口并开启 CORS。
+  </p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>连接与密钥</h2>
+      <label>服务器地址
+        <input id="host" value="https://yz.jk92.cc/AppEn.php?appid=100001&md5=49a94345b05f9902d73534ff7e1520e7">
+      </label>
+      <label>通信认证 Key
+        <input id="mutual" value="ec2722714481d934ce7255ff1c150dd1">
+      </label>
+      <label>RSA 服务器公钥
+        <textarea id="publicKey">MIIBCgKCAQEAtf1Ru543C5jlpwN6dzBqieqKXjLwD+ZaM5wsxWKuxInEwLO+OexI8o2kPrceIFp0+c/LP6YOvb7OFl0zLLSSuboCzdM9SYI4C7lu0mgFfoowS48PMWCx15eQoUrXhfd4IzMfixv4uOTAjHka6Uh36bJ3JSbK0OiRjEnxhkYw3w6WAC9qGMHAbgzvEZz1k5WK27a9pL+YzmfgOnhT+2BvQYPUjhP9eVUhgMctJlmbA9VAh/kMUkYJ6ObVqAcZ8JI1oAEhNEdtT6rpCA8YmS95T7juHUAhkVwMxDMVe31OnNmkwy5UxP1bVRrIw1VDeJZ5TTqHbj3oNNdbt8+kiQKkeQIDAQAB</textarea>
+      </label>
+      <div class="actions">
+        <button type="button" id="btnProbe" class="secondary">1. 连通性探测</button>
+        <button type="button" id="btnCurlEmpty" class="secondary">复制空包 curl</button>
+        <button type="button" id="btnFillProd" class="secondary">填入线上示例地址</button>
+      </div>
+      <p class="note">连通性探测 POST <code>{}</code>。正常应返回 JSON（如 INVALID_PACKET），不是 HTML。</p>
+    </section>
+
+    <section class="card">
+      <h2>加密业务请求（login.ic）</h2>
+      <div class="row">
+        <label>卡号<input id="code" placeholder="卡号" autocomplete="off"></label>
+        <label>卡密<input id="secret" placeholder="卡密" autocomplete="off"></label>
+      </div>
+      <div class="row">
+        <label>设备标识<input id="device" value="WEB-APPEN-DEMO-001"></label>
+        <label>appsafecode<input id="safe" value="web-demo-safe"></label>
+      </div>
+      <div class="actions">
+        <button type="button" id="btnLogin">发送加密 login.ic</button>
+        <button type="button" id="btnCurlLogin" class="secondary">复制加密请求 curl</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>返回结果</h2>
+      <div id="summary" class="badge bad">尚未请求</div>
+      <div class="stack">
+        <div><strong>HTTP / 原始响应</strong><pre id="rawOut">（等待请求）</pre></div>
+        <div><strong>解析 / 解密</strong><pre id="parsedOut">（等待请求）</pre></div>
+      </div>
+    </section>
+  </div>
+</main>
+<script>
+const ALG = 'RSA-OAEP+A256CBC-HS256';
+const $ = (id) => document.getElementById(id);
+const te = new TextEncoder();
+
+function setBusy(busy) {
+  ['btnProbe', 'btnLogin', 'btnCurlEmpty', 'btnCurlLogin', 'btnFillProd'].forEach((id) => {
+    const el = $(id); if (el) el.disabled = busy;
+  });
+}
+function showSummary(ok, text) {
+  const el = $('summary');
+  el.className = 'badge ' + (ok ? 'ok' : 'bad');
+  el.textContent = text;
+}
+function bytesToBase64Url(bytes) {
+  let binary = '';
+  bytes = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes;
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+function base64UrlToBytes(value) {
+  const padded = value.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = padded.length % 4 === 0 ? '' : '='.repeat(4 - (padded.length % 4));
+  const binary = atob(padded + pad);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+function pemToDer(pem) {
+  const body = pem.replace(/-----BEGIN [^-]+-----/g, '').replace(/-----END [^-]+-----/g, '').replace(/\s+/g, '');
+  const binary = atob(body);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+function encodeLength(length) {
+  if (length < 0x80) return Uint8Array.of(length);
+  const bytes = [];
+  let n = length;
+  while (n > 0) { bytes.unshift(n & 0xff); n >>= 8; }
+  return Uint8Array.of(0x80 | bytes.length, ...bytes);
+}
+function concatBytes(...parts) {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) { out.set(part, offset); offset += part.length; }
+  return out;
+}
+function pkcs1ToSpki(pkcs1) {
+  const algorithm = Uint8Array.from([0x30,0x0d,0x06,0x09,0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x01,0x05,0x00]);
+  const bitString = concatBytes(Uint8Array.of(0x03), encodeLength(pkcs1.length + 1), Uint8Array.of(0x00), pkcs1);
+  const seqInner = concatBytes(algorithm, bitString);
+  return concatBytes(Uint8Array.of(0x30), encodeLength(seqInner.length), seqInner);
+}
+async function importPublicKey(pem) {
+  const der = pemToDer(pem);
+  const isPkcs1 = !pem.includes('BEGIN PUBLIC KEY') || pem.includes('BEGIN RSA PUBLIC KEY');
+  const spki = isPkcs1 ? pkcs1ToSpki(der) : der;
+  return crypto.subtle.importKey('spki', spki, { name: 'RSA-OAEP', hash: 'SHA-1' }, false, ['encrypt']);
+}
+async function hmacSha256(keyBytes, dataBytes) {
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, dataBytes));
+}
+async function aesCbcEncrypt(keyBytes, iv, plaintext) {
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt']);
+  return new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, key, plaintext));
+}
+async function aesCbcDecrypt(keyBytes, iv, ciphertext) {
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['decrypt']);
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, key, ciphertext));
+}
+async function sealRequest(plaintext, publicKeyPem, mutualKey) {
+  const publicKey = await importPublicKey(publicKeyPem);
+  const sessionKey = crypto.getRandomValues(new Uint8Array(32));
+  const iv = crypto.getRandomValues(new Uint8Array(16));
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
+  const wrappedKey = new Uint8Array(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, publicKey, sessionKey));
+  const encKey = await hmacSha256(sessionKey, te.encode('bsphp-v2/enc'));
+  const macKey = await hmacSha256(sessionKey, te.encode('bsphp-v2/mac'));
+  const ciphertext = await aesCbcEncrypt(encKey, iv, te.encode(plaintext));
+  const ts = Math.floor(Date.now() / 1000);
+  const nonce = bytesToBase64Url(nonceBytes);
+  const ek = bytesToBase64Url(wrappedKey);
+  const ivValue = bytesToBase64Url(iv);
+  const dataValue = bytesToBase64Url(ciphertext);
+  const canonical = `2|${ALG}|${ts}|${nonce}|${ek}|${ivValue}|${dataValue}`;
+  const mac = bytesToBase64Url(await hmacSha256(macKey, te.encode(canonical)));
+  const auth = bytesToBase64Url(await hmacSha256(te.encode(mutualKey), te.encode(`${canonical}|${mac}`)));
+  return {
+    wire: [3, ts, nonce, ek, ivValue, dataValue, mac, auth],
+    sessionKey,
+    requestNonce: nonce,
+    plaintext,
+  };
+}
+async function openResponse(packet, sessionKey, requestNonce) {
+  const envelope = Array.isArray(packet) ? {
+    v: 2, alg: ALG, direction: 'response', ts: packet[1], nonce: packet[2],
+    request_nonce: packet[3], iv: packet[4], data: packet[5], mac: packet[6],
+  } : packet;
+  if (envelope.v !== 2 || envelope.alg !== ALG || envelope.direction !== 'response' || envelope.request_nonce !== requestNonce) {
+    throw new Error('响应上下文不匹配');
+  }
+  const canonical = `2|${ALG}|response|${envelope.ts}|${envelope.nonce}|${requestNonce}|${envelope.iv}|${envelope.data}`;
+  const macKey = await hmacSha256(sessionKey, te.encode('bsphp-v2/mac'));
+  const expectedMac = bytesToBase64Url(await hmacSha256(macKey, te.encode(canonical)));
+  if (expectedMac !== envelope.mac) throw new Error('响应完整性校验失败');
+  const encKey = await hmacSha256(sessionKey, te.encode('bsphp-v2/enc'));
+  const plainBytes = await aesCbcDecrypt(encKey, base64UrlToBytes(envelope.iv), base64UrlToBytes(envelope.data));
+  return new TextDecoder().decode(plainBytes);
+}
+function looksLikeHtml(text) {
+  const head = text.trim().slice(0, 200).toLowerCase();
+  return head.startsWith('<!doctype') || head.startsWith('<html');
+}
+function diagnoseRaw(status, contentType, text) {
+  const tips = [];
+  if (looksLikeHtml(text)) {
+    tips.push('返回了 HTML。常见原因：伪静态错误、用浏览器 GET 打开 AppEn、或 PHP 报错页。');
+  } else {
+    tips.push('正文不是 HTML，连通性基本正常。');
+  }
+  if ((contentType || '').includes('application/json')) tips.push('Content-Type 为 JSON。');
+  if (status === 0) tips.push('可能被 CORS 拦截，确认服务端已部署 config/cors.php 并清缓存。');
+  return tips;
+}
+async function postJson(url, body) {
+  const started = performance.now();
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const text = await response.text();
+  return {
+    status: response.status,
+    contentType: response.headers.get('content-type') || '',
+    requestId: response.headers.get('x-request-id') || '',
+    durationMs: Math.round(performance.now() - started),
+    text,
+  };
+}
+function renderHttp(meta, extra = {}) {
+  const tips = diagnoseRaw(meta.status, meta.contentType, meta.text);
+  $('rawOut').textContent = JSON.stringify({
+    http: {
+      status: meta.status,
+      content_type: meta.contentType,
+      request_id: meta.requestId || null,
+      duration_ms: meta.durationMs,
+    },
+    tips,
+    raw_body: meta.text.slice(0, 8000),
+    ...extra,
+  }, null, 2);
+  return tips;
+}
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+function buildCurl(url, body) {
+  const json = typeof body === 'string' ? body : JSON.stringify(body);
+  return [
+    'curl -sS -D - -X POST ' + shellQuote(url) + ' \\',
+    '  -H ' + shellQuote('Content-Type: application/json') + ' \\',
+    '  -H ' + shellQuote('Accept: application/json') + ' \\',
+    '  -d ' + shellQuote(json),
+  ].join('\n');
+}
+async function copyText(text) {
+  await navigator.clipboard.writeText(text);
+  showSummary(true, '已复制到剪贴板');
+  $('parsedOut').textContent = text;
+}
+function formBody(params) {
+  return Object.entries(params)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v ?? '')}`)
+    .join('&');
+}
+
+async function runProbe() {
+  setBusy(true);
+  try {
+    const meta = await postJson($('host').value.trim(), {});
+    const tips = renderHttp(meta);
+    let parsed = null;
+    try { parsed = JSON.parse(meta.text); } catch (_) {}
+    $('parsedOut').textContent = parsed ? JSON.stringify(parsed, null, 2) : '无法解析为 JSON。';
+    showSummary(
+      Boolean(parsed && parsed.error),
+      parsed?.error ? `${parsed.error.code} / ${parsed.error.message}` : `HTTP ${meta.status} · ${tips[0]}`,
+    );
+  } catch (error) {
+    showSummary(false, '请求失败：' + error.message);
+    $('rawOut').textContent = String(error);
+    $('parsedOut').textContent = 'fetch 失败。若是 CORS，请确认服务端已开启跨域并执行 php artisan config:clear。';
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function runLogin() {
+  setBusy(true);
+  try {
+    const code = $('code').value.trim();
+    const secret = $('secret').value.trim();
+    if (!code || !secret) throw new Error('请先填写卡号和卡密');
+    const plain = formBody({
+      api: 'login.ic',
+      icid: code,
+      icpwd: secret,
+      key: $('device').value.trim(),
+      appsafecode: $('safe').value.trim(),
+    });
+    const sealed = await sealRequest(plain, $('publicKey').value.trim(), $('mutual').value.trim());
+    const meta = await postJson($('host').value.trim(), sealed.wire);
+    renderHttp(meta, { request_plaintext: plain });
+    let parsed = null;
+    try { parsed = JSON.parse(meta.text); } catch (_) {}
+    if (!parsed) {
+      $('parsedOut').textContent = '响应不是 JSON。';
+      showSummary(false, `HTTP ${meta.status}`);
+      return;
+    }
+    if (parsed.ok === false) {
+      $('parsedOut').textContent = JSON.stringify(parsed, null, 2);
+      showSummary(false, `${parsed.error?.code || 'ERROR'} / ${parsed.error?.message || '业务失败'}`);
+      return;
+    }
+    const plaintext = await openResponse(parsed, sealed.sessionKey, sealed.requestNonce);
+    const fields = plaintext.split('|');
+    $('parsedOut').textContent = JSON.stringify({ kind: 'decrypted_legacy_response', plaintext, fields }, null, 2);
+    showSummary(true, `解密成功 · legacy=${fields[0] || '?'} · 字段数=${fields.length}`);
+  } catch (error) {
+    showSummary(false, '请求失败：' + error.message);
+    $('parsedOut').textContent = String(error && error.stack ? error.stack : error);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function copyEmptyCurl() {
+  const curl = buildCurl($('host').value.trim(), {});
+  $('rawOut').textContent = curl;
+  try { await copyText(curl); } catch (_) {
+    showSummary(true, '请手动复制下方 curl');
+    $('parsedOut').textContent = curl;
+  }
+}
+
+async function copyLoginCurl() {
+  setBusy(true);
+  try {
+    const code = $('code').value.trim();
+    const secret = $('secret').value.trim();
+    if (!code || !secret) throw new Error('请先填写卡号和卡密');
+    const plain = formBody({
+      api: 'login.ic', icid: code, icpwd: secret,
+      key: $('device').value.trim(), appsafecode: $('safe').value.trim(),
+    });
+    const sealed = await sealRequest(plain, $('publicKey').value.trim(), $('mutual').value.trim());
+    const curl = buildCurl($('host').value.trim(), sealed.wire);
+    try { await copyText(curl); } catch (_) {
+      showSummary(true, '请手动复制下方 curl');
+      $('parsedOut').textContent = curl;
+    }
+    $('rawOut').textContent = JSON.stringify({ request_plaintext: plain }, null, 2);
+  } catch (error) {
+    showSummary(false, error.message);
+    $('parsedOut').textContent = String(error);
+  } finally {
+    setBusy(false);
+  }
+}
+
+$('btnFillProd').addEventListener('click', () => {
+  $('host').value = 'https://yz.jk92.cc/AppEn.php?appid=100001&md5=49a94345b05f9902d73534ff7e1520e7';
+  showSummary(true, '已填入线上联调地址');
+});
+$('btnProbe').addEventListener('click', runProbe);
+$('btnLogin').addEventListener('click', runLogin);
+$('btnCurlEmpty').addEventListener('click', copyEmptyCurl);
+$('btnCurlLogin').addEventListener('click', copyLoginCurl);
+</script>
+</body>
+</html>

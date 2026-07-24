@@ -139,8 +139,8 @@
                         <summary><span><strong>证书与客户端配置</strong><small>服务器公钥、Objective-C 配置宏</small></span><i>展开</i></summary>
                         <div class="certificate-grid">
                             <label class="field">
-                                <span>服务器公钥 <small>复制到客户端</small></span>
-                                <textarea rows="6" readonly>{{ $application->server_public_key }}</textarea>
+                                <span>服务器公钥 <small>单行 Base64，可直接复制到客户端</small></span>
+                                <textarea rows="3" readonly>{{ $application->server_public_key }}</textarea>
                                 <button class="inline-copy-button" type="button" data-copy="{{ $application->server_public_key }}">复制服务器公钥</button>
                             </label>
                             <label class="field">

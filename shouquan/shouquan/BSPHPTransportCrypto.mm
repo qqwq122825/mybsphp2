@@ -19,7 +19,7 @@ static NSString * const BSPHPErrorDomain = @"com.mybsphp.transport";
     NSData *nonceData = [self randomData:16 error:error];
     if (!sessionKey || !iv || !nonceData) return nil;
 
-    SecKeyRef publicKey = [self publicKeyFromPEM:publicKeyPEM error:error];
+    SecKeyRef publicKey = [self publicKeyFromValue:publicKeyPEM error:error];
     if (!publicKey) return nil;
 
     SecKeyAlgorithm algorithm = kSecKeyAlgorithmRSAEncryptionOAEPSHA1;
@@ -134,9 +134,11 @@ static NSString * const BSPHPErrorDomain = @"com.mybsphp.transport";
     return result;
 }
 
-+ (SecKeyRef)publicKeyFromPEM:(NSString *)pem error:(NSError **)error CF_RETURNS_RETAINED
++ (SecKeyRef)publicKeyFromValue:(NSString *)value error:(NSError **)error CF_RETURNS_RETAINED
 {
-    NSString *body = [pem stringByReplacingOccurrencesOfString:@"-----BEGIN RSA PUBLIC KEY-----" withString:@""];
+    // New configurations use one-line Base64. Keep accepting historical PEM
+    // values so an older BSPHPConfig.h can still connect after an upgrade.
+    NSString *body = [value stringByReplacingOccurrencesOfString:@"-----BEGIN RSA PUBLIC KEY-----" withString:@""];
     body = [body stringByReplacingOccurrencesOfString:@"-----END RSA PUBLIC KEY-----" withString:@""];
     NSCharacterSet *whitespace = [NSCharacterSet whitespaceAndNewlineCharacterSet];
     body = [[body componentsSeparatedByCharactersInSet:whitespace] componentsJoinedByString:@""];

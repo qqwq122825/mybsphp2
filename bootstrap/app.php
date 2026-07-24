@@ -29,6 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands([IssueReinstallationLink::class])
     ->withMiddleware(function (Middleware $middleware): void {
+        // 信任 Cloudflare / Nginx 转发头，按真实访问协议生成跳转（http 就 http，https 就 https）
+        $middleware->trustProxies(at: '*');
         $middleware->prepend(AttachRequestId::class);
         $middleware->validateCsrfTokens(except: ['AppEn.php']);
         $middleware->alias([
@@ -41,11 +43,11 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api/*') || $request->is('AppEn.php'),
         );
 
         $exceptions->render(function (Throwable $exception, Request $request) {
-            if (! $request->is('api/*')) {
+            if (! $request->is('api/*') && ! $request->is('AppEn.php')) {
                 return null;
             }
 

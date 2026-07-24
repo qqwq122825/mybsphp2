@@ -35,7 +35,7 @@ final class HybridPacketCipher
         $encrypted = openssl_public_encrypt(
             $sessionKey,
             $wrappedKey,
-            (string) $application->server_public_key,
+            RsaPublicKey::pem((string) $application->server_public_key),
             OPENSSL_PKCS1_OAEP_PADDING,
         );
 

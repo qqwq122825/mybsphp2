@@ -35,7 +35,7 @@ final class ApplicationCredentialService
 
     public function ensure(Application $application): Application
     {
-        if (
+        $complete = (
             is_string($application->gateway_token)
             && $application->gateway_token !== ''
             && $application->communicationKey() !== ''
@@ -43,7 +43,16 @@ final class ApplicationCredentialService
             && $application->server_public_key !== ''
             && $application->serverPrivateKey() !== ''
             && $application->legacyPacketKey() !== ''
-        ) {
+        );
+
+        if ($complete) {
+            $compactPublicKey = RsaPublicKey::compact((string) $application->server_public_key);
+            if ($compactPublicKey !== $application->server_public_key) {
+                $application->forceFill(['server_public_key' => $compactPublicKey])->save();
+
+                return $application->refresh();
+            }
+
             return $application;
         }
 
@@ -54,7 +63,9 @@ final class ApplicationCredentialService
             'gateway_token' => $application->gateway_token ?: $generated['gateway_token'],
             'communication_key_ciphertext' => $communicationKey,
             'encryption_mode' => $application->encryption_mode ?: $generated['encryption_mode'],
-            'server_public_key' => $application->server_public_key ?: $generated['server_public_key'],
+            'server_public_key' => $application->server_public_key
+                ? RsaPublicKey::compact((string) $application->server_public_key)
+                : $generated['server_public_key'],
             'server_private_key_ciphertext' => $application->serverPrivateKey() ?: $generated['server_private_key_ciphertext'],
             'legacy_packet_key_ciphertext' => $application->legacyPacketKey() ?: $generated['legacy_packet_key_ciphertext'],
             'client_secret_hash' => Hash::make($communicationKey),
@@ -72,11 +83,7 @@ final class ApplicationCredentialService
 
     public function objectiveCMacros(Application $application): string
     {
-        $publicKey = str_replace(
-            ['\\', "\r", "\n"],
-            ['\\\\', '', '\\n'],
-            (string) $application->server_public_key,
-        );
+        $publicKey = RsaPublicKey::compact((string) $application->server_public_key);
 
         return '#define BSPHP_HOST @"'.$this->serverAddress($application).'"'.PHP_EOL
             .'#define BSPHP_MUTUALKEY @"'.$application->communicationKey().'"'.PHP_EOL
@@ -115,9 +122,7 @@ final class ApplicationCredentialService
         $publicDer = $this->derSequence(
             $this->derInteger($details['rsa']['n']).$this->derInteger($details['rsa']['e']),
         );
-        $publicKey = "-----BEGIN RSA PUBLIC KEY-----\n"
-            .chunk_split(base64_encode($publicDer), 64, "\n")
-            ."-----END RSA PUBLIC KEY-----\n";
+        $publicKey = base64_encode($publicDer);
 
         return [
             'public' => $publicKey,

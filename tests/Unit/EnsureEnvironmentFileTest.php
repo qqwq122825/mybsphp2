@@ -33,7 +33,7 @@ class EnsureEnvironmentFileTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_it_creates_env_from_example_and_generates_app_key(): void
+    public function test_it_creates_env_from_example_with_fixed_app_key(): void
     {
         EnsureEnvironmentFile::bootstrap($this->directory);
 
@@ -41,10 +41,10 @@ class EnsureEnvironmentFileTest extends TestCase
         $this->assertFileExists($envPath);
         $contents = (string) file_get_contents($envPath);
         $this->assertTrue(EnsureEnvironmentFile::hasValidAppKey($contents));
-        $this->assertMatchesRegularExpression('/^APP_KEY="base64:[^"]+"$/m', $contents);
+        $this->assertStringContainsString('APP_KEY="'.EnsureEnvironmentFile::FIXED_APP_KEY.'"', $contents);
     }
 
-    public function test_it_repairs_invalid_hex_app_key_without_clobbering_other_values(): void
+    public function test_it_repairs_invalid_hex_app_key_with_fixed_value(): void
     {
         file_put_contents($this->directory.'/.env', implode(PHP_EOL, [
             'APP_NAME="KeepMe"',
@@ -58,8 +58,7 @@ class EnsureEnvironmentFileTest extends TestCase
         $contents = (string) file_get_contents($this->directory.'/.env');
         $this->assertStringContainsString('APP_NAME="KeepMe"', $contents);
         $this->assertStringContainsString('APP_URL="https://yz.jk92.cc"', $contents);
-        $this->assertTrue(EnsureEnvironmentFile::hasValidAppKey($contents));
-        $this->assertDoesNotMatchRegularExpression('/APP_KEY="6f4a4e3757784ddc/', $contents);
+        $this->assertStringContainsString('APP_KEY="'.EnsureEnvironmentFile::FIXED_APP_KEY.'"', $contents);
     }
 
     public function test_it_leaves_valid_app_key_untouched(): void

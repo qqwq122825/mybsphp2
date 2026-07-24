@@ -134,7 +134,8 @@ class ApplicationManagementTest extends TestCase
         $this->assertSame('', $application->verificationData());
         $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', $application->communicationKey());
         $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', (string) $application->gateway_token);
-        $this->assertStringContainsString('BEGIN RSA PUBLIC KEY', (string) $application->server_public_key);
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9+\/]+={0,2}$/', (string) $application->server_public_key);
+        $this->assertStringNotContainsString('BEGIN RSA PUBLIC KEY', (string) $application->server_public_key);
         $this->assertStringContainsString('BEGIN PRIVATE KEY', $application->serverPrivateKey());
         $this->assertSame(18, strlen($application->legacyPacketKey()));
         $this->assertSame('hybrid_rsa_aes_hmac', $application->encryption_mode);
