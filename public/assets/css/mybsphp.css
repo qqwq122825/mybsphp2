@@ -2383,6 +2383,10 @@ button.workspace-tab {
 }
 
 /* Shared window dialog: reuse <x-admin.window-dialog> for all administration popups. */
+dialog.admin-window-dialog:not([open]) {
+    display: none !important;
+}
+
 dialog.admin-window-dialog {
     width: min(900px, calc(100vw - 40px));
     height: min(640px, calc(100vh - 120px));

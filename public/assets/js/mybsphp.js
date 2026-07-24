@@ -99,6 +99,18 @@
         }
     };
 
+    const closeManualWindowDialogs = (scope = document) => {
+        scope.querySelectorAll('[data-window-dialog]:not([data-window-auto-open])').forEach((dialog) => {
+            if (!(dialog instanceof HTMLDialogElement) || !dialog.open) return;
+            dialog.close();
+            dialog.classList.remove('is-minimized');
+            dialog.classList.add('is-maximized');
+        });
+    };
+
+    closeManualWindowDialogs();
+    window.addEventListener('pageshow', () => closeManualWindowDialogs());
+
     document.addEventListener('admin-window:open', (event) => {
         showWindowDialog(event.target);
     });
@@ -176,6 +188,7 @@
         };
 
         const openAutomaticWindows = (scope = document) => {
+            closeManualWindowDialogs(scope);
             scope.querySelectorAll('[data-window-dialog][data-window-auto-open]').forEach((dialog) => {
                 showWindowDialog(dialog);
             });
