@@ -405,8 +405,8 @@ class ApplicationManagementTest extends TestCase
             'closed_message' => '系统维护，请稍后再试。',
             'verification_data' => "0x100000\nworld-server=gwrold.example",
             'encryption_mode' => 'hybrid_rsa_aes_hmac',
-            'max_bound_devices' => 1,
-            'max_concurrent_sessions' => 2,
+            'max_bound_devices' => -1,
+            'max_concurrent_sessions' => -1,
             'version_name' => '1.1.0',
             'legacy_enabled' => '1',
             'login_api_name' => 'login.lg',
@@ -418,6 +418,8 @@ class ApplicationManagementTest extends TestCase
         $this->assertSame("0x100000\nworld-server=gwrold.example", $application->verificationData());
         $this->assertSame('constant', $application->payload_mode);
         $this->assertTrue($application->bind_device_enabled);
+        $this->assertSame(-1, $application->max_bound_devices);
+        $this->assertSame(-1, $application->max_concurrent_sessions);
         $this->assertSame('login.ic', $application->legacyConfig()->sole()->login_api_name);
 
         $this->post('/private-console/applications/'.$application->public_id.'/toggle')

@@ -374,6 +374,36 @@ class CardIssueAndActivationTest extends TestCase
         ])->assertOk()->assertJsonPath('data.code', '5030');
     }
 
+    public function test_unlimited_application_and_card_limits_allow_multiple_sessions(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->forceFill([
+            'max_bound_devices' => 1,
+            'max_concurrent_sessions' => 1,
+        ])->save();
+        $cardType->forceFill([
+            'account_concurrency_limit' => -1,
+            'machine_concurrency_limit' => -1,
+        ])->save();
+
+        $credential = app(CardGenerationService::class)
+            ->generate($cardType, 1, $this->administrator())['credentials'][0];
+
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $credential['code'],
+            'device_id' => 'UNLIMITED-DEVICE-1',
+            'BSphpSeSsL' => str_repeat('a', 64),
+        ])->assertOk();
+
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $credential['code'],
+            'device_id' => 'UNLIMITED-DEVICE-2',
+            'BSphpSeSsL' => str_repeat('b', 64),
+        ])->assertOk();
+
+        $this->assertDatabaseCount('application_client_sessions', 2);
+    }
+
     /**
      * @return array{Application, CardType}
      */

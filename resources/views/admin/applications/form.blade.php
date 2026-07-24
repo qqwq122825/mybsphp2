@@ -256,13 +256,15 @@
                     <div class="field-grid">
                         <label class="field">
                             <span>最多绑定设备</span>
-                            <input type="number" name="max_bound_devices" min="1" max="20"
+                            <input type="number" name="max_bound_devices" min="-1" max="20"
                                    value="{{ old('max_bound_devices', $application->max_bound_devices) }}" required>
+                            <small>-1 表示不限制绑定设备数量。</small>
                         </label>
                         <label class="field">
                             <span>最大并发会话</span>
-                            <input type="number" name="max_concurrent_sessions" min="1" max="100"
+                            <input type="number" name="max_concurrent_sessions" min="-1" max="100"
                                    value="{{ old('max_concurrent_sessions', $application->max_concurrent_sessions) }}" required>
+                            <small>-1 表示不限制同时在线会话数。</small>
                         </label>
                         <label class="field">
                             <span>心跳间隔（秒）</span>

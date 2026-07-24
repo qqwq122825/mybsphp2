@@ -119,6 +119,8 @@ final class AccountAuthService
                 ->whereKey($account->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
+            $machineLimit = (int) ($lockedAccount->machine_concurrency_limit ?? 0);
+            $machineLimit = $machineLimit !== 0 ? $machineLimit : (int) $application->max_bound_devices;
 
             if ($lockedAccount->status === 'frozen') {
                 throw new AccountAuthException('USER_FROZEN', '该软件用户已冻结。', 403);
@@ -126,7 +128,11 @@ final class AccountAuthService
             if ($lockedAccount->status !== 'active') {
                 throw new AccountAuthException('USER_UNAVAILABLE', '该软件用户当前状态不可登录。', 403);
             }
-            if ($lockedAccount->bound_device_ciphertext && ! hash_equals((string) $lockedAccount->bound_device_ciphertext, $deviceId)) {
+            if (
+                $lockedAccount->bound_device_ciphertext
+                && $machineLimit !== -1
+                && ! hash_equals((string) $lockedAccount->bound_device_ciphertext, $deviceId)
+            ) {
                 throw new AccountAuthException('DEVICE_MISMATCH', '账号已被绑定，当前设备特征不匹配。', 409);
             }
             if (! $lockedAccount->bound_device_ciphertext) {

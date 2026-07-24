@@ -3,6 +3,7 @@
 namespace App\Cards;
 
 use App\Applications\DailyVerificationCodec;
+use App\Models\Application;
 use App\Models\Card;
 use App\Sessions\ClientSessionException;
 use App\Sessions\ClientSessionService;
@@ -72,6 +73,7 @@ final class CardActivationService
                 $boundDevice = trim((string) ($card->bound_device_ciphertext ?? ''));
                 if (
                     $boundDevice !== ''
+                    && $this->machineBindingLimit($application, $card) !== -1
                     && ! hash_equals($boundDevice, $normalizedDevice)
                 ) {
                     throw new CardActivationException('DEVICE_MISMATCH', '该卡密已被绑定，当前设备特征不匹配。', 409);
@@ -187,5 +189,18 @@ final class CardActivationService
         return strlen($device) <= 8
             ? substr($device, 0, 2).'••'.substr($device, -2)
             : substr($device, 0, 4).'••••'.substr($device, -4);
+    }
+
+    private function machineBindingLimit(Application $application, Card $card): int
+    {
+        $cardType = $card->relationLoaded('cardType')
+            ? $card->cardType
+            : $card->cardType()->first();
+        $cardLimit = (int) ($card->machine_concurrency_limit ?? 0);
+        $typeLimit = (int) ($cardType?->machine_concurrency_limit ?? 0);
+
+        return $cardLimit !== 0
+            ? $cardLimit
+            : ($typeLimit !== 0 ? $typeLimit : (int) $application->max_bound_devices);
     }
 }

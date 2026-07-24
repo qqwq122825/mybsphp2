@@ -102,9 +102,9 @@
                         @include('admin.cards.partials.charset-select', ['name' => 'secret_charset', 'selected' => old('secret_charset', $type?->secret_charset ?? 'mixed')])
                         <small>卡密组成，建议使用默认组合</small></label>
                     <label class="card-type-form-row"><strong>账号同时在线数</strong>
-                        <input type="number" name="account_concurrency_limit" min="-1" max="32767" value="{{ old('account_concurrency_limit', $type?->account_concurrency_limit ?? 0) }}" required><small>0 使用软件默认，-1 关闭功能</small></label>
+                        <input type="number" name="account_concurrency_limit" min="-1" max="32767" value="{{ old('account_concurrency_limit', $type?->account_concurrency_limit ?? 0) }}" required><small>0 使用软件默认，-1 不限制同时在线数</small></label>
                     <label class="card-type-form-row"><strong>机器同时使用量</strong>
-                        <input type="number" name="machine_concurrency_limit" min="-1" max="32767" value="{{ old('machine_concurrency_limit', $type?->machine_concurrency_limit ?? 0) }}" required><small>0 使用软件默认，-1 关闭功能</small></label>
+                        <input type="number" name="machine_concurrency_limit" min="-1" max="32767" value="{{ old('machine_concurrency_limit', $type?->machine_concurrency_limit ?? 0) }}" required><small>0 使用软件默认，-1 不限制设备数量</small></label>
                     <div class="form-submit-bar embedded-submit-bar">
                         <button class="button" type="button" data-window-action="close">取消</button>
                         <button class="button button-primary" type="submit">确认保存</button>

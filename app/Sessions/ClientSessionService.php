@@ -90,15 +90,31 @@ final class ClientSessionService
 
             $subjectColumn = $card ? 'card_id' : 'application_account_id';
             $subjectId = $card?->getKey() ?? $account?->getKey();
-            $activeCount = ApplicationClientSession::query()
+            $activeSessions = ApplicationClientSession::query()
                 ->where('application_id', $application->getKey())
                 ->where($subjectColumn, $subjectId)
                 ->where('status', 'active')
                 ->where('last_heartbeat_at', '>=', now()->subSeconds((int) $application->connection_timeout_seconds))
                 ->when($existing, fn ($query) => $query->where('id', '!=', $existing->getKey()))
-                ->count();
-            if ($activeCount >= (int) $application->max_concurrent_sessions) {
+                ->get(['id', 'device_id_ciphertext']);
+
+            $accountLimit = $this->accountSessionLimit($application, $card, $account);
+            if ($accountLimit >= 0 && $activeSessions->count() >= $accountLimit) {
                 throw new ClientSessionException('SESSION_LIMIT', '已达到最大并发登录数。', 409);
+            }
+
+            $machineLimit = $this->machineSessionLimit($application, $card, $account);
+            if ($machineLimit >= 0) {
+                $deviceCount = $activeSessions
+                    ->pluck('device_id_ciphertext')
+                    ->map(fn ($device): string => trim((string) $device))
+                    ->filter()
+                    ->push(trim($deviceId))
+                    ->unique()
+                    ->count();
+                if ($deviceCount > $machineLimit) {
+                    throw new ClientSessionException('SESSION_LIMIT', '已达到最大绑定设备数。', 409);
+                }
             }
 
             ApplicationClientSession::query()->updateOrCreate(
@@ -113,6 +129,48 @@ final class ClientSessionService
 
             return $handle;
         }, 3);
+    }
+
+    private function accountSessionLimit(Application $application, ?Card $card, ?ApplicationAccount $account): int
+    {
+        if ($account instanceof ApplicationAccount) {
+            $accountLimit = (int) ($account->account_concurrency_limit ?? 0);
+            return $accountLimit !== 0 ? $accountLimit : (int) $application->max_concurrent_sessions;
+        }
+        if (! $card instanceof Card) {
+            return (int) $application->max_concurrent_sessions;
+        }
+
+        $cardType = $card->relationLoaded('cardType')
+            ? $card->cardType
+            : $card->cardType()->first();
+        $cardLimit = (int) ($card->account_concurrency_limit ?? 0);
+        $typeLimit = (int) ($cardType?->account_concurrency_limit ?? 0);
+
+        return $cardLimit !== 0
+            ? $cardLimit
+            : ($typeLimit !== 0 ? $typeLimit : (int) $application->max_concurrent_sessions);
+    }
+
+    private function machineSessionLimit(Application $application, ?Card $card, ?ApplicationAccount $account): int
+    {
+        if ($account instanceof ApplicationAccount) {
+            $accountLimit = (int) ($account->machine_concurrency_limit ?? 0);
+            return $accountLimit !== 0 ? $accountLimit : (int) $application->max_bound_devices;
+        }
+        if (! $card instanceof Card) {
+            return (int) $application->max_bound_devices;
+        }
+
+        $cardType = $card->relationLoaded('cardType')
+            ? $card->cardType
+            : $card->cardType()->first();
+        $cardLimit = (int) ($card->machine_concurrency_limit ?? 0);
+        $typeLimit = (int) ($cardType?->machine_concurrency_limit ?? 0);
+
+        return $cardLimit !== 0
+            ? $cardLimit
+            : ($typeLimit !== 0 ? $typeLimit : (int) $application->max_bound_devices);
     }
 
     /** @return array{code: string, message: string, handle: string, server_time: string} */
