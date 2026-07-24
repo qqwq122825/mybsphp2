@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#3867e8">
     <title>代理商管理平台登录 - {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/agent.css?v=20260725-compact-login">
+    <link rel="stylesheet" href="/assets/css/agent.css?v=20260725-blue-login">
 </head>
 <body class="agent-login-page">
 <main class="agent-login-card">
