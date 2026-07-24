@@ -530,8 +530,9 @@ final class AdminCardController extends Controller
         $deletedBatches = 0;
         $deletedTypes = 0;
         $retainedTypes = 0;
+        $retainedDetails = [];
 
-        DB::transaction(function () use ($types, &$deletedBatches, &$deletedCards, &$deletedTypes, &$retainedTypes): void {
+        DB::transaction(function () use ($types, &$deletedBatches, &$deletedCards, &$deletedTypes, &$retainedTypes, &$retainedDetails): void {
             foreach ($types as $type) {
                 // Inventory and issued cards are still removable. Active,
                 // expired and consumed cards remain available for history and
@@ -547,8 +548,10 @@ final class AdminCardController extends Controller
                     $deletedCards += Card::query()->whereIn('id', $removableCardIds)->delete();
                 }
 
-                if (Card::query()->where('card_type_id', $type->getKey())->exists()) {
+                $remainingCards = Card::query()->where('card_type_id', $type->getKey())->count();
+                if ($remainingCards > 0) {
                     $retainedTypes++;
+                    $retainedDetails[] = "{$type->name}（{$remainingCards} 张已激活或已使用卡）";
                     continue;
                 }
 
@@ -568,11 +571,16 @@ final class AdminCardController extends Controller
                 'deleted_cards' => $deletedCards,
                 'deleted_batches' => $deletedBatches,
                 'retained_card_types' => $retainedTypes,
+                'retained_details' => $retainedDetails,
             ],
             actorRole: $this->administrator()->role,
         ), $request);
 
-        return back()->with('success', "已删除 {$deletedCards} 张未激活充值卡；删除 {$deletedTypes} 个无存量卡类型，保留 {$retainedTypes} 个含已激活或已使用卡的类型。");
+        $retainedMessage = $retainedDetails === []
+            ? ''
+            : '保留明细：'.implode('、', $retainedDetails).'。';
+
+        return back()->with('success', "已删除 {$deletedCards} 张未激活充值卡；删除 {$deletedTypes} 个无存量卡类型，保留 {$retainedTypes} 个含已激活或已使用卡的类型。{$retainedMessage}");
     }
 
     /** @return array<string, mixed> */

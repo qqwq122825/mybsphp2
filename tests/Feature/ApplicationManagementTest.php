@@ -129,7 +129,7 @@ class ApplicationManagementTest extends TestCase
                 'card_type_ids' => [$cardType->getKey()],
             ])
             ->assertRedirect('/private-console/applications/'.$application->public_id.'/card-types')
-            ->assertSessionHas('success', '已删除 1 张未激活充值卡；删除 0 个无存量卡类型，保留 1 个含已激活或已使用卡的类型。');
+            ->assertSessionHas('success', '已删除 1 张未激活充值卡；删除 0 个无存量卡类型，保留 1 个含已激活或已使用卡的类型。保留明细：浏览器密码测试卡（1 张已激活或已使用卡）。');
 
         $this->assertDatabaseHas('card_types', ['id' => $cardType->getKey(), 'deleted_at' => null]);
         $this->assertDatabaseHas('card_batches', ['id' => $batchId, 'deleted_at' => null]);
