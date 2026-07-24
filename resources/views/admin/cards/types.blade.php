@@ -95,8 +95,12 @@
                         <input type="number" name="code_length" min="10" max="64" value="{{ old('code_length', $type?->code_length ?? 25) }}" required><small>充值卡串长度设置，一般建议 35 位</small></label>
                     <label class="card-type-form-row"><strong>卡号字符类型</strong>
                         @include('admin.cards.partials.charset-select', ['name' => 'code_charset', 'selected' => $type?->code_charset ?? 'mixed'])<small>充值卡组成，建议使用默认组合</small></label>
-                    <input type="hidden" name="secret_length" value="0">
-                    <input type="hidden" name="secret_charset" value="mixed">
+                    <label class="card-type-form-row"><strong>卡密长度</strong>
+                        <input type="number" name="secret_length" min="0" max="64" value="{{ old('secret_length', $type?->secret_length ?? 0) }}" required>
+                        <small>填 0 表示无密码；建议 8-16 位</small></label>
+                    <label class="card-type-form-row"><strong>卡密字符类型</strong>
+                        @include('admin.cards.partials.charset-select', ['name' => 'secret_charset', 'selected' => old('secret_charset', $type?->secret_charset ?? 'mixed')])
+                        <small>卡密组成，建议使用默认组合</small></label>
                     <label class="card-type-form-row"><strong>账号同时在线数</strong>
                         <input type="number" name="account_concurrency_limit" min="-1" max="32767" value="{{ old('account_concurrency_limit', $type?->account_concurrency_limit ?? 0) }}" required><small>0 使用软件默认，-1 关闭功能</small></label>
                     <label class="card-type-form-row"><strong>机器同时使用量</strong>

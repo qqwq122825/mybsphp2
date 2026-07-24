@@ -98,6 +98,11 @@ final class CardGenerationService
             : self::DEFAULT_ALPHABET;
         $prefix = (string) $cardType->code_prefix;
         $bodyLength = $cardType->code_length - strlen($prefix);
+        $secretLength = max(0, (int) $cardType->secret_length);
+        $secretAlphabetValue = $cardType->getAttribute('secret_alphabet');
+        $secretAlphabet = is_string($secretAlphabetValue) && $secretAlphabetValue !== ''
+            ? $secretAlphabetValue
+            : self::DEFAULT_ALPHABET;
 
         if ($bodyLength < 8) {
             throw new InvalidArgumentException('卡号长度至少需要比开头字符多 8 位。');
@@ -108,7 +113,9 @@ final class CardGenerationService
             if (! Card::query()->where('code_lookup_hash', $this->hasher->lookupHash($code))->exists()) {
                 return [
                     $code,
-                    '',
+                    $secretLength > 0
+                        ? $this->randomFromAlphabet($secretAlphabet, $secretLength)
+                        : '',
                 ];
             }
         }

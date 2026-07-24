@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Carbon\CarbonImmutable;
 use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
-use App\Cards\CardGenerationService;
 use App\Cards\CardCredentialHasher;
+use App\Cards\CardGenerationService;
 use App\Cards\ManualIssueService;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
@@ -15,6 +14,7 @@ use App\Models\Card;
 use App\Models\CardBatch;
 use App\Models\CardType;
 use App\Models\ManualIssue;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -274,6 +274,7 @@ final class AdminCardController extends Controller
         ), $request);
 
         $suffix = $typeCount > 0 ? "，同步更新 {$typeCount} 个卡类型" : '';
+
         return back()->with('success', "批量维护完成：共处理 {$affected} 张充值卡{$suffix}。");
     }
 
@@ -288,7 +289,10 @@ final class AdminCardController extends Controller
                 if ($start < 1 || $end < $start || $end - $start > 10000) {
                     throw ValidationException::withMessages(['id_list' => "ID 范围 {$part} 格式错误或跨度过大。"]);
                 }
-                foreach (range($start, $end) as $id) $ids[$id] = $id;
+                foreach (range($start, $end) as $id) {
+                    $ids[$id] = $id;
+                }
+
                 continue;
             }
             if (! ctype_digit($part) || (int) $part < 1) {
@@ -299,13 +303,16 @@ final class AdminCardController extends Controller
         if ($ids === [] || count($ids) > 100000) {
             throw ValidationException::withMessages(['id_list' => '请填写 1 至 100000 个有效卡串 ID。']);
         }
+
         return array_values($ids);
     }
 
     private function markQueryUsed($query): void
     {
         $query->with('cardType')->orderBy('id')->chunkById(500, function ($cards): void {
-            foreach ($cards as $card) $this->markCardUsed($card);
+            foreach ($cards as $card) {
+                $this->markCardUsed($card);
+            }
         });
     }
 
@@ -319,12 +326,14 @@ final class AdminCardController extends Controller
         (clone $query)->whereIn('status', ['active', 'expired'])->update([
             'status' => 'active', 'user_status' => 'active', 'expires_at' => now()->addDays($days), 'updated_at' => now(),
         ]);
+
         return $count;
     }
 
     private function setQueryPrice($query, int $cents, bool $agent): int
     {
         $typeIds = (clone $query)->distinct()->pluck('card_type_id');
+
         return CardType::query()->whereKey($typeIds)->update([
             $agent ? 'default_agent_price_cents' : 'face_price_cents' => $cents,
             'updated_at' => now(),
@@ -336,6 +345,7 @@ final class AdminCardController extends Controller
         if (! ctype_digit($value) || (int) $value < 1 || (int) $value > 36500) {
             throw ValidationException::withMessages(['action_value' => "{$label}需要填写 1 至 36500 的整数。"]);
         }
+
         return (int) $value;
     }
 
@@ -344,13 +354,15 @@ final class AdminCardController extends Controller
         if (! is_numeric($value) || (float) $value < -1 || (float) $value > 999999) {
             throw ValidationException::withMessages(['action_value' => "{$label}需要填写 -1 至 999999 的数值。"]);
         }
+
         return (int) round((float) $value * 100);
     }
 
     private function maintenanceDate(string $value): CarbonImmutable
     {
-        try { return CarbonImmutable::createFromFormat('Y-m-d H:i:s', $value); }
-        catch (\Throwable) {
+        try {
+            return CarbonImmutable::createFromFormat('Y-m-d H:i:s', $value);
+        } catch (\Throwable) {
             throw ValidationException::withMessages(['action_value' => '制卡时间格式需为 YYYY-MM-DD HH:MM:SS。']);
         }
     }
@@ -427,9 +439,9 @@ final class AdminCardController extends Controller
             'code_length' => (int) $validated['code_length'],
             'code_charset' => $validated['code_charset'],
             'alphabet' => self::CARD_ALPHABETS[$validated['code_charset']],
-            'secret_length' => 0,
-            'secret_charset' => 'mixed',
-            'secret_alphabet' => self::CARD_ALPHABETS['mixed'],
+            'secret_length' => (int) ($validated['secret_length'] ?? 0),
+            'secret_charset' => $validated['secret_charset'] ?? 'mixed',
+            'secret_alphabet' => self::CARD_ALPHABETS[$validated['secret_charset'] ?? 'mixed'],
             'account_concurrency_limit' => (int) $validated['account_concurrency_limit'],
             'machine_concurrency_limit' => (int) $validated['machine_concurrency_limit'],
             'status' => 'active',
@@ -480,8 +492,9 @@ final class AdminCardController extends Controller
             'balance_recharge_cents' => (int) round(((float) $validated['balance_recharge']) * 100),
             'code_prefix' => $codePrefix, 'code_length' => (int) $validated['code_length'],
             'code_charset' => $validated['code_charset'], 'alphabet' => self::CARD_ALPHABETS[$validated['code_charset']],
-            'secret_length' => 0, 'secret_charset' => 'mixed',
-            'secret_alphabet' => self::CARD_ALPHABETS['mixed'],
+            'secret_length' => (int) ($validated['secret_length'] ?? 0),
+            'secret_charset' => $validated['secret_charset'] ?? 'mixed',
+            'secret_alphabet' => self::CARD_ALPHABETS[$validated['secret_charset'] ?? 'mixed'],
             'account_concurrency_limit' => (int) $validated['account_concurrency_limit'],
             'machine_concurrency_limit' => (int) $validated['machine_concurrency_limit'],
         ])->save();
@@ -514,7 +527,10 @@ final class AdminCardController extends Controller
         $types = $application->cardTypes()->withCount('cards')->whereKey($validated['card_type_ids'])->get();
         $deleted = 0;
         foreach ($types as $type) {
-            if ($type->cards_count === 0) { $type->delete(); $deleted++; }
+            if ($type->cards_count === 0) {
+                $type->delete();
+                $deleted++;
+            }
         }
 
         return back()->with('success', "已删除 {$deleted} 个未制卡类型；已有卡的类型已保留。");
@@ -536,7 +552,7 @@ final class AdminCardController extends Controller
             'balance_recharge' => ['required', 'numeric', 'min:-999999', 'max:999999'],
             'code_length' => ['required', 'integer', 'min:10', 'max:64'],
             'code_charset' => ['required', Rule::in(array_keys(self::CARD_ALPHABETS))],
-            'secret_length' => ['sometimes', 'integer', 'in:0'],
+            'secret_length' => ['required', 'integer', 'min:0', 'max:64'],
             'secret_charset' => ['sometimes', Rule::in(array_keys(self::CARD_ALPHABETS))],
             'account_concurrency_limit' => ['required', 'integer', 'min:-1', 'max:32767'],
             'machine_concurrency_limit' => ['required', 'integer', 'min:-1', 'max:32767'],
