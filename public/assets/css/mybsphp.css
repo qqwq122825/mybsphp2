@@ -4657,7 +4657,7 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
     }
 
     .dashboard-content {
-        padding: 28px 24px 96px;
+        padding: 28px 24px calc(122px + env(safe-area-inset-bottom));
     }
 
     .dashboard-grid {
@@ -4688,9 +4688,10 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
         right: 12px;
         bottom: max(12px, env(safe-area-inset-bottom));
         left: 12px;
-        height: 62px;
+        min-height: 62px;
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        padding: 4px 6px;
         border: 1px solid var(--line);
         border-radius: 18px;
         background: rgba(255, 255, 255, .96);
@@ -4930,7 +4931,7 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
     }
 
     .dashboard-content {
-        padding: 24px 15px 96px;
+        padding: 24px 15px calc(122px + env(safe-area-inset-bottom));
     }
 
     .page-heading {
@@ -5126,6 +5127,84 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 
     .card-export-textarea {
         min-height: 320px;
+    }
+}
+
+@media (max-width: 640px) {
+    .card-export-workspace {
+        min-height: auto;
+        margin-bottom: 12px;
+        overflow: visible;
+    }
+
+    .card-export-workspace .card-making-workspace-header {
+        min-height: 66px;
+        padding: 0 17px;
+    }
+
+    .card-export-workspace .card-making-workspace-header h2 {
+        font-size: 16px;
+        line-height: 1.45;
+    }
+
+    .card-export-body {
+        padding: 16px 14px 20px;
+    }
+
+    .card-export-query-row {
+        gap: 9px;
+    }
+
+    .card-export-query-row input,
+    .card-export-query-row select {
+        height: 46px;
+        border-radius: 10px;
+        font-size: 15px;
+    }
+
+    .card-export-search {
+        height: 48px;
+        border-radius: 11px;
+    }
+
+    .card-export-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+        margin: 18px 0 14px;
+    }
+
+    .card-export-actions button {
+        width: 100%;
+        min-height: 44px;
+        padding: 6px 8px;
+        font-size: 13px;
+        line-height: 1.2;
+    }
+
+    .card-export-textarea {
+        min-height: 210px;
+        max-height: 42vh;
+        padding: 12px;
+        font-size: 12px;
+    }
+
+    .card-export-footer {
+        align-items: stretch;
+        gap: 12px;
+        margin-top: 13px;
+    }
+
+    .card-export-footer .button {
+        width: 100%;
+    }
+
+    .mobile-bottom-nav {
+        right: 10px;
+        bottom: max(8px, env(safe-area-inset-bottom));
+        left: 10px;
+        min-height: 68px;
+        border-radius: 20px;
     }
 }
 
