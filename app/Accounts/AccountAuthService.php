@@ -42,7 +42,7 @@ final class AccountAuthService
         if (mb_strlen($password) < 6 || mb_strlen($password) > 72) {
             throw new AccountAuthException('INVALID_PASSWORD', '密码长度需为 6-72 位。');
         }
-        if ($application->bind_device_enabled && $deviceId === '') {
+        if ($deviceId === '') {
             throw new AccountAuthException('DEVICE_REQUIRED', '当前软件要求提供绑定特征。');
         }
 
@@ -109,27 +109,37 @@ final class AccountAuthService
             }
             throw new AccountAuthException('INVALID_CREDENTIALS', '账号或密码错误。', 401);
         }
-        if ($account->status === 'frozen') {
-            throw new AccountAuthException('USER_FROZEN', '该软件用户已冻结。', 403);
-        }
-        if ($account->status !== 'active') {
-            throw new AccountAuthException('USER_UNAVAILABLE', '该软件用户当前状态不可登录。', 403);
-        }
         $deviceId = trim($deviceId);
-        if ($application->bind_device_enabled && $deviceId === '') {
+        if ($deviceId === '') {
             throw new AccountAuthException('DEVICE_REQUIRED', '当前软件要求提供绑定特征。');
         }
-        if ($application->bind_device_enabled && $account->bound_device_ciphertext && ! hash_equals((string) $account->bound_device_ciphertext, $deviceId)) {
-            throw new AccountAuthException('DEVICE_MISMATCH', '账号已绑定其他特征。', 409);
-        }
-        if ($application->bind_device_enabled && ! $account->bound_device_ciphertext) {
-            $account->bound_device_ciphertext = $deviceId;
-            $account->bound_device_mask = $this->maskDevice($deviceId);
-        }
-        $account->last_login_at = now();
-        $account->login_count++;
-        $account->failed_attempt_count = 0;
-        $account->save();
+
+        $account = DB::transaction(function () use ($application, $account, $deviceId): ApplicationAccount {
+            $lockedAccount = $application->accounts()
+                ->whereKey($account->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedAccount->status === 'frozen') {
+                throw new AccountAuthException('USER_FROZEN', '该软件用户已冻结。', 403);
+            }
+            if ($lockedAccount->status !== 'active') {
+                throw new AccountAuthException('USER_UNAVAILABLE', '该软件用户当前状态不可登录。', 403);
+            }
+            if ($lockedAccount->bound_device_ciphertext && ! hash_equals((string) $lockedAccount->bound_device_ciphertext, $deviceId)) {
+                throw new AccountAuthException('DEVICE_MISMATCH', '账号已被绑定，当前设备特征不匹配。', 409);
+            }
+            if (! $lockedAccount->bound_device_ciphertext) {
+                $lockedAccount->bound_device_ciphertext = $deviceId;
+                $lockedAccount->bound_device_mask = $this->maskDevice($deviceId);
+            }
+            $lockedAccount->last_login_at = now();
+            $lockedAccount->login_count++;
+            $lockedAccount->failed_attempt_count = 0;
+            $lockedAccount->save();
+
+            return $lockedAccount;
+        }, 3);
 
         if (! $account->expires_at || $account->expires_at->isPast()) {
             throw new AccountAuthException(

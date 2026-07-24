@@ -88,6 +88,43 @@ class AccountRegistrationAndLoginTest extends TestCase
         ]);
     }
 
+    public function test_cleared_account_binding_is_claimed_by_next_device_and_rejects_other_devices(): void
+    {
+        [$application] = $this->fixture();
+        $application->forceFill([
+            'registration_bonus_value' => 1,
+            'registration_bonus_unit' => 'day',
+        ])->save();
+
+        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/register', [
+            'username' => 'rebinduser',
+            'password' => 'secret123',
+            'device_id' => 'FIRST-DEVICE',
+        ])->assertCreated();
+
+        $account = $application->accounts()->where('username', 'rebinduser')->sole();
+        $account->forceFill([
+            'bound_device_ciphertext' => null,
+            'bound_device_mask' => null,
+        ])->save();
+
+        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', [
+            'username' => 'rebinduser',
+            'password' => 'secret123',
+            'device_id' => 'REBOUND-DEVICE',
+        ])->assertOk();
+
+        $this->assertSame('REBOUND-DEVICE', $account->fresh()->bound_device_ciphertext);
+
+        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', [
+            'username' => 'rebinduser',
+            'password' => 'secret123',
+            'device_id' => 'OTHER-DEVICE',
+        ])->assertConflict()
+            ->assertJsonPath('error.code', 'DEVICE_MISMATCH')
+            ->assertJsonPath('error.message', '账号已被绑定，当前设备特征不匹配。');
+    }
+
     public function test_registration_with_card_login_recharge_and_invitation_bonus(): void
     {
         [$application, $cardType] = $this->fixture();

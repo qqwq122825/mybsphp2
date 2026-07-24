@@ -45,7 +45,8 @@
                                 {{ $application->status === 'active' ? '正常开放' : ($application->status === 'suspended' ? '暂停使用' : $application->status) }}
                             </span>
                             @can('applications.delete')
-                                <button type="button" class="software-delete-trigger" onclick="document.getElementById('delete-application-{{ $application->id }}').showModal()">▥ 删除软件</button>
+                                <button type="button" class="software-delete-trigger"
+                                        data-window-open="delete-application-{{ $application->id }}">▥ 删除软件</button>
                             @endcan
                         </div>
                     </header>
@@ -94,7 +95,8 @@
                 </article>
                 @can('applications.delete')
                     <x-admin.window-dialog class="application-delete-dialog" id="delete-application-{{ $application->id }}"
-                                           title="删除软件 - 代号：{{ $application->code }}">
+                                           title="删除软件 - 代号：{{ $application->code }}"
+                                           :workspace="true" :minimizable="false">
                         <form method="post" action="{{ route('admin.applications.destroy', ['adminPath' => $adminPath, 'application' => $application]) }}">
                             @csrf
                             @method('DELETE')

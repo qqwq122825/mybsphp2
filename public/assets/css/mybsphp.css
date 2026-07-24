@@ -2655,6 +2655,66 @@ dialog.admin-window-dialog.is-minimized {
     background: #e95757;
 }
 
+/*
+ * 软件删除窗口属于后台工作区，不进入浏览器级模态层。
+ * 最大化时只覆盖顶部标签栏下方的右侧内容区，顶部栏和左侧导航保持可见。
+ */
+dialog.admin-window-dialog.is-workspace-window {
+    position: fixed;
+    z-index: 44;
+    top: 138px;
+    right: 16px;
+    bottom: 16px;
+    left: 242px;
+    width: auto;
+    height: auto;
+    margin: 0;
+}
+
+dialog.admin-window-dialog.is-workspace-window.is-maximized {
+    top: 122px;
+    right: 0;
+    bottom: 0;
+    left: 226px;
+    width: auto;
+    height: auto;
+}
+
+.dashboard-page.is-sidebar-collapsed dialog.admin-window-dialog.is-workspace-window {
+    left: 84px;
+}
+
+.dashboard-page.is-sidebar-collapsed dialog.admin-window-dialog.is-workspace-window.is-maximized {
+    left: 68px;
+}
+
+dialog.admin-window-dialog.is-workspace-window > .admin-window-dialog__window {
+    border: 1px solid #e2e6ed;
+    border-radius: 13px;
+    box-shadow: 0 18px 48px rgba(25, 39, 70, .14);
+}
+
+dialog.admin-window-dialog.is-workspace-window.is-maximized > .admin-window-dialog__window {
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content {
+    padding: 16px;
+    background: #f3f4f6;
+}
+
+dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > form {
+    overflow: hidden;
+    border: 1px solid #e5e8ef;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 6px 22px rgba(37, 51, 82, .04);
+}
+
 .software-card-title {
     display: flex;
     align-items: center;
@@ -4617,8 +4677,7 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
     }
 
     .software-stats {
-        /* 手机端目前只保留“首页”和“应用”两个入口，避免残留三列时右侧出现空白列。 */
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
@@ -4774,7 +4833,7 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
         left: 12px;
         min-height: 62px;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         padding: 4px 6px;
         border: 1px solid var(--line);
         border-radius: 18px;
@@ -4799,6 +4858,16 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 
     .mobile-bottom-nav a.is-active {
         color: var(--primary);
+    }
+
+    dialog.admin-window-dialog.is-workspace-window,
+    .dashboard-page.is-sidebar-collapsed dialog.admin-window-dialog.is-workspace-window {
+        left: 12px;
+    }
+
+    dialog.admin-window-dialog.is-workspace-window.is-maximized,
+    .dashboard-page.is-sidebar-collapsed dialog.admin-window-dialog.is-workspace-window.is-maximized {
+        left: 0;
     }
 }
 

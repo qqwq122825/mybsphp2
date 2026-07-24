@@ -22,7 +22,7 @@ final class ApplicationPublicConfigController extends Controller
                 'closed_message' => $application->closedMessage(),
                 'version' => $application->version_name,
                 'announcement' => $application->announcement,
-                'binding_mode' => $application->bind_device_enabled ? 'verified' : 'unverified',
+                'binding_mode' => 'verified',
                 'max_concurrent_sessions' => $application->max_concurrent_sessions,
             ],
         ], request: $request);

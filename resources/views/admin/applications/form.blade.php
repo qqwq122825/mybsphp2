@@ -72,7 +72,7 @@
         @php
             $communicationError = collect(['encryption_mode', 'max_clock_skew_seconds'])
                 ->contains(fn (string $field): bool => $errors->has($field));
-            $limitError = collect(['bind_device_enabled', 'max_bound_devices', 'max_concurrent_sessions', 'heartbeat_interval_seconds', 'connection_timeout_seconds', 'rebind_deduction_value', 'rebind_deduction_unit'])
+            $limitError = collect(['max_bound_devices', 'max_concurrent_sessions', 'heartbeat_interval_seconds', 'connection_timeout_seconds', 'rebind_deduction_value', 'rebind_deduction_unit'])
                 ->contains(fn (string $field): bool => $errors->has($field));
             $defaultConfigTab = request()->query('panel') === 'risk'
                 ? 'risk'
@@ -248,14 +248,6 @@
             <section class="dashboard-panel form-panel form-panel-wide">
                 <header><div><span>DEVICE & SESSION LIMITS</span><h2>限开控制</h2></div><em>设备与并发</em></header>
                 <div class="panel-body stack-form">
-                    <label class="field">
-                        <span>是否绑定模式</span>
-                        <select name="bind_device_enabled" required>
-                            <option value="1" @selected((string) old('bind_device_enabled', (int) $application->bind_device_enabled) === '1')>验证绑定特征</option>
-                            <option value="0" @selected((string) old('bind_device_enabled', (int) $application->bind_device_enabled) === '0')>免验证绑定特征</option>
-                        </select>
-                        <small>验证模式会校验设备特征；免验证时不限制绑定设备，同一账号可按最大并发会话数多设备登录。</small>
-                    </label>
                     <label class="field">
                         <span>转绑定扣除时长</span>
                         <div class="inline-unit-input software-invite-time">

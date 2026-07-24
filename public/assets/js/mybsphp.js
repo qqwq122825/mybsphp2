@@ -88,6 +88,21 @@
         if (event.key === 'Escape' && quickEntry instanceof HTMLDetailsElement) quickEntry.open = false;
     });
 
+    const showWindowDialog = (dialog) => {
+        if (!(dialog instanceof HTMLDialogElement) || dialog.open) return;
+        dialog.classList.remove('is-minimized');
+        dialog.classList.add('is-maximized');
+        if (dialog.dataset.windowScope === 'workspace') {
+            dialog.show();
+        } else {
+            dialog.showModal();
+        }
+    };
+
+    document.addEventListener('admin-window:open', (event) => {
+        showWindowDialog(event.target);
+    });
+
     const initializeConfigTabs = (scope = document, useBrowserHash = true) => {
         const configForm = scope.querySelector('[data-config-form]');
         if (!(configForm instanceof HTMLElement) || configForm.dataset.configTabsReady === '1') return;
@@ -162,7 +177,7 @@
 
         const openAutomaticWindows = (scope = document) => {
             scope.querySelectorAll('[data-window-dialog][data-window-auto-open]').forEach((dialog) => {
-                if (dialog instanceof HTMLDialogElement && !dialog.open) dialog.showModal();
+                showWindowDialog(dialog);
             });
         };
 
@@ -559,9 +574,20 @@
         if (!(event.target instanceof Element)) return;
 
         if (event.target instanceof HTMLDialogElement && event.target.matches('[data-window-dialog]')) {
+            if (event.target.dataset.windowScope === 'workspace') return;
             event.target.close();
             event.target.classList.remove('is-minimized');
             event.target.classList.add('is-maximized');
+            return;
+        }
+
+        const windowOpenButton = event.target.closest('[data-window-open]');
+        if (windowOpenButton instanceof HTMLButtonElement) {
+            const dialog = document.getElementById(windowOpenButton.dataset.windowOpen || '');
+            if (dialog instanceof HTMLDialogElement) {
+                event.preventDefault();
+                showWindowDialog(dialog);
+            }
             return;
         }
 
@@ -625,7 +651,7 @@
             const idsDisplay = dialog.querySelector('[data-user-bulk-id-display]');
             if (idsInput instanceof HTMLInputElement) idsInput.value = selectedIds.join(',');
             if (idsDisplay instanceof HTMLInputElement) idsDisplay.value = selectedIds.join(',');
-            dialog.showModal();
+            showWindowDialog(dialog);
             return;
         }
 
@@ -643,11 +669,13 @@
     });
 
     document.querySelectorAll('[data-window-dialog][data-window-auto-open]').forEach((dialog) => {
-        if (dialog instanceof HTMLDialogElement && !dialog.open) dialog.showModal();
+        showWindowDialog(dialog);
     });
 
     document.addEventListener('click', (event) => {
-        if (event.target instanceof HTMLDialogElement && event.target.matches('[data-user-bulk-dialog]')) {
+        if (event.target instanceof HTMLDialogElement
+            && event.target.matches('[data-user-bulk-dialog]')
+            && event.target.dataset.windowScope !== 'workspace') {
             event.target.close();
         }
     });
@@ -694,7 +722,7 @@
             });
             const title = dialog.querySelector('[data-user-detail-title]');
             if (title instanceof HTMLElement) title.textContent = openButton.dataset.title || '编辑软件用户';
-            dialog.showModal();
+            showWindowDialog(dialog);
             return;
         }
         const closeButton = event.target.closest('[data-user-detail-close]');

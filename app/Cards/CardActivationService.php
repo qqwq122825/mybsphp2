@@ -61,7 +61,7 @@ final class CardActivationService
                 throw new CardActivationException('CARD_UNAVAILABLE', '该卡密当前状态不可激活。');
             }
             $normalizedDevice = trim($deviceId);
-            if ($application->bind_device_enabled && $normalizedDevice === '') {
+            if ($normalizedDevice === '') {
                 throw new CardActivationException('DEVICE_REQUIRED', '当前应用要求提供设备标识。');
             }
 
@@ -69,12 +69,19 @@ final class CardActivationService
                 if ($card->user_status === 'frozen') {
                     throw new CardActivationException('USER_FROZEN', '该软件用户已冻结。', 403);
                 }
+                $boundDevice = trim((string) ($card->bound_device_ciphertext ?? ''));
                 if (
-                    $application->bind_device_enabled
-                    && is_string($card->bound_device_ciphertext)
-                    && ! hash_equals($card->bound_device_ciphertext, $normalizedDevice)
+                    $boundDevice !== ''
+                    && ! hash_equals($boundDevice, $normalizedDevice)
                 ) {
-                    throw new CardActivationException('DEVICE_MISMATCH', '该卡密已绑定其他设备。', 409);
+                    throw new CardActivationException('DEVICE_MISMATCH', '该卡密已被绑定，当前设备特征不匹配。', 409);
+                }
+
+                if ($boundDevice === '') {
+                    $card->forceFill([
+                        'bound_device_ciphertext' => $normalizedDevice,
+                        'bound_device_mask' => $this->maskDevice($normalizedDevice),
+                    ]);
                 }
 
                 if ($card->expires_at?->isPast()) {

@@ -214,6 +214,38 @@ class CardIssueAndActivationTest extends TestCase
             ->assertJsonPath('data.card.status', 'active');
     }
 
+    public function test_cleared_card_binding_is_claimed_by_next_device_and_rejects_other_devices(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $credential = app(CardGenerationService::class)
+            ->generate($cardType, 1, $this->administrator())['credentials'][0];
+
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $credential['code'],
+            'device_id' => 'FIRST-DEVICE',
+        ])->assertOk();
+
+        $card = $application->cards()->sole();
+        $card->forceFill([
+            'bound_device_ciphertext' => null,
+            'bound_device_mask' => null,
+        ])->save();
+
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $credential['code'],
+            'device_id' => 'REBOUND-DEVICE',
+        ])->assertOk();
+
+        $this->assertSame('REBOUND-DEVICE', $card->fresh()->bound_device_ciphertext);
+
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $credential['code'],
+            'device_id' => 'OTHER-DEVICE',
+        ])->assertConflict()
+            ->assertJsonPath('error.code', 'DEVICE_MISMATCH')
+            ->assertJsonPath('error.message', '该卡密已被绑定，当前设备特征不匹配。');
+    }
+
     public function test_frozen_unused_card_cannot_be_activated(): void
     {
         [, $cardType] = $this->applicationAndType();

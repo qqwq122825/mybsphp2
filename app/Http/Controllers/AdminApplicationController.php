@@ -160,7 +160,7 @@ final class AdminApplicationController extends Controller
 
         $validated['payload_mode'] = 'constant';
         $validated['payload_value_ciphertext'] = $validated['verification_data'] ?? null;
-        $validated['bind_device_enabled'] = (bool) ($validated['bind_device_enabled'] ?? false);
+        $validated['bind_device_enabled'] = true;
         unset($validated['verification_data']);
 
         $application->fill($validated)->save();
@@ -328,7 +328,6 @@ final class AdminApplicationController extends Controller
             'closed_message' => ['nullable', 'string', 'max:500'],
             'verification_data' => ['nullable', 'string', 'max:262144'],
             'encryption_mode' => ['required', Rule::in(['hybrid_rsa_aes_hmac'])],
-            'bind_device_enabled' => ['nullable', 'boolean'],
             'max_bound_devices' => ['required', 'integer', 'min:1', 'max:20'],
             'max_concurrent_sessions' => ['required', 'integer', 'min:1', 'max:100'],
             'heartbeat_interval_seconds' => ['sometimes', 'integer', 'min:5', 'max:3600'],

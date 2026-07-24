@@ -98,7 +98,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/agent/index.php', false)
             ->assertSee('激活码查询')
             ->assertSee('/activation-query', false)
-            ->assertSee('mybsphp.css?v=20260724-mobile-nav-2', false)
+            ->assertSee('mybsphp.css?v=20260724-workspace-windows', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -163,7 +163,9 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('现卡制作')
             ->assertSee('删除软件')
             ->assertSee('data-window-dialog', false)
-            ->assertSee('data-window-action="minimize"', false)
+            ->assertSee('data-window-open="delete-application-'.$application->id.'"', false)
+            ->assertSee('data-window-scope="workspace"', false)
+            ->assertDontSee('data-window-action="minimize"', false)
             ->assertSee('data-window-action="maximize"', false)
             ->assertSee('当前软件卡')
             ->assertSee('当前软件分类')
@@ -174,7 +176,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-workspace-base-link', false)
             ->assertSee('data-workspace-base-tab', false)
             ->assertSee('data-workspace-base-url=', false)
-            ->assertSee('mybsphp.js?v=20260724-mobile-nav-2', false)
+            ->assertSee('mybsphp.js?v=20260724-workspace-windows', false)
             ->assertSee($application->code.'-卡串类型');
 
         $this->get('/private-console/applications/'.$application->public_id.'/users')
@@ -212,7 +214,8 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('添加充值卡类型')
             ->assertSee('data-card-type-editor-dialog', false)
             ->assertSee('data-window-auto-open', false)
-            ->assertSee('data-window-action="minimize"', false)
+            ->assertSee('data-window-scope="workspace"', false)
+            ->assertDontSee('data-window-action="minimize"', false)
             ->assertSee('data-window-action="maximize"', false)
             ->assertSee('data-window-action="close"', false)
             ->assertSee('card-type-table-component', false)
@@ -389,6 +392,8 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('关闭提示')
             ->assertSee('通信安全')
             ->assertSee('限开控制')
+            ->assertDontSee('是否绑定模式')
+            ->assertDontSee('name="bind_device_enabled"', false)
             ->assertDontSee('name="login_api_name"', false);
 
         $this->put('/private-console/applications/'.$application->public_id, [
@@ -398,7 +403,6 @@ class ApplicationManagementTest extends TestCase
             'closed_message' => '系统维护，请稍后再试。',
             'verification_data' => "0x100000\nworld-server=gwrold.example",
             'encryption_mode' => 'hybrid_rsa_aes_hmac',
-            'bind_device_enabled' => '0',
             'max_bound_devices' => 1,
             'max_concurrent_sessions' => 2,
             'version_name' => '1.1.0',
@@ -411,7 +415,7 @@ class ApplicationManagementTest extends TestCase
         $this->assertSame('游戏 iOS 正式版', $application->name);
         $this->assertSame("0x100000\nworld-server=gwrold.example", $application->verificationData());
         $this->assertSame('constant', $application->payload_mode);
-        $this->assertFalse($application->bind_device_enabled);
+        $this->assertTrue($application->bind_device_enabled);
         $this->assertSame('login.ic', $application->legacyConfig()->sole()->login_api_name);
 
         $this->post('/private-console/applications/'.$application->public_id.'/toggle')
@@ -434,7 +438,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('login.lg')
             ->assertSee('首次注册赠送')
             ->assertSee('邀请赠送时长')
-            ->assertSee('是否绑定模式')
+            ->assertDontSee('是否绑定模式')
             ->assertSee('转绑定扣除时长');
         $this->get('/private-console/applications/'.$accountApplication->public_id.'/users')
             ->assertOk()
