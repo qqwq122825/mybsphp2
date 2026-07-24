@@ -246,6 +246,33 @@ class CardIssueAndActivationTest extends TestCase
             ->assertJsonPath('ok', true);
     }
 
+    public function test_password_card_requires_the_generated_secret(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $cardType->forceFill(['secret_length' => 8])->save();
+        $credential = app(CardGenerationService::class)
+            ->generate($cardType, 1, $this->administrator())['credentials'][0];
+
+        $this->assertSame(8, strlen($credential['secret']));
+
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $credential['code'],
+            'secret' => 'WRONG-SECRET',
+            'device_id' => 'IOS-DEVICE-001',
+        ])
+            ->assertNotFound()
+            ->assertJsonPath('error.code', 'INVALID_CARD')
+            ->assertJsonPath('error.message', '卡密不存在。');
+
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $credential['code'],
+            'secret' => $credential['secret'],
+            'device_id' => 'IOS-DEVICE-001',
+        ])
+            ->assertOk()
+            ->assertJsonPath('ok', true);
+    }
+
     public function test_zero_password_card_activates_through_encrypted_appen_gateway(): void
     {
         [$application, $cardType] = $this->applicationAndType();

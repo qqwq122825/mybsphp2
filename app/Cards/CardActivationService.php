@@ -7,6 +7,7 @@ use App\Models\Card;
 use App\Sessions\ClientSessionException;
 use App\Sessions\ClientSessionService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 final class CardActivationService
 {
@@ -26,7 +27,7 @@ final class CardActivationService
         string $appsafecode = '',
         string $sessionHandle = '',
     ): array {
-        return DB::transaction(function () use ($code, $deviceId, $appsafecode, $sessionHandle): array {
+        return DB::transaction(function () use ($code, $secret, $deviceId, $appsafecode, $sessionHandle): array {
             $card = Card::query()
                 ->with(['application', 'cardType'])
                 ->where('code_lookup_hash', $this->hasher->lookupHash($code))
@@ -39,6 +40,13 @@ final class CardActivationService
 
             $application = $card->application;
             $cardType = $card->cardType;
+
+            if (
+                (int) $cardType->secret_length > 0
+                && (! is_string($card->secret_hash) || ! Hash::check($secret, $card->secret_hash))
+            ) {
+                throw new CardActivationException('INVALID_CARD', '卡密不存在。', 404);
+            }
 
             if ($application->status !== 'active') {
                 throw new CardActivationException('APP_DISABLED', $application->closedMessage(), 403);
