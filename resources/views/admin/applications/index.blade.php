@@ -65,7 +65,9 @@
 
                     <footer class="software-card-actions">
                         @can('applications.update')
-                            <a class="software-action-primary" href="{{ route('admin.applications.edit', ['adminPath' => $adminPath, 'application' => $application]) }}">⚙ 软件配置</a>
+                            <a class="software-action-primary"
+                               href="{{ route('admin.applications.edit', ['adminPath' => $adminPath, 'application' => $application]) }}"
+                               data-workspace-open data-workspace-title="{{ $application->code }}-软件配置">⚙ 软件配置</a>
                         @endcan
                         @can('risk.view')
                             <a class="software-action-risk"
