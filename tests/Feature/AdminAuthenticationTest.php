@@ -47,6 +47,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('管理员登录')
             ->assertSee('安全码')
             ->assertSee('二级密码')
+            ->assertSee('mybsphp.css?v=20260724-compact-login-v2', false)
             ->assertDontSee('语言');
 
         $this->post('/private-console/login', [

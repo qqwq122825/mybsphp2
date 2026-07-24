@@ -1,3 +1,16 @@
+@php
+    $isApplicationWorkspace = request()->routeIs('admin.applications.index', 'admin.applications.edit');
+    $workspaceBaseUrl = $isApplicationWorkspace
+        ? route('admin.applications.index', ['adminPath' => $adminPath])
+        : null;
+    $workspaceBootstrapUrl = request()->routeIs('admin.applications.edit')
+        ? request()->fullUrl()
+        : null;
+    $workspaceBootstrapTitle = $workspaceBootstrapUrl && isset($application) && $application
+        ? $application->code.'-软件配置'
+        : null;
+@endphp
+
 <nav class="admin-workspace-bar" aria-label="页面标签导航">
     <div class="workspace-controls">
         <button type="button" data-workspace-sidebar-toggle aria-label="收起或展开侧栏" title="收起或展开侧栏">
@@ -9,7 +22,12 @@
         </a>
     </div>
 
-    <div class="workspace-tabs" role="list" data-workspace-tabs>
+    <div class="workspace-tabs" role="list" data-workspace-tabs
+         @if($workspaceBaseUrl) data-workspace-base-url="{{ $workspaceBaseUrl }}" @endif
+         @if($workspaceBootstrapUrl)
+             data-workspace-bootstrap-url="{{ $workspaceBootstrapUrl }}"
+             data-workspace-bootstrap-title="{{ $workspaceBootstrapTitle }}"
+         @endif>
         @if (request()->routeIs('admin.software-card-types.*', 'admin.software-card-making.*'))
             <a class="workspace-tab" href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">
                 <span>软件管理</span><i aria-hidden="true">×</i>
@@ -24,6 +42,7 @@
             @endif
         @elseif (request()->routeIs('admin.applications.*'))
             <a class="workspace-tab {{ request()->routeIs('admin.applications.index') ? 'is-active' : '' }}"
+               data-workspace-base-tab
                href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">
                 <span>软件管理</span><i aria-hidden="true">×</i>
             </a>

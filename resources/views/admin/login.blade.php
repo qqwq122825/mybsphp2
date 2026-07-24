@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#3867e8">
     <title>管理员登录 · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260724-compact-login-v2">
     <script src="/assets/js/mybsphp.js" defer></script>
 </head>
 <body class="login-page">

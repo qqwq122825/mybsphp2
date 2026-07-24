@@ -40,14 +40,14 @@
         });
     });
 
-    document.querySelectorAll('[data-copy]').forEach((button) => {
-        button.addEventListener('click', async () => {
-            const value = button.dataset.copy || '';
-            await navigator.clipboard.writeText(value);
-            const previous = button.textContent;
-            button.textContent = '已复制';
-            window.setTimeout(() => { button.textContent = previous; }, 1200);
-        });
+    document.addEventListener('click', async (event) => {
+        const button = event.target instanceof Element ? event.target.closest('[data-copy]') : null;
+        if (!(button instanceof HTMLButtonElement)) return;
+        const value = button.dataset.copy || '';
+        await navigator.clipboard.writeText(value);
+        const previous = button.textContent;
+        button.textContent = '已复制';
+        window.setTimeout(() => { button.textContent = previous; }, 1200);
     });
 
     const navToggle = document.querySelector('[data-nav-toggle]');
@@ -88,25 +88,29 @@
         if (event.key === 'Escape' && quickEntry instanceof HTMLDetailsElement) quickEntry.open = false;
     });
 
-    const configTabs = [...document.querySelectorAll('[data-config-tab]')];
-    const configPanels = [...document.querySelectorAll('[data-config-panel]')];
-    const configForm = document.querySelector('[data-config-form]');
-    const activateConfigTab = (name, updateHash = true) => {
-        if (!configTabs.some((tab) => tab.dataset.configTab === name)) return;
-        configTabs.forEach((tab) => {
-            const active = tab.dataset.configTab === name;
-            tab.classList.toggle('is-active', active);
-            tab.setAttribute('aria-selected', active ? 'true' : 'false');
-            tab.setAttribute('tabindex', active ? '0' : '-1');
-        });
-        configPanels.forEach((panel) => {
-            panel.hidden = panel.dataset.configPanel !== name;
-        });
-        if (updateHash) history.replaceState(null, '', `#${name}`);
-    };
+    const initializeConfigTabs = (scope = document, useBrowserHash = true) => {
+        const configForm = scope.querySelector('[data-config-form]');
+        if (!(configForm instanceof HTMLElement) || configForm.dataset.configTabsReady === '1') return;
 
-    if (configForm instanceof HTMLElement && configTabs.length > 0) {
-        const hashTab = window.location.hash.replace('#', '');
+        const configTabs = [...configForm.querySelectorAll('[data-config-tab]')];
+        const configPanels = [...configForm.querySelectorAll('[data-config-panel]')];
+        if (configTabs.length === 0) return;
+
+        const activateConfigTab = (name, updateHash = true) => {
+            if (!configTabs.some((tab) => tab.dataset.configTab === name)) return;
+            configTabs.forEach((tab) => {
+                const active = tab.dataset.configTab === name;
+                tab.classList.toggle('is-active', active);
+                tab.setAttribute('aria-selected', active ? 'true' : 'false');
+                tab.setAttribute('tabindex', active ? '0' : '-1');
+            });
+            configPanels.forEach((panel) => {
+                panel.hidden = panel.dataset.configPanel !== name;
+            });
+            if (useBrowserHash && updateHash) history.replaceState(null, '', `#${name}`);
+        };
+
+        const hashTab = useBrowserHash ? window.location.hash.replace('#', '') : '';
         const defaultTab = configTabs.some((tab) => tab.dataset.configTab === hashTab)
             ? hashTab
             : (configForm.dataset.defaultConfigTab || 'basic');
@@ -121,17 +125,25 @@
                 next.focus();
             });
         });
+        configForm.dataset.configTabsReady = '1';
         activateConfigTab(defaultTab, false);
-    }
+    };
 
     const workspaceContent = document.querySelector('[data-workspace-content]');
     const workspaceTabs = document.querySelector('[data-workspace-tabs]');
     if (workspaceContent instanceof HTMLElement && workspaceTabs instanceof HTMLElement) {
-        const baseContent = workspaceContent.innerHTML;
-        const baseTitle = document.title;
-        const baseTabs = [...workspaceTabs.children];
-        const initiallyActiveTab = baseTabs.find((tab) => tab.classList.contains('is-active'));
+        let baseContent = workspaceContent.innerHTML;
+        let baseTitle = document.title;
+        let baseTabs = [...workspaceTabs.children];
+        let initiallyActiveTab = baseTabs.find((tab) => tab.classList.contains('is-active'));
         const temporaryTabs = new Map();
+        const baseUrl = workspaceTabs.dataset.workspaceBaseUrl
+            ? new URL(workspaceTabs.dataset.workspaceBaseUrl, window.location.href).href
+            : null;
+        const bootstrapUrl = workspaceTabs.dataset.workspaceBootstrapUrl
+            ? new URL(workspaceTabs.dataset.workspaceBootstrapUrl, window.location.href).href
+            : null;
+        const bootstrapTitle = workspaceTabs.dataset.workspaceBootstrapTitle || '';
         let activeKey = null;
 
         const setBaseTabState = (active) => {
@@ -157,6 +169,7 @@
             });
             workspaceContent.innerHTML = tab.content;
             openAutomaticWindows(workspaceContent);
+            initializeConfigTabs(workspaceContent, false);
             document.title = tab.documentTitle || baseTitle;
             tab.element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
             window.scrollTo({ top: 0, behavior: 'auto' });
@@ -168,6 +181,7 @@
             setBaseTabState(true);
             workspaceContent.innerHTML = baseContent;
             openAutomaticWindows(workspaceContent);
+            initializeConfigTabs(workspaceContent, false);
             document.title = baseTitle;
             window.scrollTo({ top: 0, behavior: 'auto' });
         };
@@ -176,11 +190,13 @@
             const html = await response.text();
             const parsed = new DOMParser().parseFromString(html, 'text/html');
             const incomingContent = parsed.querySelector('[data-workspace-content]');
+            const incomingTabs = parsed.querySelector('[data-workspace-tabs]');
             if (!(incomingContent instanceof HTMLElement)) {
                 throw new Error('工作页内容格式错误');
             }
             return {
                 content: incomingContent.innerHTML,
+                tabs: incomingTabs instanceof HTMLElement ? incomingTabs.innerHTML : '',
                 documentTitle: parsed.title || baseTitle,
                 url: response.url,
             };
@@ -235,6 +251,16 @@
             renderWorkspace(key);
         };
 
+        const normalizeUrl = (url) => {
+            const normalized = new URL(url, window.location.href);
+            normalized.hash = '';
+            return normalized.href;
+        };
+
+        const isBaseLink = (link) => baseUrl
+            && link instanceof HTMLAnchorElement
+            && normalizeUrl(link.href) === normalizeUrl(baseUrl);
+
         document.addEventListener('click', async (event) => {
             const closeButton = event.target instanceof Element
                 ? event.target.closest('[data-workspace-tab-close]')
@@ -269,17 +295,27 @@
             const link = event.target instanceof Element
                 ? event.target.closest('a[data-workspace-open]')
                 : null;
-            if (!(link instanceof HTMLAnchorElement)) return;
+            if (link instanceof HTMLAnchorElement) {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                const key = new URL(link.href, window.location.href).href;
+                const title = link.dataset.workspaceTitle || link.textContent.trim();
+                try {
+                    const page = await requestWorkspace(key);
+                    addTemporaryTab(key, title, page);
+                } catch (error) {
+                    window.alert(error instanceof Error ? error.message : '工作页加载失败');
+                }
+                return;
+            }
+
+            const baseLink = event.target instanceof Element
+                ? event.target.closest('a[data-workspace-base-tab], a[data-workspace-base-link], [data-workspace-content] a')
+                : null;
+            if (!isBaseLink(baseLink)) return;
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
-            const key = new URL(link.href, window.location.href).href;
-            const title = link.dataset.workspaceTitle || link.textContent.trim();
-            try {
-                const page = await requestWorkspace(key);
-                addTemporaryTab(key, title, page);
-            } catch (error) {
-                window.alert(error instanceof Error ? error.message : '工作页加载失败');
-            }
+            renderBaseWorkspace();
         });
 
         document.addEventListener('submit', async (event) => {
@@ -316,6 +352,32 @@
                 window.alert(error instanceof Error ? error.message : '表单提交失败');
             }
         });
+
+        if (bootstrapUrl && baseUrl && normalizeUrl(bootstrapUrl) !== normalizeUrl(baseUrl)) {
+            const bootstrapContent = baseContent;
+            const bootstrapDocumentTitle = baseTitle;
+            history.replaceState(history.state, '', baseUrl);
+            requestWorkspace(baseUrl)
+                .then((page) => {
+                    baseContent = page.content;
+                    baseTitle = page.documentTitle;
+                    if (page.tabs) workspaceTabs.innerHTML = page.tabs;
+                    baseTabs = [...workspaceTabs.children];
+                    initiallyActiveTab = baseTabs.find((tab) => tab.classList.contains('is-active'));
+                    addTemporaryTab(bootstrapUrl, bootstrapTitle || bootstrapDocumentTitle, {
+                        content: bootstrapContent,
+                        documentTitle: bootstrapDocumentTitle,
+                        url: bootstrapUrl,
+                    });
+                })
+                .catch((error) => {
+                    window.alert(error instanceof Error ? error.message : '软件管理工作区加载失败');
+                });
+        } else {
+            initializeConfigTabs(document, true);
+        }
+    } else {
+        initializeConfigTabs(document, true);
     }
 
     const cardExportPanel = (target) => target instanceof Element

@@ -98,7 +98,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/agent/index.php', false)
             ->assertSee('激活码查询')
             ->assertSee('/activation-query', false)
-            ->assertSee('mybsphp.css?v=20260722-window-dialog-component', false)
+            ->assertSee('mybsphp.css?v=20260724-persistent-workspace-tabs', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -171,6 +171,10 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('勾选“当前软件”时会自动全选')
             ->assertDontSee('删除库卡')
             ->assertSee('data-workspace-open', false)
+            ->assertSee('data-workspace-base-link', false)
+            ->assertSee('data-workspace-base-tab', false)
+            ->assertSee('data-workspace-base-url=', false)
+            ->assertSee('mybsphp.js?v=20260724-persistent-workspace-tabs', false)
             ->assertSee($application->code.'-卡串类型');
 
         $this->get('/private-console/applications/'.$application->public_id.'/users')
@@ -373,6 +377,8 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-config-tab="basic"', false)
             ->assertSee('data-config-tab="communication"', false)
             ->assertSee('data-config-tab="limits"', false)
+            ->assertSee('data-workspace-bootstrap-url=', false)
+            ->assertSee('data-workspace-bootstrap-title="10000001-软件配置"', false)
             ->assertSee('封控策略')
             ->assertSee('IP 频率和阻断规则')
             ->assertSee('/private-console/risk-control?application='.$application->public_id, false)

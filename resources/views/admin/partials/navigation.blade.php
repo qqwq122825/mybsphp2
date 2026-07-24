@@ -59,6 +59,7 @@
             <div class="nav-children">
                 @can('applications.view')
                     <a class="{{ request()->routeIs('admin.applications.index') ? 'is-active' : '' }}"
+                       data-workspace-base-link
                        href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">软件管理</a>
                 @endcan
                 @can('applications.create')
