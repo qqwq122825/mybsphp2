@@ -62,7 +62,9 @@ class Card extends Model
      */
     public function cardType(): BelongsTo
     {
-        return $this->belongsTo(CardType::class);
+        // Keep the original type readable for historical cards after the
+        // type is removed from the management list.
+        return $this->belongsTo(CardType::class)->withTrashed();
     }
 
     /**

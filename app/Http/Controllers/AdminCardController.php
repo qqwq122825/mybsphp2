@@ -549,13 +549,13 @@ final class AdminCardController extends Controller
                 }
 
                 $remainingCards = Card::query()->where('card_type_id', $type->getKey())->count();
-                if ($remainingCards > 0) {
+                if ($remainingCards === 0) {
+                    $deletedBatches += CardBatch::query()->where('card_type_id', $type->getKey())->delete();
+                } else {
                     $retainedTypes++;
                     $retainedDetails[] = "{$type->name}（{$remainingCards} 张已激活或已使用卡）";
-                    continue;
                 }
 
-                $deletedBatches += CardBatch::query()->where('card_type_id', $type->getKey())->delete();
                 $deletedTypes += $type->delete() ? 1 : 0;
             }
         }, 3);
@@ -580,7 +580,7 @@ final class AdminCardController extends Controller
             ? ''
             : '保留明细：'.implode('、', $retainedDetails).'。';
 
-        return back()->with('success', "已删除 {$deletedCards} 张未激活充值卡；删除 {$deletedTypes} 个无存量卡类型，保留 {$retainedTypes} 个含已激活或已使用卡的类型。{$retainedMessage}");
+        return back()->with('success', "已删除 {$deletedTypes} 个卡串类型，清理 {$deletedCards} 张未激活充值卡；保留 {$retainedTypes} 个已删除类型下的已激活或已使用卡供查询。{$retainedMessage}");
     }
 
     /** @return array<string, mixed> */

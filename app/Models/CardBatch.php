@@ -32,7 +32,7 @@ class CardBatch extends Model
      */
     public function cardType(): BelongsTo
     {
-        return $this->belongsTo(CardType::class);
+        return $this->belongsTo(CardType::class)->withTrashed();
     }
 
     /**

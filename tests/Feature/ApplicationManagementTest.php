@@ -129,9 +129,9 @@ class ApplicationManagementTest extends TestCase
                 'card_type_ids' => [$cardType->getKey()],
             ])
             ->assertRedirect('/private-console/applications/'.$application->public_id.'/card-types')
-            ->assertSessionHas('success', '已删除 1 张未激活充值卡；删除 0 个无存量卡类型，保留 1 个含已激活或已使用卡的类型。保留明细：浏览器密码测试卡（1 张已激活或已使用卡）。');
+            ->assertSessionHas('success', '已删除 1 个卡串类型，清理 1 张未激活充值卡；保留 1 个已删除类型下的已激活或已使用卡供查询。保留明细：浏览器密码测试卡（1 张已激活或已使用卡）。');
 
-        $this->assertDatabaseHas('card_types', ['id' => $cardType->getKey(), 'deleted_at' => null]);
+        $this->assertSoftDeleted('card_types', ['id' => $cardType->getKey()]);
         $this->assertDatabaseHas('card_batches', ['id' => $batchId, 'deleted_at' => null]);
         $this->assertDatabaseHas('cards', ['id' => $cardIds[0], 'status' => 'active']);
         $this->assertDatabaseMissing('cards', ['id' => $cardIds[1]]);
@@ -140,6 +140,11 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('浏览器密码测试卡')
             ->assertSee('已激活')
             ->assertSee('到期时间');
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $generated['credentials'][0]['code'],
+            'secret' => $generated['credentials'][0]['secret'],
+            'device_id' => 'DELETE-TYPE-QUERY-DEVICE',
+        ])->assertOk()->assertJsonPath('data.card.status', 'active');
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'card_types.deleted',
             'target_id' => $application->public_id,
