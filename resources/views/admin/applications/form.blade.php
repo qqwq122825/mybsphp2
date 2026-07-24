@@ -74,13 +74,12 @@
                 ->contains(fn (string $field): bool => $errors->has($field));
             $limitError = collect(['bind_device_enabled', 'max_bound_devices', 'max_concurrent_sessions', 'heartbeat_interval_seconds', 'connection_timeout_seconds', 'rebind_deduction_value', 'rebind_deduction_unit'])
                 ->contains(fn (string $field): bool => $errors->has($field));
-            $defaultConfigTab = $communicationError ? 'communication' : ($limitError ? 'limits' : 'basic');
+            $defaultConfigTab = request()->query('panel') === 'risk'
+                ? 'risk'
+                : ($communicationError ? 'communication' : ($limitError ? 'limits' : 'basic'));
         @endphp
-        <form class="software-config-form" method="post" data-config-form
-              data-default-config-tab="{{ $defaultConfigTab }}"
-              action="{{ route('admin.applications.update', ['adminPath' => $adminPath, 'application' => $application]) }}">
-            @csrf
-            @method('PUT')
+        <div class="software-config-form" data-config-form
+             data-default-config-tab="{{ $defaultConfigTab }}">
 
             <header class="software-settings-heading">
                 <div>
@@ -101,13 +100,17 @@
                     <span>03</span><strong>限开控制</strong><small>设备绑定和并发限制</small>
                 </button>
                 @can('risk.view')
-                    <a class="software-config-risk-link"
-                       href="{{ route('admin.risk-control.index', ['adminPath' => $adminPath, 'application' => $application->public_id]) }}"
-                       data-workspace-open data-workspace-title="{{ $application->code }}-封控策略">
+                    <button class="software-config-risk-link" type="button" role="tab"
+                            data-config-tab="risk" aria-controls="software-panel-risk">
                         <span>04</span><strong>封控策略</strong><small>IP 频率和阻断规则</small>
-                    </a>
+                    </button>
                 @endcan
             </nav>
+
+            <form class="software-config-fields" method="post"
+                  action="{{ route('admin.applications.update', ['adminPath' => $adminPath, 'application' => $application]) }}">
+            @csrf
+            @method('PUT')
 
             <div class="admin-form-grid software-config-panel" id="software-panel-communication"
                  role="tabpanel" data-config-panel="communication" hidden>
@@ -320,6 +323,16 @@
                 <span>保存后立即应用当前软件的全部配置。</span>
                 <button class="button button-primary" type="submit">确认保存</button>
             </div>
-        </form>
+            </form>
+
+            @can('risk.view')
+                <div class="software-config-panel risk-config-panel" id="software-panel-risk"
+                     role="tabpanel" data-config-panel="risk" data-risk-panel
+                     data-risk-url="{{ route('admin.risk-control.index', ['adminPath' => $adminPath, 'application' => $application->public_id]) }}"
+                     hidden>
+                    <div class="risk-panel-loading">正在加载封控策略…</div>
+                </div>
+            @endcan
+        </div>
     @endif
 @endsection

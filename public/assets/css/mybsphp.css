@@ -2061,6 +2061,10 @@ button.workspace-tab {
     box-shadow: 0 12px 34px rgba(29, 45, 81, .07);
 }
 
+.software-config-fields {
+    display: contents;
+}
+
 .software-settings-heading {
     min-height: 82px;
     display: flex;
@@ -2278,7 +2282,8 @@ button.workspace-tab {
     padding-bottom: 9px;
 }
 
-.software-config-form > .form-submit-bar {
+.software-config-form > .form-submit-bar,
+.software-config-fields > .form-submit-bar {
     margin: 0;
     padding: 12px 22px;
     border: 0;
@@ -2286,6 +2291,36 @@ button.workspace-tab {
     border-radius: 0;
     background: #fbfcfe;
     box-shadow: none;
+}
+
+.software-config-panel.risk-config-panel {
+    padding-bottom: 22px;
+}
+
+.software-config-panel.risk-config-panel .dashboard-panel {
+    border: 1px solid #e1e6ef;
+    border-radius: 15px;
+    background: #fff;
+    box-shadow: 0 12px 34px rgba(29, 45, 81, .07);
+}
+
+.software-config-panel.risk-config-panel .dashboard-panel > header {
+    display: flex;
+}
+
+.risk-config-panel .risk-page-heading {
+    margin-top: 18px;
+}
+
+.risk-panel-loading {
+    padding: 48px 24px;
+    color: #8994a9;
+    text-align: center;
+}
+
+.risk-config-panel.is-risk-loading {
+    opacity: .6;
+    pointer-events: none;
 }
 
 .form-panel-wide,
@@ -4582,7 +4617,8 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
     }
 
     .software-stats {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        /* 手机端目前只保留“首页”和“应用”两个入口，避免残留三列时右侧出现空白列。 */
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 

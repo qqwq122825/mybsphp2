@@ -3,6 +3,7 @@
 @section('title', 'IP 封控中心')
 
 @section('content')
+<div data-risk-content>
 <header class="page-heading page-heading-actions risk-page-heading">
     <div>
         <p class="eyebrow">IP RISK CONTROL</p>
@@ -165,4 +166,5 @@
         @endif
     </x-admin.table-shell>
 @endif
+</div>
 @endsection
