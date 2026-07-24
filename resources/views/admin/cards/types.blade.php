@@ -24,7 +24,7 @@
                     <x-slot:toolbar>
                         <div>
                         <button class="button card-type-delete-button" type="submit"
-                                onclick="return confirm('删除充值卡类型会同时删除该类型下的全部充值卡和制卡批次，已激活用户也会失效。确定继续吗？')">删除选中</button>
+                                onclick="return confirm('将删除所选类型下未激活的库存卡和已发出卡；已激活或已使用的卡及其类型会保留。确定继续吗？')">删除选中</button>
                         <a class="button button-primary" href="{{ route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application, 'create' => 1]) }}">添加新充值卡类型</a>
                         <button class="button bsphp-type-quick" type="submit" form="quick-card-type-form">快速添加模拟卡类型</button>
                         </div>

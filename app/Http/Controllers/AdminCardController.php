@@ -526,16 +526,35 @@ final class AdminCardController extends Controller
         $application = Application::query()->findOrFail($validated['application_id']);
         $types = $application->cardTypes()->whereKey($validated['card_type_ids'])->get();
         $typeIds = $types->modelKeys();
-        $cardIds = Card::query()->whereIn('card_type_id', $typeIds)->pluck('id');
-        $deletedCards = $cardIds->count();
+        $deletedCards = 0;
         $deletedBatches = 0;
         $deletedTypes = 0;
+        $retainedTypes = 0;
 
-        DB::transaction(function () use ($typeIds, $cardIds, &$deletedBatches, &$deletedTypes): void {
-            DB::table('manual_issue_items')->whereIn('card_id', $cardIds)->delete();
-            Card::query()->whereIn('id', $cardIds)->delete();
-            $deletedBatches = CardBatch::query()->whereIn('card_type_id', $typeIds)->delete();
-            $deletedTypes = CardType::query()->whereIn('id', $typeIds)->delete();
+        DB::transaction(function () use ($types, &$deletedBatches, &$deletedCards, &$deletedTypes, &$retainedTypes): void {
+            foreach ($types as $type) {
+                // Inventory and issued cards are still removable. Active,
+                // expired and consumed cards remain available for history and
+                // to keep their card type relationship valid.
+                $removableCardIds = Card::query()
+                    ->where('card_type_id', $type->getKey())
+                    ->whereIn('status', ['inventory', 'issued'])
+                    ->whereNull('activated_at')
+                    ->pluck('id');
+
+                if ($removableCardIds->isNotEmpty()) {
+                    DB::table('manual_issue_items')->whereIn('card_id', $removableCardIds)->delete();
+                    $deletedCards += Card::query()->whereIn('id', $removableCardIds)->delete();
+                }
+
+                if (Card::query()->where('card_type_id', $type->getKey())->exists()) {
+                    $retainedTypes++;
+                    continue;
+                }
+
+                $deletedBatches += CardBatch::query()->where('card_type_id', $type->getKey())->delete();
+                $deletedTypes += $type->delete() ? 1 : 0;
+            }
         }, 3);
 
         $this->audit->record(new AuditEvent(
@@ -548,11 +567,12 @@ final class AdminCardController extends Controller
                 'deleted_card_types' => $deletedTypes,
                 'deleted_cards' => $deletedCards,
                 'deleted_batches' => $deletedBatches,
+                'retained_card_types' => $retainedTypes,
             ],
             actorRole: $this->administrator()->role,
         ), $request);
 
-        return back()->with('success', "已删除 {$deletedTypes} 个充值卡类型、{$deletedCards} 张关联卡和 {$deletedBatches} 个制卡批次。");
+        return back()->with('success', "已删除 {$deletedCards} 张未激活充值卡；删除 {$deletedTypes} 个无存量卡类型，保留 {$retainedTypes} 个含已激活或已使用卡的类型。");
     }
 
     /** @return array<string, mixed> */

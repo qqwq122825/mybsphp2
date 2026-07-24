@@ -83,7 +83,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('最近接口与后台操作记录');
     }
 
-    public function test_deleting_a_card_type_also_deletes_its_existing_cards_and_batches(): void
+    public function test_deleting_a_card_type_removes_unactivated_cards_but_retains_used_cards(): void
     {
         $administrator = $this->administrator();
         $this->actingAs($administrator, 'admin');
@@ -117,6 +117,11 @@ class ApplicationManagementTest extends TestCase
         $generated = app(CardGenerationService::class)->generate($cardType, 2, $administrator, '删除测试');
         $batchId = $generated['batch']->getKey();
         $cardIds = $generated['batch']->cards()->pluck('id')->all();
+        Card::query()->whereKey($cardIds[0])->update([
+            'status' => 'active',
+            'activated_at' => now(),
+            'expires_at' => now()->addDay(),
+        ]);
 
         $this->from('/private-console/applications/'.$application->public_id.'/card-types')
             ->delete('/private-console/card-types', [
@@ -124,13 +129,12 @@ class ApplicationManagementTest extends TestCase
                 'card_type_ids' => [$cardType->getKey()],
             ])
             ->assertRedirect('/private-console/applications/'.$application->public_id.'/card-types')
-            ->assertSessionHas('success', '已删除 1 个充值卡类型、2 张关联卡和 1 个制卡批次。');
+            ->assertSessionHas('success', '已删除 1 张未激活充值卡；删除 0 个无存量卡类型，保留 1 个含已激活或已使用卡的类型。');
 
-        $this->assertSoftDeleted('card_types', ['id' => $cardType->getKey()]);
-        $this->assertSoftDeleted('card_batches', ['id' => $batchId]);
-        foreach ($cardIds as $cardId) {
-            $this->assertDatabaseMissing('cards', ['id' => $cardId]);
-        }
+        $this->assertDatabaseHas('card_types', ['id' => $cardType->getKey(), 'deleted_at' => null]);
+        $this->assertDatabaseHas('card_batches', ['id' => $batchId, 'deleted_at' => null]);
+        $this->assertDatabaseHas('cards', ['id' => $cardIds[0], 'status' => 'active']);
+        $this->assertDatabaseMissing('cards', ['id' => $cardIds[1]]);
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'card_types.deleted',
             'target_id' => $application->public_id,
