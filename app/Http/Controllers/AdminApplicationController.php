@@ -324,7 +324,7 @@ final class AdminApplicationController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'min:2', 'max:120'],
             'description' => ['nullable', 'string', 'max:500'],
-            'status' => ['required', Rule::in(['draft', 'active', 'suspended', 'archived'])],
+            'status' => ['required', Rule::in(['active', 'suspended'])],
             'closed_message' => ['nullable', 'string', 'max:500'],
             'verification_data' => ['nullable', 'string', 'max:262144'],
             'encryption_mode' => ['required', Rule::in(['hybrid_rsa_aes_hmac'])],

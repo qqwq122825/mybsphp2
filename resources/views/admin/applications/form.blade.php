@@ -163,11 +163,12 @@
                     <label class="software-basic-row">
                         <strong>软件开关</strong>
                         <select name="status">
-                            @foreach (['active' => '正常开放', 'draft' => '草稿', 'suspended' => '暂停使用', 'archived' => '已归档'] as $value => $label)
-                                <option value="{{ $value }}" @selected(old('status', $application->status) === $value)>{{ $label }}</option>
+                            @php($selectedStatus = old('status', $application->status) === 'active' ? 'active' : 'suspended')
+                            @foreach (['active' => '正常开放', 'suspended' => '停止使用'] as $value => $label)
+                                <option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
-                        <small>只有“正常开放”允许客户端登录和激活；其他状态均返回关闭提示</small>
+                        <small>“正常开放”允许客户端登录和激活；“停止使用”时返回关闭提示</small>
                     </label>
                     <label class="software-basic-row">
                         <strong>关闭提示</strong>

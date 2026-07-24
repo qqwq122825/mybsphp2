@@ -42,7 +42,7 @@
                         </div>
                         <div class="software-card-header-actions">
                             <span class="status-tag status-{{ $application->status }}">
-                                {{ $application->status === 'active' ? '正常开放' : ($application->status === 'suspended' ? '暂停使用' : $application->status) }}
+                                {{ $application->status === 'active' ? '正常开放' : '停止使用' }}
                             </span>
                             @can('applications.delete')
                                 <button type="button" class="software-delete-trigger"
