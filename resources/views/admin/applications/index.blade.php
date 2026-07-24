@@ -72,8 +72,8 @@
                         @endcan
                         @can('risk.view')
                             <a class="software-action-risk"
-                               href="{{ route('admin.applications.edit', ['adminPath' => $adminPath, 'application' => $application, 'panel' => 'risk']) }}"
-                               data-workspace-open data-workspace-title="{{ $application->code }}-软件配置">◇ 封控设置</a>
+                               href="{{ route('admin.risk-control.index', ['adminPath' => $adminPath, 'application' => $application->public_id]) }}"
+                               data-workspace-open data-workspace-title="{{ $application->code }}-封控设置">◇ 封控设置</a>
                         @endcan
                         @can('applications.view')
                             <a href="{{ route('admin.applications.users.index', ['adminPath' => $adminPath, 'application' => $application]) }}"

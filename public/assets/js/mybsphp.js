@@ -219,7 +219,6 @@
             return {
                 content: incomingContent.innerHTML,
                 tabs: incomingTabs instanceof HTMLElement ? incomingTabs.innerHTML : '',
-                riskContent: parsed.querySelector('[data-risk-content]')?.innerHTML || '',
                 documentTitle: parsed.title || baseTitle,
                 url: response.url,
             };
@@ -283,31 +282,6 @@
         const isBaseLink = (link) => baseUrl
             && link instanceof HTMLAnchorElement
             && normalizeUrl(link.href) === normalizeUrl(baseUrl);
-
-        const loadEmbeddedRiskPanel = async (panel) => {
-            if (!(panel instanceof HTMLElement) || panel.dataset.riskLoaded === '1') return;
-            panel.classList.add('is-risk-loading');
-            try {
-                const page = await requestWorkspace(panel.dataset.riskUrl || '');
-                if (!page.riskContent) throw new Error('封控策略内容格式错误');
-                panel.innerHTML = page.riskContent;
-                panel.dataset.riskLoaded = '1';
-                openAutomaticWindows(panel);
-            } finally {
-                panel.classList.remove('is-risk-loading');
-            }
-        };
-
-        document.addEventListener('workspace:config-tab', async (event) => {
-            if (!(event instanceof CustomEvent) || event.detail?.name !== 'risk') return;
-            const panel = event.detail.panel;
-            if (!(panel instanceof HTMLElement)) return;
-            try {
-                await loadEmbeddedRiskPanel(panel);
-            } catch (error) {
-                panel.innerHTML = `<div class="risk-panel-loading">${error instanceof Error ? error.message : '封控策略加载失败'}</div>`;
-            }
-        });
 
         document.addEventListener('click', async (event) => {
             const closeButton = event.target instanceof Element
@@ -391,20 +365,6 @@
             }
 
             try {
-                const embeddedRiskPanel = form.closest('[data-risk-panel]');
-                if (embeddedRiskPanel instanceof HTMLElement) {
-                    const page = await requestWorkspace(requestUrl, {
-                        ...options,
-                        headers: {
-                            'X-Workspace-Url': embeddedRiskPanel.dataset.riskUrl || requestUrl,
-                        },
-                    });
-                    if (!page.riskContent) throw new Error('封控策略内容格式错误');
-                    embeddedRiskPanel.innerHTML = page.riskContent;
-                    embeddedRiskPanel.dataset.riskLoaded = '1';
-                    openAutomaticWindows(embeddedRiskPanel);
-                    return;
-                }
                 const page = await requestWorkspace(requestUrl, options);
                 tab.content = page.content;
                 tab.documentTitle = page.documentTitle;

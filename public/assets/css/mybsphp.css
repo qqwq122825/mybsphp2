@@ -2097,7 +2097,7 @@ button.workspace-tab {
 .software-config-tabs {
     min-width: 0;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     overflow: hidden;
     padding: 0 22px;
     border-bottom: 1px solid #e6eaf1;
@@ -2291,36 +2291,6 @@ button.workspace-tab {
     border-radius: 0;
     background: #fbfcfe;
     box-shadow: none;
-}
-
-.software-config-panel.risk-config-panel {
-    padding-bottom: 22px;
-}
-
-.software-config-panel.risk-config-panel .dashboard-panel {
-    border: 1px solid #e1e6ef;
-    border-radius: 15px;
-    background: #fff;
-    box-shadow: 0 12px 34px rgba(29, 45, 81, .07);
-}
-
-.software-config-panel.risk-config-panel .dashboard-panel > header {
-    display: flex;
-}
-
-.risk-config-panel .risk-page-heading {
-    margin-top: 18px;
-}
-
-.risk-panel-loading {
-    padding: 48px 24px;
-    color: #8994a9;
-    text-align: center;
-}
-
-.risk-config-panel.is-risk-loading {
-    opacity: .6;
-    pointer-events: none;
 }
 
 .form-panel-wide,

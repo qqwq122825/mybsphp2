@@ -74,9 +74,7 @@
                 ->contains(fn (string $field): bool => $errors->has($field));
             $limitError = collect(['max_bound_devices', 'max_concurrent_sessions', 'heartbeat_interval_seconds', 'connection_timeout_seconds', 'rebind_deduction_value', 'rebind_deduction_unit'])
                 ->contains(fn (string $field): bool => $errors->has($field));
-            $defaultConfigTab = request()->query('panel') === 'risk'
-                ? 'risk'
-                : ($communicationError ? 'communication' : ($limitError ? 'limits' : 'basic'));
+            $defaultConfigTab = $communicationError ? 'communication' : ($limitError ? 'limits' : 'basic');
         @endphp
         <div class="software-config-form" data-config-form
              data-default-config-tab="{{ $defaultConfigTab }}">
@@ -99,12 +97,6 @@
                 <button type="button" role="tab" data-config-tab="limits" aria-controls="software-panel-limits">
                     <span>03</span><strong>限开控制</strong><small>设备绑定和并发限制</small>
                 </button>
-                @can('risk.view')
-                    <button class="software-config-risk-link" type="button" role="tab"
-                            data-config-tab="risk" aria-controls="software-panel-risk">
-                        <span>04</span><strong>封控策略</strong><small>IP 频率和阻断规则</small>
-                    </button>
-                @endcan
             </nav>
 
             <form class="software-config-fields" method="post"
@@ -317,14 +309,6 @@
             </div>
             </form>
 
-            @can('risk.view')
-                <div class="software-config-panel risk-config-panel" id="software-panel-risk"
-                     role="tabpanel" data-config-panel="risk" data-risk-panel
-                     data-risk-url="{{ route('admin.risk-control.index', ['adminPath' => $adminPath, 'application' => $application->public_id]) }}"
-                     hidden>
-                    <div class="risk-panel-loading">正在加载封控策略…</div>
-                </div>
-            @endcan
         </div>
     @endif
 @endsection
