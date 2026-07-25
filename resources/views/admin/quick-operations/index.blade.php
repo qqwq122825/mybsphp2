@@ -113,20 +113,29 @@
                 </section>
 
                 <section class="quick-user-actions">
-                    <h3>用户快捷操作</h3>
+                    <h3>{{ $isCardUser ? '充值卡快捷操作' : '账号快捷操作' }}</h3>
                     <div>
-                        <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">
-                            @csrf
-                            <input type="hidden" name="card_id" value="{{ $card->id }}">
-                            <input type="hidden" name="action" value="freeze_user">
-                            <button type="submit">冻结用户</button>
-                        </form>
-                        <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">
-                            @csrf
-                            <input type="hidden" name="card_id" value="{{ $card->id }}">
-                            <input type="hidden" name="action" value="unfreeze_user">
-                            <button type="submit">恢复用户</button>
-                        </form>
+                        @if($isCardUser)
+                            <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">
+                                @csrf
+                                <input type="hidden" name="card_id" value="{{ $card->id }}">
+                                <input type="hidden" name="action" value="unbind_user">
+                                <button type="submit">解除设备绑定</button>
+                            </form>
+                        @else
+                            <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">
+                                @csrf
+                                <input type="hidden" name="card_id" value="{{ $card->id }}">
+                                <input type="hidden" name="action" value="freeze_user">
+                                <button type="submit">冻结账号</button>
+                            </form>
+                            <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">
+                                @csrf
+                                <input type="hidden" name="card_id" value="{{ $card->id }}">
+                                <input type="hidden" name="action" value="unfreeze_user">
+                                <button type="submit">恢复账号</button>
+                            </form>
+                        @endif
                     </div>
                 </section>
             @endif
@@ -134,13 +143,13 @@
             <section class="quick-danger-zone">
                 <div><strong>删除操作</strong><p>未激活卡会直接删除；已使用卡保留历史并标记为作废。</p></div>
                 <div class="quick-danger-actions">
-                    @if($target)
+                    @if($isAccountUser)
                         <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">
                             @csrf
                             <input type="hidden" name="card_id" value="{{ $card->id }}">
                             <input type="hidden" name="action" value="delete_user">
-                            <label><input type="checkbox" name="confirmed" value="1" required>确认删除用户</label>
-                            <button type="submit">删除用户</button>
+                            <label><input type="checkbox" name="confirmed" value="1" required>确认删除账号</label>
+                            <button type="submit">删除账号</button>
                         </form>
                     @endif
                     <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">

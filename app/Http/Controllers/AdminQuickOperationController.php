@@ -67,7 +67,7 @@ final class AdminQuickOperationController extends Controller
         $validated = $request->validate([
             'card_id' => ['required', 'integer', 'exists:cards,id'],
             'action' => ['required', Rule::in([
-                'add_time', 'freeze_user', 'unfreeze_user', 'delete_user', 'delete_card',
+                'add_time', 'unbind_user', 'freeze_user', 'unfreeze_user', 'delete_user', 'delete_card',
             ])],
             'days' => ['nullable', 'integer', 'min:1', 'max:3650'],
             'preset_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
@@ -113,6 +113,7 @@ final class AdminQuickOperationController extends Controller
 
             match ($action) {
                 'add_time' => $this->addTime($target, $days),
+                'unbind_user' => $this->unbind($target),
                 'freeze_user' => $this->freeze($target),
                 'unfreeze_user' => $this->unfreeze($target),
                 'delete_user' => $this->deleteUser($target),
@@ -147,6 +148,7 @@ final class AdminQuickOperationController extends Controller
 
         $message = match ($action) {
             'add_time' => "已为用户增加 {$days} 天时间。",
+            'unbind_user' => '充值卡用户的设备绑定已解除。',
             'freeze_user' => '用户已冻结。',
             'unfreeze_user' => '用户已恢复正常。',
             'delete_user' => '用户已删除并停止继续登录。',
@@ -197,32 +199,37 @@ final class AdminQuickOperationController extends Controller
 
     private function freeze(Card|ApplicationAccount|null $target): void
     {
-        if (! $target) {
-            throw ValidationException::withMessages(['action' => '这张充值卡尚未关联软件用户。']);
+        if (! $target instanceof ApplicationAccount) {
+            throw ValidationException::withMessages(['action' => '充值卡用户请使用解绑或删卡操作。']);
         }
-        $target->forceFill($target instanceof Card
-            ? ['user_status' => 'frozen', 'user_frozen_at' => now()]
-            : ['status' => 'frozen'])->save();
+        $target->forceFill(['status' => 'frozen'])->save();
     }
 
     private function unfreeze(Card|ApplicationAccount|null $target): void
     {
-        if (! $target) {
-            throw ValidationException::withMessages(['action' => '这张充值卡尚未关联软件用户。']);
+        if (! $target instanceof ApplicationAccount) {
+            throw ValidationException::withMessages(['action' => '充值卡用户请使用解绑或删卡操作。']);
         }
-        $target->forceFill($target instanceof Card
-            ? ['user_status' => 'active', 'user_frozen_at' => null]
-            : ['status' => 'active'])->save();
+        $target->forceFill(['status' => 'active'])->save();
+    }
+
+    private function unbind(Card|ApplicationAccount|null $target): void
+    {
+        if (! $target instanceof Card) {
+            throw ValidationException::withMessages(['action' => '当前充值卡没有关联卡串用户。']);
+        }
+        $target->forceFill([
+            'bound_device_ciphertext' => null,
+            'bound_device_mask' => null,
+        ])->save();
     }
 
     private function deleteUser(Card|ApplicationAccount|null $target): void
     {
-        if (! $target) {
-            throw ValidationException::withMessages(['action' => '这张充值卡尚未关联软件用户。']);
+        if (! $target instanceof ApplicationAccount) {
+            throw ValidationException::withMessages(['action' => '充值卡用户请直接删除/作废充值卡。']);
         }
-        $target->forceFill($target instanceof Card
-            ? ['status' => 'revoked', 'user_status' => 'revoked', 'revoked_at' => now()]
-            : ['status' => 'revoked'])->save();
+        $target->forceFill(['status' => 'revoked'])->save();
     }
 
     private function deleteCard(Card $card): bool

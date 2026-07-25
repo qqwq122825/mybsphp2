@@ -118,6 +118,37 @@ class AdminQuickOperationTest extends TestCase
         $this->assertDatabaseMissing('cards', ['id' => $card->getKey()]);
     }
 
+    public function test_card_user_uses_unbind_and_delete_actions_instead_of_freeze(): void
+    {
+        [$application, $type, $batch] = $this->fixture('card_login');
+        $card = $this->card($application, $type, $batch, 'ACTIVE-CARD-USER-0003', [
+            'status' => 'active',
+            'user_status' => 'active',
+            'activated_at' => now(),
+            'expires_at' => now()->addDay(),
+            'bound_device_ciphertext' => 'DEVICE-FINGERPRINT-001',
+            'bound_device_mask' => 'DEVI•••001',
+        ]);
+
+        $this->get('/private-console/quick-operations?card='.$card->public_id)
+            ->assertOk()
+            ->assertSee('充值卡快捷操作')
+            ->assertSee('解除设备绑定')
+            ->assertSee('删除/作废充值卡')
+            ->assertDontSee('冻结用户')
+            ->assertDontSee('确认删除账号');
+
+        $this->post('/private-console/quick-operations/action', [
+            'card_id' => $card->getKey(),
+            'action' => 'unbind_user',
+        ])->assertSessionHasNoErrors()
+            ->assertRedirect('/private-console/quick-operations?card='.$card->public_id);
+
+        $card->refresh();
+        $this->assertNull($card->bound_device_ciphertext);
+        $this->assertNull($card->bound_device_mask);
+    }
+
     /** @return array{Application, CardType, CardBatch} */
     private function fixture(string $mode): array
     {
