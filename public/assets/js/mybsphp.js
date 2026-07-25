@@ -740,6 +740,23 @@
             return;
         }
 
+        const addDaysButton = event.target.closest('[data-add-days]');
+        if (addDaysButton instanceof HTMLButtonElement) {
+            const form = addDaysButton.closest('form');
+            const input = form?.querySelector('[data-quick-days-input]');
+            if (!(input instanceof HTMLInputElement)) return;
+            const currentDays = Number.parseInt(input.value, 10);
+            const addedDays = Number.parseInt(addDaysButton.dataset.addDays || '0', 10);
+            const maximumDays = Number.parseInt(input.max || '3650', 10);
+            input.value = String(Math.min(
+                Number.isFinite(maximumDays) ? maximumDays : 3650,
+                (Number.isFinite(currentDays) ? currentDays : 0) + (Number.isFinite(addedDays) ? addedDays : 0),
+            ));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.focus();
+            return;
+        }
+
         const exportButton = event.target.closest('[data-table-export]');
         if (exportButton instanceof HTMLButtonElement) {
             const table = exportButton.closest('.admin-data-table')?.querySelector('table');

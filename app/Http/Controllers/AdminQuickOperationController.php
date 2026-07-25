@@ -71,11 +71,10 @@ final class AdminQuickOperationController extends Controller
                 'add_time', 'unbind_user', 'freeze_user', 'unfreeze_user', 'delete_user', 'delete_card',
             ])],
             'days' => ['nullable', 'integer', 'min:1', 'max:3650'],
-            'preset_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
             'confirmed' => ['sometimes', 'accepted'],
         ]);
         $action = $validated['action'];
-        $days = (int) ($validated['preset_days'] ?? $validated['days'] ?? 0);
+        $days = (int) ($validated['days'] ?? 0);
         if ($action === 'add_time' && $days < 1) {
             throw ValidationException::withMessages(['days' => '请填写要增加的天数。']);
         }

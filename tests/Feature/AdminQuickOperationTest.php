@@ -95,13 +95,15 @@ class AdminQuickOperationTest extends TestCase
             ->assertSee('agent-seller')
             ->assertSee('解除设备绑定')
             ->assertSee('删除账号')
+            ->assertSee('data-add-days="1"', false)
+            ->assertSee('type="button" data-add-days="30"', false)
             ->assertDontSee('删除/作废充值卡')
             ->assertDontSee('确认删除卡密');
 
         $this->post('/private-console/quick-operations/action', [
             'card_id' => $card->getKey(),
             'action' => 'add_time',
-            'preset_days' => 3,
+            'days' => 3,
         ])->assertSessionHasNoErrors()
             ->assertRedirect('/private-console/quick-operations?card='.$card->public_id);
 
