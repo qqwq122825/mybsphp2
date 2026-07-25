@@ -47,7 +47,7 @@
     @endcanany
 
     @canany(['applications.view', 'applications.create', 'cards.bulk_manage', 'app_accounts.manage'])
-        <details class="nav-group" {{ request()->routeIs('admin.applications.*', 'admin.cards.maintenance.*', 'admin.application-users.maintenance.*', 'admin.quick-operations.*') ? 'open' : '' }}>
+        <details class="nav-group" {{ request()->routeIs('admin.applications.*', 'admin.cards.maintenance.*', 'admin.application-users.maintenance.*') ? 'open' : '' }}>
             <summary title="应用管理">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <rect x="3" y="3" width="7" height="7" rx="1"></rect>
@@ -71,8 +71,6 @@
                        href="{{ route('admin.cards.maintenance.index', ['adminPath' => $adminPath]) }}">充值卡批量维护</a>
                 @endcan
                 @can('app_accounts.manage')
-                    <a class="{{ request()->routeIs('admin.quick-operations.*') ? 'is-active' : '' }}"
-                       href="{{ route('admin.quick-operations.index', ['adminPath' => $adminPath]) }}">快速用户操作</a>
                     <a class="{{ request()->routeIs('admin.application-users.maintenance.*') ? 'is-active' : '' }}"
                        href="{{ route('admin.application-users.maintenance.index', ['adminPath' => $adminPath]) }}">软件用户批量维护</a>
                 @endcan
@@ -120,7 +118,7 @@
     @endcan
 
     @canany(['audit.view', 'cards.view', 'cards.bulk_manage', 'app_accounts.manage'])
-        <details class="nav-group" {{ request()->routeIs('admin.operation-plugins.*') ? 'open' : '' }}>
+        <details class="nav-group" {{ request()->routeIs('admin.operation-plugins.*', 'admin.quick-operations.*') ? 'open' : '' }}>
             <summary title="运营插件">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path>
@@ -130,6 +128,10 @@
             <div class="nav-children">
                 @can('audit.view')
                     <a class="{{ request()->route('tool') === 'monitor' ? 'is-active' : '' }}" href="{{ route('admin.operation-plugins.show', ['adminPath' => $adminPath, 'tool' => 'monitor']) }}">接口监控调试插件</a>
+                @endcan
+                @can('app_accounts.manage')
+                    <a class="{{ request()->routeIs('admin.quick-operations.*') ? 'is-active' : '' }}"
+                       href="{{ route('admin.quick-operations.index', ['adminPath' => $adminPath]) }}">快速用户操作</a>
                 @endcan
                 @can('cards.view')
                     <a class="{{ request()->route('tool') === 'batch-query' ? 'is-active' : '' }}" href="{{ route('admin.operation-plugins.show', ['adminPath' => $adminPath, 'tool' => 'batch-query']) }}">批量查询</a>

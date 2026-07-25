@@ -81,6 +81,8 @@ class AdminQuickOperationTest extends TestCase
         $this->get('/private-console/quick-operations')
             ->assertOk()
             ->assertSee('快速加时与卡密查询')
+            ->assertSee('<strong>运营插件</strong>', false)
+            ->assertSee('<span>快速用户操作</span>', false)
             ->assertSee('快办');
 
         $this->withSession(['success' => '测试通知已完成。'])

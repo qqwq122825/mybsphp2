@@ -94,8 +94,10 @@
             @if(request()->routeIs('admin.agents.create'))
                 <span class="workspace-tab is-active" aria-current="page"><span>添加代理账号</span><i aria-hidden="true">×</i></span>
             @endif
-        @elseif (request()->routeIs('admin.operation-plugins.*'))
-            <span class="workspace-tab is-active" aria-current="page"><span>{{ $title ?? '运营插件' }}</span><i aria-hidden="true">×</i></span>
+        @elseif (request()->routeIs('admin.operation-plugins.*', 'admin.quick-operations.*'))
+            <span class="workspace-tab is-active" aria-current="page">
+                <span>{{ request()->routeIs('admin.quick-operations.*') ? '快速用户操作' : ($title ?? '运营插件') }}</span><i aria-hidden="true">×</i>
+            </span>
         @elseif (request()->routeIs('admin.settings.system.*'))
             <span class="workspace-tab is-active" aria-current="page"><span>系统信息设置</span><i aria-hidden="true">×</i></span>
         @else
