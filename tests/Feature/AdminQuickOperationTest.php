@@ -8,6 +8,7 @@ use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
 use App\Models\ApplicationAccount;
+use App\Models\ApplicationClientSession;
 use App\Models\Card;
 use App\Models\CardBatch;
 use App\Models\CardType;
@@ -71,6 +72,11 @@ class AdminQuickOperationTest extends TestCase
             'consumed_at' => now(),
             'redeemed_by_account_id' => $account->getKey(),
         ]);
+        $account->forceFill([
+            'bound_device_ciphertext' => 'ACCOUNT-DEVICE-001',
+            'bound_device_mask' => 'ACCO•••001',
+        ])->save();
+        $session = $this->clientSession($application, account: $account);
 
         $this->get('/private-console/quick-operations')
             ->assertOk()
@@ -85,7 +91,11 @@ class AdminQuickOperationTest extends TestCase
             ->assertSee('located-user')
             ->assertSee('账号登录模式')
             ->assertSee('代理发卡')
-            ->assertSee('agent-seller');
+            ->assertSee('agent-seller')
+            ->assertSee('解除设备绑定')
+            ->assertSee('删除账号')
+            ->assertDontSee('删除/作废充值卡')
+            ->assertDontSee('确认删除卡密');
 
         $this->post('/private-console/quick-operations/action', [
             'card_id' => $card->getKey(),
@@ -98,6 +108,33 @@ class AdminQuickOperationTest extends TestCase
             '2026-07-30 12:00:00',
             $account->refresh()->expires_at->format('Y-m-d H:i:s'),
         );
+
+        $this->post('/private-console/quick-operations/action', [
+            'card_id' => $card->getKey(),
+            'action' => 'unbind_user',
+        ])->assertSessionHasNoErrors()
+            ->assertSessionHas('success', '用户设备绑定已解除，现有登录连接已失效。')
+            ->assertRedirect('/private-console/quick-operations?card='.$card->public_id);
+
+        $account->refresh();
+        $this->assertNull($account->bound_device_ciphertext);
+        $this->assertNull($account->bound_device_mask);
+        $this->assertSame('logged_out', $session->refresh()->status);
+        $this->assertNotNull($session->logged_out_at);
+
+        $this->from('/private-console/quick-operations?card='.$card->public_id)
+            ->post('/private-console/quick-operations/action', [
+                'card_id' => $card->getKey(),
+                'action' => 'delete_card',
+                'confirmed' => '1',
+            ])->assertSessionHasErrors([
+                'action' => '这张充值卡已经充值到账号，卡密将作为充值历史记录保留。',
+            ]);
+        $this->assertDatabaseHas('cards', [
+            'id' => $card->getKey(),
+            'status' => 'consumed',
+            'redeemed_by_account_id' => $account->getKey(),
+        ]);
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'quick_operation.executed',
             'target_id' => $card->public_id,
@@ -129,6 +166,7 @@ class AdminQuickOperationTest extends TestCase
             'bound_device_ciphertext' => 'DEVICE-FINGERPRINT-001',
             'bound_device_mask' => 'DEVI•••001',
         ]);
+        $session = $this->clientSession($application, card: $card);
 
         $this->get('/private-console/quick-operations?card='.$card->public_id)
             ->assertOk()
@@ -147,6 +185,8 @@ class AdminQuickOperationTest extends TestCase
         $card->refresh();
         $this->assertNull($card->bound_device_ciphertext);
         $this->assertNull($card->bound_device_mask);
+        $this->assertSame('logged_out', $session->refresh()->status);
+        $this->assertNotNull($session->logged_out_at);
     }
 
     /** @return array{Application, CardType, CardBatch} */
@@ -207,6 +247,25 @@ class AdminQuickOperationTest extends TestCase
             'status' => 'issued',
             'card_is_frozen' => false,
             ...$values,
+        ]);
+    }
+
+    private function clientSession(
+        Application $application,
+        ?Card $card = null,
+        ?ApplicationAccount $account = null,
+    ): ApplicationClientSession {
+        return ApplicationClientSession::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'application_id' => $application->getKey(),
+            'token_hash' => hash('sha256', Str::random(64)),
+            'auth_mode' => $card ? 'card' : 'account',
+            'card_id' => $card?->getKey(),
+            'application_account_id' => $account?->getKey(),
+            'device_id_ciphertext' => 'SESSION-DEVICE-001',
+            'device_mask' => 'SESS•••001',
+            'status' => 'active',
+            'last_heartbeat_at' => now(),
         ]);
     }
 }

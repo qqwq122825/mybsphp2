@@ -126,6 +126,12 @@
                             <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">
                                 @csrf
                                 <input type="hidden" name="card_id" value="{{ $card->id }}">
+                                <input type="hidden" name="action" value="unbind_user">
+                                <button type="submit">解除设备绑定</button>
+                            </form>
+                            <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">
+                                @csrf
+                                <input type="hidden" name="card_id" value="{{ $card->id }}">
                                 <input type="hidden" name="action" value="freeze_user">
                                 <button type="submit">冻结账号</button>
                             </form>
@@ -141,7 +147,16 @@
             @endif
 
             <section class="quick-danger-zone">
-                <div><strong>删除操作</strong><p>未激活卡会直接删除；已使用卡保留历史并标记为作废。</p></div>
+                <div>
+                    <strong>删除操作</strong>
+                    <p>
+                        @if($isAccountUser)
+                            删除账号后将停止登录；已充值使用的卡密作为历史记录保留。
+                        @else
+                            未激活卡会直接删除；已激活卡会保留历史并标记为作废。
+                        @endif
+                    </p>
+                </div>
                 <div class="quick-danger-actions">
                     @if($isAccountUser)
                         <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">
@@ -151,14 +166,15 @@
                             <label><input type="checkbox" name="confirmed" value="1" required>确认删除账号</label>
                             <button type="submit">删除账号</button>
                         </form>
+                    @else
+                        <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">
+                            @csrf
+                            <input type="hidden" name="card_id" value="{{ $card->id }}">
+                            <input type="hidden" name="action" value="delete_card">
+                            <label><input type="checkbox" name="confirmed" value="1" required>确认删除卡密</label>
+                            <button type="submit">{{ $isCardUser ? '删除/作废充值卡' : '删除未使用卡' }}</button>
+                        </form>
                     @endif
-                    <form method="post" action="{{ route('admin.quick-operations.action', ['adminPath' => $adminPath]) }}">
-                        @csrf
-                        <input type="hidden" name="card_id" value="{{ $card->id }}">
-                        <input type="hidden" name="action" value="delete_card">
-                        <label><input type="checkbox" name="confirmed" value="1" required>确认删除卡密</label>
-                        <button type="submit">删除/作废充值卡</button>
-                    </form>
                 </div>
             </section>
         </div>

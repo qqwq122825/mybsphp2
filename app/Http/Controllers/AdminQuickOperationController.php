@@ -8,6 +8,7 @@ use App\Cards\CardCredentialHasher;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\ApplicationAccount;
+use App\Models\ApplicationClientSession;
 use App\Models\Card;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -109,6 +110,8 @@ final class AdminQuickOperationController extends Controller
                 'target_type' => $target instanceof ApplicationAccount ? 'account' : ($target instanceof Card ? 'card_user' : null),
                 'target_status' => $target instanceof Card ? $target->user_status : $target?->status,
                 'target_expires_at' => $target?->expires_at?->toIso8601String(),
+                'target_bound_device' => $target?->bound_device_mask,
+                'active_sessions' => $this->activeSessionCount($target),
             ];
 
             match ($action) {
@@ -130,6 +133,8 @@ final class AdminQuickOperationController extends Controller
                     'card_expires_at' => $card->expires_at?->toIso8601String(),
                     'target_status' => $target instanceof Card ? $target->user_status : $target?->status,
                     'target_expires_at' => $target?->expires_at?->toIso8601String(),
+                    'target_bound_device' => $target?->bound_device_mask,
+                    'active_sessions' => $this->activeSessionCount($target),
                 ];
             } else {
                 $after = ['action' => $action, 'card_deleted' => true];
@@ -148,7 +153,7 @@ final class AdminQuickOperationController extends Controller
 
         $message = match ($action) {
             'add_time' => "已为用户增加 {$days} 天时间。",
-            'unbind_user' => '充值卡用户的设备绑定已解除。',
+            'unbind_user' => '用户设备绑定已解除，现有登录连接已失效。',
             'freeze_user' => '用户已冻结。',
             'unfreeze_user' => '用户已恢复正常。',
             'delete_user' => '用户已删除并停止继续登录。',
@@ -215,13 +220,14 @@ final class AdminQuickOperationController extends Controller
 
     private function unbind(Card|ApplicationAccount|null $target): void
     {
-        if (! $target instanceof Card) {
-            throw ValidationException::withMessages(['action' => '当前充值卡没有关联卡串用户。']);
+        if (! $target instanceof Card && ! $target instanceof ApplicationAccount) {
+            throw ValidationException::withMessages(['action' => '当前充值卡尚未关联可解绑的软件用户。']);
         }
         $target->forceFill([
             'bound_device_ciphertext' => null,
             'bound_device_mask' => null,
         ])->save();
+        $this->closeActiveSessions($target);
     }
 
     private function deleteUser(Card|ApplicationAccount|null $target): void
@@ -230,10 +236,40 @@ final class AdminQuickOperationController extends Controller
             throw ValidationException::withMessages(['action' => '充值卡用户请直接删除/作废充值卡。']);
         }
         $target->forceFill(['status' => 'revoked'])->save();
+        $this->closeActiveSessions($target);
+    }
+
+    private function activeSessionCount(Card|ApplicationAccount|null $target): int
+    {
+        if (! $target) {
+            return 0;
+        }
+
+        return ApplicationClientSession::query()
+            ->where($target instanceof Card ? 'card_id' : 'application_account_id', $target->getKey())
+            ->where('status', 'active')
+            ->count();
+    }
+
+    private function closeActiveSessions(Card|ApplicationAccount $target): void
+    {
+        ApplicationClientSession::query()
+            ->where($target instanceof Card ? 'card_id' : 'application_account_id', $target->getKey())
+            ->where('status', 'active')
+            ->update([
+                'status' => 'logged_out',
+                'logged_out_at' => now(),
+                'updated_at' => now(),
+            ]);
     }
 
     private function deleteCard(Card $card): bool
     {
+        if ($card->application?->mode === 'account_recharge' && $card->redeemed_by_account_id) {
+            throw ValidationException::withMessages([
+                'action' => '这张充值卡已经充值到账号，卡密将作为充值历史记录保留。',
+            ]);
+        }
         if (in_array($card->status, ['inventory', 'issued'], true) && ! $card->activated_at && ! $card->redeemed_by_account_id) {
             $card->delete();
 
