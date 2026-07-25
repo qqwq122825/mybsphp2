@@ -5,19 +5,18 @@
 @if($toastSuccess || $errors->any())
     <div class="app-toast-region" data-toast-region aria-live="polite" aria-atomic="true">
         @if($toastSuccess)
-            <section class="app-toast is-success" data-toast data-toast-duration="4800" role="status">
+            <section class="app-toast is-success" data-toast data-toast-duration="4000" role="status">
                 <span class="app-toast-icon" aria-hidden="true">✓</span>
                 <div class="app-toast-content">
                     <strong>操作成功</strong>
                     <p>{{ $toastSuccess }}</p>
                 </div>
                 <button type="button" data-toast-close aria-label="关闭通知">×</button>
-                <i class="app-toast-progress" aria-hidden="true"></i>
             </section>
         @endif
 
         @if($errors->any())
-            <section class="app-toast is-error" data-toast data-toast-duration="7000" role="alert">
+            <section class="app-toast is-error" data-toast data-toast-duration="6000" role="alert">
                 <span class="app-toast-icon" aria-hidden="true">!</span>
                 <div class="app-toast-content">
                     <strong>请检查输入</strong>
@@ -32,7 +31,6 @@
                     @endif
                 </div>
                 <button type="button" data-toast-close aria-label="关闭通知">×</button>
-                <i class="app-toast-progress" aria-hidden="true"></i>
             </section>
         @endif
     </div>

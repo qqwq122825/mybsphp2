@@ -167,7 +167,6 @@
     document.querySelectorAll('[data-toast]').forEach((toast, index) => {
         if (!(toast instanceof HTMLElement)) return;
         const duration = Number.parseInt(toast.dataset.toastDuration || '5000', 10);
-        toast.style.setProperty('--toast-duration', `${duration}ms`);
         window.setTimeout(() => toast.classList.add('is-visible'), 60 + (index * 90));
         const timer = window.setTimeout(() => dismissToast(toast), duration);
         toast.querySelector('[data-toast-close]')?.addEventListener('click', () => {

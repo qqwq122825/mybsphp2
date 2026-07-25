@@ -87,7 +87,7 @@ class AdminQuickOperationTest extends TestCase
             ->get('/private-console/quick-operations')
             ->assertOk()
             ->assertSee('class="app-toast is-success"', false)
-            ->assertSee('data-toast-duration="4800"', false)
+            ->assertSee('data-toast-duration="4000"', false)
             ->assertSee('测试通知已完成。');
 
         $this->post('/private-console/quick-operations/search', ['credential' => $credential])

@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#3867e8">
     <title>管理员登录 · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-toast-v1">
-    <script src="/assets/js/mybsphp.js?v=20260725-toast-v1" defer></script>
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-toast-v2">
+    <script src="/assets/js/mybsphp.js?v=20260725-toast-v2" defer></script>
 </head>
 <body class="login-page">
 @include('partials.toasts')
