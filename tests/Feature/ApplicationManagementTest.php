@@ -369,6 +369,10 @@ class ApplicationManagementTest extends TestCase
             'codes' => $generated['credentials'][0]['code'],
         ])->assertOk()->assertSee('解冻成功')->assertSee($application->name);
         $this->assertFalse($quickActionCard->fresh()->card_is_frozen);
+        $quickActionCard->forceFill([
+            'bound_device_ciphertext' => 'ADMIN-FULL-DEVICE-1001',
+            'bound_device_mask' => 'ADMI••••1001',
+        ])->save();
 
         $this->get('/private-console/applications/'.$application->public_id.'/cards/make')
             ->assertOk()
@@ -416,7 +420,9 @@ class ApplicationManagementTest extends TestCase
             ->assertOk()
             ->assertSee('recharge-card-table-component', false)
             ->assertSee('admin-data-table-toolbar', false)
-            ->assertSee('admin-data-table-scroll', false);
+            ->assertSee('admin-data-table-scroll', false)
+            ->assertSee('ADMIN-FULL-DEVICE-1001')
+            ->assertDontSee('ADMI••••1001');
 
         $this->get('/private-console/system-logs/card-making')
             ->assertOk()

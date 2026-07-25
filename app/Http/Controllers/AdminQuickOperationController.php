@@ -109,7 +109,7 @@ final class AdminQuickOperationController extends Controller
                 'target_type' => $target instanceof ApplicationAccount ? 'account' : ($target instanceof Card ? 'card_user' : null),
                 'target_status' => $target instanceof Card ? $target->user_status : $target?->status,
                 'target_expires_at' => $target?->expires_at?->toIso8601String(),
-                'target_bound_device' => $target?->bound_device_mask,
+                'target_bound_device' => $target?->bound_device_ciphertext,
                 'active_sessions' => $this->activeSessionCount($target),
             ];
 
@@ -132,7 +132,7 @@ final class AdminQuickOperationController extends Controller
                     'card_expires_at' => $card->expires_at?->toIso8601String(),
                     'target_status' => $target instanceof Card ? $target->user_status : $target?->status,
                     'target_expires_at' => $target?->expires_at?->toIso8601String(),
-                    'target_bound_device' => $target?->bound_device_mask,
+                    'target_bound_device' => $target?->bound_device_ciphertext,
                     'active_sessions' => $this->activeSessionCount($target),
                 ];
             } else {

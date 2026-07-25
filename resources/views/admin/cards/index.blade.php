@@ -104,7 +104,7 @@
                             </td>
                             <td>{{ $card->batch->maker_reference ?: '管理员' }}</td>
                             <td>{{ $card->activated_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
-                            <td>{{ $card->bound_device_mask ?: '—' }}</td>
+                            <td>{{ $card->bound_device_ciphertext ?: '—' }}</td>
                         </tr>
                     @empty
                         <tr><td colspan="10" class="bsphp-table-empty">无数据</td></tr>

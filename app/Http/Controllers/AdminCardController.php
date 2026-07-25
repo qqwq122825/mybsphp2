@@ -711,7 +711,7 @@ final class AdminCardController extends Controller
             after: [
                 'issue_no' => $issue->issue_no,
                 'quantity' => $issue->quantity,
-                'recipient' => $issue->recipient_display_mask,
+                'recipient' => $issue->offline_recipient_ciphertext,
             ],
             actorRole: $this->administrator()->role,
         ), $request);

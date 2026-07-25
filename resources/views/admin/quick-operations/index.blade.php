@@ -84,7 +84,7 @@
                         @if($isAccountUser)<div><dt>用户名</dt><dd>{{ $target->username }}</dd></div>@endif
                         <div><dt>到期时间</dt><dd>{{ $target->expires_at?->format('Y-m-d H:i:s') ?? '永久/未设置' }}</dd></div>
                         <div><dt>剩余时间</dt><dd>{{ $target->expires_at ? ($target->expires_at->isFuture() ? $target->expires_at->diffForHumans() : '已到期') : '永久' }}</dd></div>
-                        <div><dt>绑定特征</dt><dd title="{{ $target->bound_device_ciphertext }}">{{ $target->bound_device_mask ?: ($target->bound_device_ciphertext ?: '—') }}</dd></div>
+                        <div><dt>绑定特征</dt><dd>{{ $target->bound_device_ciphertext ?: '—' }}</dd></div>
                     </dl>
                 @else
                     <p>{{ $isAccount ? '该充值卡尚未被账号充值使用，因此还没有可查询的用户名。' : '该卡尚未激活，当前可查看发卡来源或直接删除充值卡。' }}</p>

@@ -100,6 +100,8 @@ class AdminQuickOperationTest extends TestCase
             ->assertSee('located-user')
             ->assertSee('账号登录模式')
             ->assertSee($credential)
+            ->assertSee('ACCOUNT-DEVICE-001')
+            ->assertDontSee('ACCO•••001')
             ->assertSee('代理发卡')
             ->assertSee('agent-seller')
             ->assertSee('解除设备绑定')
@@ -185,6 +187,8 @@ class AdminQuickOperationTest extends TestCase
             ->assertOk()
             ->assertSee('充值卡快捷操作')
             ->assertSee('解除设备绑定')
+            ->assertSee('DEVICE-FINGERPRINT-001')
+            ->assertDontSee('DEVI•••001')
             ->assertSee('删除/作废充值卡')
             ->assertDontSee('冻结用户')
             ->assertDontSee('确认删除账号');

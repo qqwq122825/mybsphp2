@@ -69,7 +69,7 @@
                         <tr>
                             <td><strong>{{ $issue->issue_no }}</strong><small>{{ $issue->public_id }}</small></td>
                             <td>{{ $issue->application->name }}</td>
-                            <td>{{ $issue->recipient_display_mask ?: '线下客户' }}</td>
+                            <td>{{ $issue->offline_recipient_ciphertext ?: '线下客户' }}</td>
                             <td>{{ $issue->quantity }}</td>
                             <td><span class="status-tag status-{{ $issue->status }}">{{ $issue->status }}</span></td>
                             <td>{{ $issue->committed_at?->format('Y-m-d H:i') }}</td>
