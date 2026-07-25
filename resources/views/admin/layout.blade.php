@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1b3473">
     <title>@yield('title', '管理后台') · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-entry-paths">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-quick-operations">
     <script src="/assets/js/mybsphp.js?v=20260725-custom-select" defer></script>
     @stack('head')
 </head>
@@ -79,6 +79,10 @@
         <a class="{{ request()->routeIs('admin.applications.*') ? 'is-active' : '' }}"
            data-workspace-base-link
            href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}"><span>◫</span>应用</a>
+    @endcan
+    @can('app_accounts.manage')
+        <a class="{{ request()->routeIs('admin.quick-operations.*') ? 'is-active' : '' }}"
+           href="{{ route('admin.quick-operations.index', ['adminPath' => $adminPath]) }}"><span>＋</span>快办</a>
     @endcan
 </nav>
 </body>

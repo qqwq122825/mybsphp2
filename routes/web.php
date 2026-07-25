@@ -9,6 +9,7 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminCardController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminOperationPluginController;
+use App\Http\Controllers\AdminQuickOperationController;
 use App\Http\Controllers\AdminRiskControlController;
 use App\Http\Controllers\AdminSystemLogController;
 use App\Http\Controllers\AdminSystemSettingController;
@@ -167,6 +168,15 @@ Route::prefix('{adminPath}')
             Route::post('/application-users/maintenance', [AdminApplicationUserController::class, 'runMaintenance'])
                 ->middleware('can:'.AdminPermission::AppAccountsManage->value)
                 ->name('admin.application-users.maintenance.run');
+            Route::get('/quick-operations', [AdminQuickOperationController::class, 'index'])
+                ->middleware('can:'.AdminPermission::AppAccountsManage->value)
+                ->name('admin.quick-operations.index');
+            Route::post('/quick-operations/search', [AdminQuickOperationController::class, 'search'])
+                ->middleware('can:'.AdminPermission::AppAccountsManage->value)
+                ->name('admin.quick-operations.search');
+            Route::post('/quick-operations/action', [AdminQuickOperationController::class, 'action'])
+                ->middleware('can:'.AdminPermission::AppAccountsManage->value)
+                ->name('admin.quick-operations.action');
             Route::put('/applications/{application}/card-users/{card}', [AdminApplicationUserController::class, 'updateCard'])
                 ->middleware('can:'.AdminPermission::AppAccountsManage->value)
                 ->name('admin.applications.card-users.update');

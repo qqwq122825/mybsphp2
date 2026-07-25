@@ -75,6 +75,14 @@ class Card extends Model
         return $this->belongsTo(CardBatch::class, 'batch_id');
     }
 
+    /**
+     * @return BelongsTo<ApplicationAccount, $this>
+     */
+    public function redeemedAccount(): BelongsTo
+    {
+        return $this->belongsTo(ApplicationAccount::class, 'redeemed_by_account_id');
+    }
+
     protected function casts(): array
     {
         return [

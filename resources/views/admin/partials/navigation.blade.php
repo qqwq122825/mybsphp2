@@ -47,7 +47,7 @@
     @endcanany
 
     @canany(['applications.view', 'applications.create', 'cards.bulk_manage', 'app_accounts.manage'])
-        <details class="nav-group" {{ request()->routeIs('admin.applications.*', 'admin.cards.maintenance.*', 'admin.application-users.maintenance.*') ? 'open' : '' }}>
+        <details class="nav-group" {{ request()->routeIs('admin.applications.*', 'admin.cards.maintenance.*', 'admin.application-users.maintenance.*', 'admin.quick-operations.*') ? 'open' : '' }}>
             <summary title="应用管理">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <rect x="3" y="3" width="7" height="7" rx="1"></rect>
@@ -71,6 +71,8 @@
                        href="{{ route('admin.cards.maintenance.index', ['adminPath' => $adminPath]) }}">充值卡批量维护</a>
                 @endcan
                 @can('app_accounts.manage')
+                    <a class="{{ request()->routeIs('admin.quick-operations.*') ? 'is-active' : '' }}"
+                       href="{{ route('admin.quick-operations.index', ['adminPath' => $adminPath]) }}">快速用户操作</a>
                     <a class="{{ request()->routeIs('admin.application-users.maintenance.*') ? 'is-active' : '' }}"
                        href="{{ route('admin.application-users.maintenance.index', ['adminPath' => $adminPath]) }}">软件用户批量维护</a>
                 @endcan
