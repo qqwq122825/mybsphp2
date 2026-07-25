@@ -18,10 +18,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#3867e8">
     <title>{{ $stepLabels[$step] }} · 安装 MyBsPHP2</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css">
-    <script src="/assets/js/mybsphp.js" defer></script>
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-toast-v1">
+    <script src="/assets/js/mybsphp.js?v=20260725-toast-v1" defer></script>
 </head>
 <body class="install-page">
+@include('partials.toasts')
 <a class="skip-link" href="#install-content">跳到安装内容</a>
 <main class="install-shell">
     <section class="install-card" aria-labelledby="install-title">
@@ -64,20 +65,6 @@
                     <p>站点、数据库与管理员已经配置完成，请先保存后台入口。</p>
                 @endif
             </header>
-
-            @if ($errors->any())
-                <div class="form-alert" role="alert" tabindex="-1" data-error-summary>
-                    <span aria-hidden="true">!</span>
-                    <div>
-                        <strong>请检查以下内容</strong>
-                        <ul>
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                </div>
-            @endif
 
             @if ($step === 'requirements')
                 <ul class="requirement-list">

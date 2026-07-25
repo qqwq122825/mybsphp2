@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1b3473">
     <title>@yield('title', '管理后台') · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-quick-mobile-input">
-    <script src="/assets/js/mybsphp.js?v=20260725-quick-time-confirm" defer></script>
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-toast-v1">
+    <script src="/assets/js/mybsphp.js?v=20260725-toast-v1" defer></script>
     @stack('head')
 </head>
 <body class="dashboard-page">
+@include('partials.toasts')
 <header class="admin-topbar">
     <div class="admin-topbar-main">
         <div class="admin-brand"><span class="brand-mark">BS</span><strong>{{ $appName }}</strong></div>
@@ -50,23 +51,6 @@
         @include('admin.partials.workspace-tabs')
 
         <main class="dashboard-content" data-workspace-content>
-            @if (session('success'))
-                <div class="notice notice-success">{{ session('success') }}</div>
-            @endif
-            @if ($errors->any())
-                <div class="form-alert" role="alert" tabindex="-1" data-error-summary>
-                    <span>!</span>
-                    <div>
-                        <strong>请检查以下内容</strong>
-                        <ul>
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                </div>
-            @endif
-
             @yield('content')
         </main>
     </div>

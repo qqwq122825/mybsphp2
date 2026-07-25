@@ -83,6 +83,13 @@ class AdminQuickOperationTest extends TestCase
             ->assertSee('快速加时与卡密查询')
             ->assertSee('快办');
 
+        $this->withSession(['success' => '测试通知已完成。'])
+            ->get('/private-console/quick-operations')
+            ->assertOk()
+            ->assertSee('class="app-toast is-success"', false)
+            ->assertSee('data-toast-duration="4800"', false)
+            ->assertSee('测试通知已完成。');
+
         $this->post('/private-console/quick-operations/search', ['credential' => $credential])
             ->assertRedirect('/private-console/quick-operations?card='.$card->public_id);
 

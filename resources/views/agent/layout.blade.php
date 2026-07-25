@@ -4,11 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', '代理控制台') - {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-custom-select">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-toast-v1">
     <link rel="stylesheet" href="/assets/css/agent.css?v=20260725-custom-select">
-    <script src="/assets/js/mybsphp.js?v=20260725-custom-select" defer></script>
+    <script src="/assets/js/mybsphp.js?v=20260725-toast-v1" defer></script>
 </head>
 <body class="agent-portal-page">
+@include('partials.toasts')
 <div class="agent-shell" data-agent-shell>
     <aside class="agent-sidebar">
         <a class="agent-sidebar-brand" href="{{ route('agent.dashboard') }}">BSPH-代理</a>
@@ -41,8 +42,6 @@
     </header>
 
     <main class="agent-main">
-        @if(session('success'))<div class="agent-flash is-success">{{ session('success') }}</div>@endif
-        @if($errors->any())<div class="agent-flash is-error">{{ $errors->first() }}</div>@endif
         @yield('content')
     </main>
 </div>

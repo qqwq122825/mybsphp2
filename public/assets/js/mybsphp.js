@@ -154,6 +154,28 @@
         errorSummary.focus();
     }
 
+    const dismissToast = (toast) => {
+        if (!(toast instanceof HTMLElement) || toast.classList.contains('is-leaving')) return;
+        toast.classList.add('is-leaving');
+        window.setTimeout(() => {
+            const region = toast.closest('[data-toast-region]');
+            toast.remove();
+            if (region instanceof HTMLElement && !region.querySelector('[data-toast]')) region.remove();
+        }, 320);
+    };
+
+    document.querySelectorAll('[data-toast]').forEach((toast, index) => {
+        if (!(toast instanceof HTMLElement)) return;
+        const duration = Number.parseInt(toast.dataset.toastDuration || '5000', 10);
+        toast.style.setProperty('--toast-duration', `${duration}ms`);
+        window.setTimeout(() => toast.classList.add('is-visible'), 60 + (index * 90));
+        const timer = window.setTimeout(() => dismissToast(toast), duration);
+        toast.querySelector('[data-toast-close]')?.addEventListener('click', () => {
+            window.clearTimeout(timer);
+            dismissToast(toast);
+        });
+    });
+
     document.querySelectorAll('[data-password-toggle]').forEach((button) => {
         button.addEventListener('click', () => {
             const input = document.getElementById(button.dataset.passwordToggle || '');

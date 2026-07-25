@@ -2078,6 +2078,162 @@ button.workspace-tab {
     background: #f1fbf7;
 }
 
+/* Floating notifications */
+.app-toast-region {
+    position: fixed;
+    z-index: 10000;
+    top: max(18px, env(safe-area-inset-top));
+    right: max(20px, env(safe-area-inset-right));
+    display: grid;
+    width: min(390px, calc(100vw - 32px));
+    gap: 10px;
+    pointer-events: none;
+}
+
+.app-toast {
+    --toast-accent: #3c72e8;
+    position: relative;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 28px;
+    align-items: start;
+    gap: 11px;
+    min-height: 78px;
+    padding: 14px 13px 15px 14px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .82);
+    border-radius: 18px;
+    color: #1d273a;
+    background: rgba(250, 252, 255, .9);
+    box-shadow: 0 18px 55px rgba(37, 52, 82, .2), 0 4px 14px rgba(37, 52, 82, .1);
+    backdrop-filter: blur(24px) saturate(155%);
+    -webkit-backdrop-filter: blur(24px) saturate(155%);
+    opacity: 0;
+    pointer-events: auto;
+    transform: translate3d(36px, -8px, 0) scale(.97);
+    transition: opacity .28s ease, transform .36s cubic-bezier(.22, 1, .36, 1);
+}
+
+.app-toast.is-visible {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+}
+
+.app-toast.is-leaving {
+    opacity: 0;
+    transform: translate3d(24px, -4px, 0) scale(.97);
+}
+
+.app-toast.is-success { --toast-accent: #2ca879; }
+.app-toast.is-error { --toast-accent: #e45868; }
+
+.app-toast-icon {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 12px;
+    color: #fff;
+    background: var(--toast-accent);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--toast-accent), #fff 12%), var(--toast-accent));
+    box-shadow: 0 7px 16px color-mix(in srgb, var(--toast-accent), transparent 70%);
+    font-size: 18px;
+    font-weight: 900;
+}
+
+.app-toast-content {
+    min-width: 0;
+    padding-top: 1px;
+}
+
+.app-toast-content strong {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: .01em;
+}
+
+.app-toast-content p,
+.app-toast-content ul {
+    margin: 0;
+    color: #657086;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.app-toast-content ul {
+    padding-left: 17px;
+}
+
+.app-toast > button {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    color: #8791a3;
+    background: rgba(116, 129, 153, .1);
+    font: 18px/1 system-ui, sans-serif;
+    cursor: pointer;
+}
+
+.app-toast > button:hover {
+    color: #374157;
+    background: rgba(116, 129, 153, .18);
+}
+
+.app-toast-progress {
+    position: absolute;
+    right: 12px;
+    bottom: 6px;
+    left: 12px;
+    height: 2px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(60, 114, 232, .12);
+    background: color-mix(in srgb, var(--toast-accent), transparent 88%);
+}
+
+.app-toast-progress::after {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--toast-accent);
+    content: "";
+    transform-origin: left;
+}
+
+.app-toast.is-visible .app-toast-progress::after {
+    animation: app-toast-countdown var(--toast-duration, 5000ms) linear forwards;
+}
+
+@keyframes app-toast-countdown {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}
+
+@media (max-width: 640px) {
+    .app-toast-region {
+        top: max(10px, env(safe-area-inset-top));
+        right: 12px;
+        left: 12px;
+        width: auto;
+    }
+
+    .app-toast {
+        min-height: 72px;
+        border-radius: 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-toast { transition: opacity .15s ease; transform: none; }
+    .app-toast.is-leaving { transform: none; }
+    .app-toast-progress::after { animation: none !important; }
+}
+
 .data-panel,
 .management-grid,
 .admin-form-grid {

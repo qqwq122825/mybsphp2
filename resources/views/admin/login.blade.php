@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#3867e8">
     <title>管理员登录 · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260724-compact-login-v2">
-    <script src="/assets/js/mybsphp.js" defer></script>
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-toast-v1">
+    <script src="/assets/js/mybsphp.js?v=20260725-toast-v1" defer></script>
 </head>
 <body class="login-page">
+@include('partials.toasts')
 <main class="login-shell">
     <section class="login-visual" aria-label="系统介绍">
         <div class="login-message">
@@ -25,17 +26,6 @@
                 <h1>管理员登录</h1>
                 <p>请确认账号信息后进入后台</p>
             </header>
-
-            @if ($errors->any())
-                <div class="form-alert" role="alert" tabindex="-1" data-error-summary>
-                    <span aria-hidden="true">!</span>
-                    <div>
-                        @foreach ($errors->all() as $error)
-                            <p>{{ $error }}</p>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
 
             <form method="post" action="{{ route('admin.login', ['adminPath' => $adminPath]) }}"
                   class="login-form" data-submit-form>
