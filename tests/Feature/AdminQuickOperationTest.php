@@ -80,7 +80,7 @@ class AdminQuickOperationTest extends TestCase
 
         $this->get('/private-console/quick-operations')
             ->assertOk()
-            ->assertSee('快速加时与卡密定位')
+            ->assertSee('快速加时与卡密查询')
             ->assertSee('快办');
 
         $this->post('/private-console/quick-operations/search', ['credential' => $credential])
@@ -90,6 +90,7 @@ class AdminQuickOperationTest extends TestCase
             ->assertOk()
             ->assertSee('located-user')
             ->assertSee('账号登录模式')
+            ->assertSee($credential)
             ->assertSee('代理发卡')
             ->assertSee('agent-seller')
             ->assertSee('解除设备绑定')

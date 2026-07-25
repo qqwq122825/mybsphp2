@@ -7,8 +7,8 @@
     <header class="quick-operation-heading">
         <div>
             <span>QUICK OPERATION</span>
-            <h2>快速加时与卡密定位</h2>
-            <p>输入完整充值卡号，一步定位卡密、软件用户或充值账号。</p>
+            <h2>快速加时与卡密查询</h2>
+            <p>输入完整充值卡号，一步查询卡密、软件用户或充值账号。</p>
         </div>
     </header>
 
@@ -20,7 +20,7 @@
             <input id="quick-credential" name="credential" value="{{ old('credential') }}"
                    maxlength="255" autocomplete="off" spellcheck="false"
                    placeholder="粘贴用户发来的完整充值卡号" required autofocus>
-            <button class="button button-primary" type="submit">立即定位</button>
+            <button class="button button-primary" type="submit">立即查询</button>
         </div>
         <small>卡号仅用于服务端精确匹配，不会显示在页面地址中。</small>
     </form>
@@ -51,7 +51,7 @@
                     <strong class="status-tag status-{{ $card->status }}">{{ $statusLabels[$card->status] ?? $card->status }}</strong>
                 </header>
                 <dl>
-                    <div><dt>充值卡</dt><dd><code>••••-{{ $card->code_last4 }}</code></dd></div>
+                    <div><dt>充值卡</dt><dd><code>{{ $card->code_ciphertext }}</code></dd></div>
                     <div><dt>卡类型</dt><dd>{{ $card->cardType?->name ?? '原卡类型已删除' }}</dd></div>
                     <div><dt>卡编号</dt><dd>#{{ $card->id }}</dd></div>
                     <div><dt>制卡批次</dt><dd>{{ $card->batch?->batch_no ?? '—' }}</dd></div>
@@ -63,12 +63,12 @@
             <section class="quick-user-summary {{ $target ? 'has-user' : 'is-empty' }}">
                 <header>
                     <div>
-                        <span>定位结果</span>
+                        <span>查询结果</span>
                         <h3>
                             @if($isAccountUser)
                                 账号：{{ $target->username }}
                             @elseif($isCardUser)
-                                已定位卡串用户
+                                已查询到卡串用户
                             @else
                                 暂未关联软件用户
                             @endif
@@ -87,7 +87,7 @@
                         <div><dt>绑定特征</dt><dd title="{{ $target->bound_device_ciphertext }}">{{ $target->bound_device_mask ?: ($target->bound_device_ciphertext ?: '—') }}</dd></div>
                     </dl>
                 @else
-                    <p>{{ $isAccount ? '该充值卡尚未被账号充值使用，因此还没有可定位的用户名。' : '该卡尚未激活，当前可查看发卡来源或直接删除充值卡。' }}</p>
+                    <p>{{ $isAccount ? '该充值卡尚未被账号充值使用，因此还没有可查询的用户名。' : '该卡尚未激活，当前可查看发卡来源或直接删除充值卡。' }}</p>
                 @endif
             </section>
 
@@ -182,7 +182,7 @@
         <div class="quick-operation-empty">
             <b>⌕</b>
             <strong>等待输入充值卡号</strong>
-            <p>可定位代理发出的卡密，也可通过已充值卡直接找到对应用户名。</p>
+            <p>可查询代理发出的卡密，也可通过已充值卡直接找到对应用户名。</p>
         </div>
     @endif
 </section>
