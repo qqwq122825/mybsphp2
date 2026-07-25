@@ -95,6 +95,7 @@ class AdminQuickOperationTest extends TestCase
             ->assertSee('agent-seller')
             ->assertSee('解除设备绑定')
             ->assertSee('删除账号')
+            ->assertSee('value="1" data-quick-days-input', false)
             ->assertSee('data-add-days="1"', false)
             ->assertSee('type="button" data-add-days="30"', false)
             ->assertDontSee('删除/作废充值卡')

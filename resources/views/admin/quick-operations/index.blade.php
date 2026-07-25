@@ -102,7 +102,7 @@
                         @csrf
                         <input type="hidden" name="card_id" value="{{ $card->id }}">
                         <input type="hidden" name="action" value="add_time">
-                        <label><input type="number" name="days" min="1" max="3650" value="7" data-quick-days-input required><span>天</span></label>
+                        <label><input type="number" name="days" min="1" max="3650" value="1" data-quick-days-input required><span>天</span></label>
                         <button class="button button-primary" type="submit">确认加时</button>
                         <div class="quick-day-presets">
                             @foreach([1, 3, 7, 30, 90, 365] as $day)
