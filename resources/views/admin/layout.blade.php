@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1b3473">
     <title>@yield('title', '管理后台') · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-quick-operations">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-quick-mobile-input">
     <script src="/assets/js/mybsphp.js?v=20260725-custom-select" defer></script>
     @stack('head')
 </head>

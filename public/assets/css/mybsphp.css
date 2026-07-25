@@ -4909,7 +4909,15 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
     .quick-operation-heading { padding:17px; }
     .quick-operation-search { padding:17px; }
     .quick-operation-search > div { align-items:stretch; flex-direction:column; }
-    .quick-operation-search button { width:100%; min-height:44px; }
+    .quick-operation-search input {
+        width:100%;
+        height:58px;
+        padding:0 17px;
+        border-radius:12px;
+        font-size:17px;
+        line-height:58px;
+    }
+    .quick-operation-search button { width:100%; min-height:52px; font-size:16px; }
     .quick-operation-result { grid-template-columns:1fr; gap:12px; padding:14px 14px 28px; }
     .quick-time-card { grid-template-columns:1fr; gap:16px; }
     .quick-time-card form { grid-template-columns:minmax(0,1fr) 108px; }
