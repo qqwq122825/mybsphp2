@@ -2243,6 +2243,28 @@ button.workspace-tab {
     to { opacity: 0; transform: none; }
 }
 
+/* Native select fallback for older iPad Safari. The JavaScript replacement
+   hides this control after initialization, but the fallback never uses the
+   platform gradient or platform arrow. */
+select:not([multiple]):not([data-native-select]) {
+    -webkit-appearance: none;
+    appearance: none;
+    padding-right: 38px !important;
+    color: #38445a;
+    background-color: #fff !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5' fill='none' stroke='%23828ca0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 12px 8px !important;
+    box-shadow: none;
+}
+
+select:not([multiple]):not([data-native-select]):focus {
+    border-color: #4289ee;
+    outline: 0;
+    box-shadow: 0 0 0 3px rgba(66, 137, 238, .13);
+}
+
 .data-panel,
 .management-grid,
 .admin-form-grid {
