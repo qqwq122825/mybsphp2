@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Cards\CardCredentialHasher;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
 use App\Models\ApplicationAccount;
 use App\Models\Card;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,6 +21,7 @@ final class AdminApplicationUserController extends Controller
 {
     public function __construct(
         private readonly InstallationManager $installation,
+        private readonly CardCredentialHasher $credentialHasher,
     ) {}
 
     public function index(Request $request, string $adminPath, Application $application): View
@@ -34,8 +37,13 @@ final class AdminApplicationUserController extends Controller
                 ->orderBy('id', $sort);
             if ($keyword !== '') {
                 $query->where(function ($builder) use ($keyword): void {
-                    $builder->where('code_last4', 'like', '%'.substr($keyword, -4).'%')
-                        ->orWhere('public_id', 'like', '%'.$keyword.'%');
+                    if (mb_strlen($keyword) > 4) {
+                        $builder->where('code_lookup_hash', $this->credentialHasher->lookupHash($keyword))
+                            ->orWhere('public_id', 'like', '%'.$keyword.'%');
+                    } else {
+                        $builder->where('code_last4', 'like', '%'.$keyword.'%')
+                            ->orWhere('public_id', 'like', '%'.$keyword.'%');
+                    }
                 });
             }
             $users = $query->paginate(30)->withQueryString();
@@ -184,26 +192,40 @@ final class AdminApplicationUserController extends Controller
         $ids = [];
         foreach (preg_split('/[\s,;，；]+/u', trim($value), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $part) {
             if (preg_match('/^(\d+)-(\d+)$/', $part, $matches)) {
-                $start = (int) $matches[1]; $end = (int) $matches[2];
-                if ($start < 1 || $end < $start || $end - $start > 10000) throw ValidationException::withMessages(['id_list' => "ID 范围 {$part} 格式错误或跨度过大。"]);
-                foreach (range($start, $end) as $id) $ids[$id] = $id;
-            } elseif (ctype_digit($part) && (int) $part > 0) $ids[(int) $part] = (int) $part;
-            else throw ValidationException::withMessages(['id_list' => "ID {$part} 格式错误。"]);
+                $start = (int) $matches[1];
+                $end = (int) $matches[2];
+                if ($start < 1 || $end < $start || $end - $start > 10000) {
+                    throw ValidationException::withMessages(['id_list' => "ID 范围 {$part} 格式错误或跨度过大。"]);
+                }
+                foreach (range($start, $end) as $id) {
+                    $ids[$id] = $id;
+                }
+            } elseif (ctype_digit($part) && (int) $part > 0) {
+                $ids[(int) $part] = (int) $part;
+            } else {
+                throw ValidationException::withMessages(['id_list' => "ID {$part} 格式错误。"]);
+            }
         }
-        if ($ids === [] || count($ids) > 100000) throw ValidationException::withMessages(['id_list' => '请填写 1 至 100000 个有效用户 ID。']);
+        if ($ids === [] || count($ids) > 100000) {
+            throw ValidationException::withMessages(['id_list' => '请填写 1 至 100000 个有效用户 ID。']);
+        }
+
         return array_values($ids);
     }
 
     private function boundedInteger(string $value, int $min, int $max, string $label): int
     {
-        if (! ctype_digit($value) || (int) $value < $min || (int) $value > $max) throw ValidationException::withMessages(['action_value' => "{$label}需填写 {$min} 至 {$max} 的整数。"]);
+        if (! ctype_digit($value) || (int) $value < $min || (int) $value > $max) {
+            throw ValidationException::withMessages(['action_value' => "{$label}需填写 {$min} 至 {$max} 的整数。"]);
+        }
+
         return (int) $value;
     }
 
-    private function dateValue(string $value): \Carbon\CarbonImmutable
+    private function dateValue(string $value): CarbonImmutable
     {
         try {
-            return ctype_digit($value) ? \Carbon\CarbonImmutable::createFromTimestamp((int) $value) : \Carbon\CarbonImmutable::parse($value);
+            return ctype_digit($value) ? CarbonImmutable::createFromTimestamp((int) $value) : CarbonImmutable::parse($value);
         } catch (\Throwable) {
             throw ValidationException::withMessages(['action_value' => '时间需填写日期时间或 Unix 时间戳。']);
         }
@@ -222,6 +244,7 @@ final class AdminApplicationUserController extends Controller
             'machine_concurrency_limit' => $validated['machine_concurrency_limit'],
             'user_note' => $validated['note'] ?: null,
         ])->save();
+
         return back()->with('success', '卡串用户资料已保存。');
     }
 
@@ -238,6 +261,7 @@ final class AdminApplicationUserController extends Controller
             'machine_concurrency_limit' => $validated['machine_concurrency_limit'],
             'note' => $validated['note'] ?: null,
         ])->save();
+
         return back()->with('success', '账号用户资料已保存。');
     }
 
@@ -251,7 +275,7 @@ final class AdminApplicationUserController extends Controller
             return null;
         }
 
-        $base = $currentExpiry ? \Carbon\CarbonImmutable::parse($currentExpiry) : now()->toImmutable();
+        $base = $currentExpiry ? CarbonImmutable::parse($currentExpiry) : now()->toImmutable();
 
         return $base->subSeconds($seconds);
     }

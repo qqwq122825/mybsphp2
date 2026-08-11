@@ -123,6 +123,11 @@ class ApplicationManagementTest extends TestCase
             'expires_at' => now()->addDay(),
         ]);
 
+        $this->get('/private-console/applications/'.$application->public_id.'/users?keyword='.urlencode($generated['credentials'][0]['code']).'&sort=latest')
+            ->assertOk()
+            ->assertSee($generated['credentials'][0]['code'])
+            ->assertDontSee('无数据');
+
         $this->from('/private-console/applications/'.$application->public_id.'/card-types')
             ->delete('/private-console/card-types', [
                 'application_id' => $application->getKey(),
