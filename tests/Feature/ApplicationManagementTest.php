@@ -430,6 +430,13 @@ class ApplicationManagementTest extends TestCase
 
         $this->get('/private-console/cards?application='.$application->getKey())
             ->assertOk()
+            ->assertSee('搜索字段')
+            ->assertSee('关键字：')
+            ->assertDontSee('全部卡类')
+            ->assertDontSee('全部使用')
+            ->assertDontSee('全部状态')
+            ->assertDontSee('name="start_date"', false)
+            ->assertDontSee('name="end_date"', false)
             ->assertSee('recharge-card-table-component', false)
             ->assertSee('admin-data-table-toolbar', false)
             ->assertSee('admin-data-table-scroll', false)

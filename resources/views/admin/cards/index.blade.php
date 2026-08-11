@@ -15,7 +15,8 @@
             <h2>充值卡列表{{ $applicationFilter ? ' - '.$applicationFilter->name : '' }}</h2>
         </header>
 
-        <x-admin.filter-bar button-label="⌕" :icon-only="true" class="admin-filter-bar--extended">
+        <x-admin.filter-bar button-label="⌕" :icon-only="true" class="admin-filter-bar--extended"
+            :action="route('admin.cards.index', ['adminPath' => $adminPath])">
             <x-slot:hidden>
                 @if($applicationFilter)<input type="hidden" name="application" value="{{ $applicationFilter->id }}">@endif
             </x-slot:hidden>
@@ -25,33 +26,6 @@
                 <option value="batch" @selected(request('search_field') === 'batch')>批次</option>
             </select></x-slot:field>
             <x-slot:keyword><input name="keyword" value="{{ request('keyword') }}" placeholder="请输入" aria-label="搜索关键字"></x-slot:keyword>
-            <x-slot:sort><select name="sort" aria-label="排序">
-                <option value="latest" @selected(request('sort', 'latest') === 'latest')>排序倒序</option>
-                <option value="oldest" @selected(request('sort') === 'oldest')>排序正序</option>
-            </select></x-slot:sort>
-            <x-slot:extra><select name="card_type" aria-label="卡类">
-                <option value="">全部卡类</option>
-                @foreach($cardTypes as $type)
-                    <option value="{{ $type->id }}" @selected((string) request('card_type') === (string) $type->id)>{{ $type->name }}</option>
-                @endforeach
-            </select>
-            <select name="usage" aria-label="使用状态">
-                <option value="">全部使用</option>
-                <option value="used" @selected(request('usage') === 'used')>已使用</option>
-                <option value="unused" @selected(request('usage') === 'unused')>未使用</option>
-            </select>
-            <select name="freeze" aria-label="冻结状态">
-                <option value="">全部状态</option>
-                <option value="normal" @selected(request('freeze') === 'normal')>未冻结</option>
-                <option value="frozen" @selected(request('freeze') === 'frozen')>已冻结</option>
-            </select>
-            <select name="time_field" aria-label="时间字段">
-                <option value="created_at" @selected(request('time_field', 'created_at') === 'created_at')>制作时间</option>
-                <option value="activated_at" @selected(request('time_field') === 'activated_at')>充值时间</option>
-            </select>
-            <input type="date" name="start_date" value="{{ request('start_date') }}" aria-label="开始日期">
-            <input type="date" name="end_date" value="{{ request('end_date') }}" aria-label="结束日期">
-            </x-slot:extra>
         </x-admin.filter-bar>
 
         <form class="bsphp-card-table-wrap uses-admin-data-table" method="post" action="{{ route('admin.cards.bulk-action', ['adminPath' => $adminPath]) }}">

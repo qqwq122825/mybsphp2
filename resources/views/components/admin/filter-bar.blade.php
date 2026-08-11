@@ -13,20 +13,26 @@
       {{ $attributes->class(['admin-filter-bar', 'is-icon-submit' => $iconOnly]) }}>
     {{ $hidden ?? '' }}
 
-    <label class="admin-filter-bar__item admin-filter-bar__field">
-        <strong>{{ $fieldLabel }}</strong>
-        <span class="admin-filter-bar__control">{{ $field }}</span>
-    </label>
+    @isset($field)
+        <label class="admin-filter-bar__item admin-filter-bar__field">
+            <strong>{{ $fieldLabel }}</strong>
+            <span class="admin-filter-bar__control">{{ $field }}</span>
+        </label>
+    @endisset
 
-    <label class="admin-filter-bar__item admin-filter-bar__keyword">
-        <strong>{{ $keywordLabel }}</strong>
-        <span class="admin-filter-bar__control">{{ $keyword }}</span>
-    </label>
+    @isset($keyword)
+        <label class="admin-filter-bar__item admin-filter-bar__keyword">
+            <strong>{{ $keywordLabel }}</strong>
+            <span class="admin-filter-bar__control">{{ $keyword }}</span>
+        </label>
+    @endisset
 
-    <label class="admin-filter-bar__item admin-filter-bar__sort">
-        <strong>{{ $sortLabel }}</strong>
-        <span class="admin-filter-bar__control">{{ $sort }}</span>
-    </label>
+    @isset($sort)
+        <label class="admin-filter-bar__item admin-filter-bar__sort">
+            <strong>{{ $sortLabel }}</strong>
+            <span class="admin-filter-bar__control">{{ $sort }}</span>
+        </label>
+    @endisset
 
     <button class="button button-primary admin-filter-bar__submit" type="submit" aria-label="{{ $buttonAriaLabel }}">
         {{ $buttonLabel }}
