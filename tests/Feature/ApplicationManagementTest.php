@@ -264,6 +264,7 @@ class ApplicationManagementTest extends TestCase
         $this->get('/private-console/applications/'.$application->public_id.'/users')
             ->assertOk()
             ->assertSee('action="'.route('admin.applications.users.index', ['adminPath' => 'private-console', 'application' => $application]).'"', false)
+            ->assertSee('有效期')
             ->assertSee('software-user-table-component', false)
             ->assertSee('admin-data-table-toolbar', false)
             ->assertSee('卡串验证模式')
@@ -554,9 +555,11 @@ class ApplicationManagementTest extends TestCase
             'application_id' => $accountApplication->getKey(),
             'username' => 'test01', 'password_hash' => bcrypt('secret123'), 'status' => 'active',
             'bound_device_ciphertext' => 'IOS-FULL-BINDING-81FA', 'bound_device_mask' => 'IOS-••••81FA',
+            'expires_at' => now()->addDays(2)->addHours(3)->addMinutes(4),
         ]);
         $this->get('/private-console/applications/'.$accountApplication->public_id.'/users')
-            ->assertOk()->assertSee('IOS-FULL-BINDING-81FA')->assertDontSee('IOS-••••81FA')->assertSee('详情');
+            ->assertOk()->assertSee('IOS-FULL-BINDING-81FA')->assertDontSee('IOS-••••81FA')->assertSee('详情')
+            ->assertSee('2天3小时4分');
         $workspaceUrl = '/private-console/applications/'.$accountApplication->public_id.'/users?keyword=test01&sort=latest';
         $workspaceUpdateResponse = $this->from('/private-console/applications')
             ->withHeader('X-Workspace-Url', url($workspaceUrl))
