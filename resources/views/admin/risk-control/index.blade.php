@@ -113,7 +113,7 @@
                     <label><span>调试模式业务错误码</span><input name="block_code" value="{{ old('block_code',$policy->block_code) }}"><small>上线响应固定为 SERVER_UNAVAILABLE。</small></label>
                     <label class="risk-field-wide"><span>调试模式返回提示</span><input name="block_message" value="{{ old('block_message',$policy->block_message) }}"><small>上线运行固定返回“服务器暂时故障，请稍后再试”。</small></label>
                 </div>
-                <footer><p>推荐基线：最近 <strong>10 秒</strong>内 <strong>3 次低级</strong>、<strong>5 次高级</strong>，高级封禁 30 分钟。</p><button class="button button-primary" type="submit">保存并启用策略</button></footer>
+                <footer><p>推荐基线：最近 <strong>10 秒</strong>内 <strong>6 次低级</strong>、<strong>12 次高级</strong>，高级封禁 30 分钟。</p><button class="button button-primary" type="submit">保存并启用策略</button></footer>
             </form>
         </section>
 
