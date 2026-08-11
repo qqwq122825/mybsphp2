@@ -218,8 +218,16 @@ class IpRiskControlTest extends TestCase
                 ->assertDontSee('/private-console/applications/'.$application->public_id.'/edit', false)
                 ->assertSee('低级封控')
                 ->assertSee('高级封控')
-                ->assertSee('蜜罐事件处置模式')
+                ->assertSee('IP 封控')
+                ->assertSee('蜜罐封控')
+                ->assertDontSee('蜜罐事件处置模式')
                 ->assertSee('风险 IP 列表');
+
+            $this->get('/private-console/risk-control?application='.$application->public_id.'&tab=honeypot')
+                ->assertOk()
+                ->assertSee('蜜罐事件处置模式')
+                ->assertSee('设备黑名单')
+                ->assertDontSee('风险 IP 列表');
 
             $this->put('/private-console/risk-control/applications/'.$application->public_id.'/policy', [
                 'enabled' => '1', 'window_seconds' => 90, 'low_threshold' => 5, 'high_threshold' => 11,

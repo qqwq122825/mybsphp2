@@ -31,10 +31,17 @@
         <span>⌁</span><h2>还没有可配置的软件</h2><p>创建软件后即可自动生成独立封控策略。</p>
     </section>
 @else
-    <nav class="risk-lane-nav" aria-label="风控分区">
-        <a href="#request-risk"><b>01</b><span><strong>请求频率封控</strong><small>只统计登录 API 的短时请求频率</small></span></a>
-        <a href="#honeypot-risk"><b>02</b><span><strong>客户端蜜罐封控</strong><small>处理 D0 / D1 / R0 等客户端安全事件</small></span></a>
+    @php($activeRiskTab = request('tab', 'ip') === 'honeypot' ? 'honeypot' : 'ip')
+    <nav class="risk-control-tabs" aria-label="风控类型">
+        <a class="{{ $activeRiskTab === 'ip' ? 'is-active' : '' }}" href="{{ route('admin.risk-control.index', ['adminPath'=>$adminPath, 'application'=>$selectedApplication->public_id, 'tab'=>'ip']) }}">
+            <span>IP</span><strong>IP 封控</strong><small>登录请求频率与风险 IP</small>
+        </a>
+        <a class="{{ $activeRiskTab === 'honeypot' ? 'is-active' : '' }}" href="{{ route('admin.risk-control.index', ['adminPath'=>$adminPath, 'application'=>$selectedApplication->public_id, 'tab'=>'honeypot']) }}">
+            <span>◈</span><strong>蜜罐封控</strong><small>客户端安全事件与设备黑名单</small>
+        </a>
     </nav>
+
+    @if($activeRiskTab === 'ip')
     <section id="request-risk" class="risk-lane risk-lane-request">
         <header class="risk-lane-heading"><b>01</b><div><p>REQUEST RATE CONTROL</p><h2>请求频率封控</h2><span>防止登录洪泛和批量凭据尝试；心跳和安全上报不计入此处。</span></div></header>
     <section class="risk-status-strip {{ $policy->enabled ? 'is-on' : 'is-off' }}">
@@ -131,49 +138,15 @@
 
     </section>
 
-    <section id="honeypot-risk" class="risk-lane risk-lane-honeypot">
-        <header class="risk-lane-heading"><b>02</b><div><p>CLIENT HONEYPOT CONTROL</p><h2>客户端蜜罐封控</h2><span>仅处理已验证会话上报的高置信安全事件，与登录频率完全分离。</span></div></header>
-        <section class="dashboard-panel honeypot-policy-panel">
-            <div><strong>蜜罐事件处置模式</strong><small>建议新客户端先使用“观察”，确认没有正常误报后再开启自动冻结。</small></div>
-            <form method="post" action="{{ route('admin.risk-control.security-policy.update', ['adminPath'=>$adminPath, 'application'=>$selectedApplication]) }}">@csrf @method('PUT')
-                <select name="security_report_mode"><option value="disabled" @selected($policy->security_report_mode==='disabled')>关闭上报</option><option value="observe" @selected($policy->security_report_mode==='observe')>观察·只记录</option><option value="enforce" @selected($policy->security_report_mode==='enforce')>处置·高置信自动冻结</option></select><button class="button button-primary" type="submit">保存蜜罐策略</button>
-            </form>
-        </section>
-        <section class="metric-grid honeypot-metric-grid">
-            <article class="metric-card metric-blue"><span>24 小时上报</span><strong>{{ $securityMetrics['events_24h'] }}</strong><small>客户端安全事件</small></article>
-            <article class="metric-card metric-orange"><span>高置信事件</span><strong>{{ $securityMetrics['high_24h'] }}</strong><small>D0 / D1 / R0</small></article>
-            <article class="metric-card metric-red"><span>已冻结主体</span><strong>{{ $securityMetrics['frozen_subjects'] }}</strong><small>卡密或账号</small></article>
-        </section>
-    <section class="dashboard-panel risk-feed-panel honeypot-event-panel">
-        <header><div><p class="eyebrow">CLIENT SECURITY</p><h2>客户端安全事件</h2></div><span>24 小时 {{ $securityMetrics['events_24h'] }} 条 · 高置信 {{ $securityMetrics['high_24h'] }} 条 · 冻结主体 {{ $securityMetrics['frozen_subjects'] }} 个</span></header>
-        <div class="risk-feed-list">
-            @forelse($securityEvents as $event)
-                <article><span class="risk-feed-dot is-{{ $event->severity === 'high' ? 'high' : 'low' }}"></span><div><strong>{{ $event->event_code }} · {{ $event->event_id }}</strong><p>{{ strtoupper($event->severity) }} / {{ $event->action }}</p><small>{{ $event->created_at?->diffForHumans() }}</small></div><em>{{ $event->severity === 'high' ? '高置信' : '观察' }}</em></article>
-            @empty
-                <div class="risk-feed-empty"><span>✓</span><strong>暂无客户端安全事件</strong></div>
-            @endforelse
-        </div>
-    </section>
-        <section class="dashboard-panel honeypot-device-panel">
-            <header><div><p class="eyebrow">DEVICE BLOCKLIST</p><h2>设备黑名单</h2></div><span>最近 20 条</span></header>
-            <div class="honeypot-device-list">
-                @forelse($securityDeviceStates as $deviceState)
-                    <article><code>{{ substr($deviceState->device_hash, 0, 12) }}…{{ substr($deviceState->device_hash, -8) }}</code><span>{{ $deviceState->reason_code ?: '—' }} · {{ $deviceState->last_event_at?->diffForHumans() }}</span><b>{{ $deviceState->status === 'blocked' ? '已拉黑' : '观察' }}</b>@if($deviceState->status === 'blocked')<form method="post" action="{{ route('admin.risk-control.device-states.unblock', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">@csrf<button type="submit">解除拉黑</button></form>@endif</article>
-                @empty
-                    <p class="risk-feed-empty">暂无设备黑名单</p>
-                @endforelse
-            </div>
-        </section>
-    </section>
-
     <x-admin.table-shell title="风险 IP 列表" subtitle="只显示进入低级或高级档位的 IP" panel-class="risk-table-panel">
         <x-slot:search>
             <form class="risk-filter" method="get">
                 <input type="hidden" name="application" value="{{ $selectedApplication->public_id }}">
+                <input type="hidden" name="tab" value="ip">
                 <label><span>风险等级</span><select name="level"><option value="all">全部等级</option><option value="low" @selected(request('level')==='low')>低级封控</option><option value="high" @selected(request('level')==='high')>高级封控</option></select></label>
                 <label class="risk-filter-keyword"><span>IP 地址</span><input name="keyword" value="{{ request('keyword') }}" placeholder="输入完整或部分 IP"></label>
                 <button class="button button-primary" type="submit">筛选</button>
-                <a href="{{ route('admin.risk-control.index', ['adminPath'=>$adminPath,'application'=>$selectedApplication->public_id]) }}">重置</a>
+                <a href="{{ route('admin.risk-control.index', ['adminPath'=>$adminPath,'application'=>$selectedApplication->public_id,'tab'=>'ip']) }}">重置</a>
             </form>
         </x-slot:search>
         <table>
@@ -209,6 +182,43 @@
             </x-slot:footer>
         @endif
     </x-admin.table-shell>
+    @else
+    <section id="honeypot-risk" class="risk-lane risk-lane-honeypot">
+        <header class="risk-lane-heading"><b>02</b><div><p>CLIENT HONEYPOT CONTROL</p><h2>客户端蜜罐封控</h2><span>仅处理已验证会话上报的高置信安全事件，与登录频率完全分离。</span></div></header>
+        <section class="dashboard-panel honeypot-policy-panel">
+            <div><strong>蜜罐事件处置模式</strong><small>建议新客户端先使用“观察”，确认没有正常误报后再开启自动冻结。</small></div>
+            <form method="post" action="{{ route('admin.risk-control.security-policy.update', ['adminPath'=>$adminPath, 'application'=>$selectedApplication]) }}">@csrf @method('PUT')
+                <select name="security_report_mode"><option value="disabled" @selected($policy->security_report_mode==='disabled')>关闭上报</option><option value="observe" @selected($policy->security_report_mode==='observe')>观察·只记录</option><option value="enforce" @selected($policy->security_report_mode==='enforce')>处置·高置信自动冻结</option></select><button class="button button-primary" type="submit">保存蜜罐策略</button>
+            </form>
+        </section>
+        <section class="metric-grid honeypot-metric-grid">
+            <article class="metric-card metric-blue"><span>24 小时上报</span><strong>{{ $securityMetrics['events_24h'] }}</strong><small>客户端安全事件</small></article>
+            <article class="metric-card metric-orange"><span>高置信事件</span><strong>{{ $securityMetrics['high_24h'] }}</strong><small>D0 / D1 / R0</small></article>
+            <article class="metric-card metric-red"><span>已冻结主体</span><strong>{{ $securityMetrics['frozen_subjects'] }}</strong><small>卡密或账号</small></article>
+        </section>
+    <section class="dashboard-panel risk-feed-panel honeypot-event-panel">
+        <header><div><p class="eyebrow">CLIENT SECURITY</p><h2>客户端安全事件</h2></div><span>24 小时 {{ $securityMetrics['events_24h'] }} 条 · 高置信 {{ $securityMetrics['high_24h'] }} 条 · 冻结主体 {{ $securityMetrics['frozen_subjects'] }} 个</span></header>
+        <div class="risk-feed-list">
+            @forelse($securityEvents as $event)
+                <article><span class="risk-feed-dot is-{{ $event->severity === 'high' ? 'high' : 'low' }}"></span><div><strong>{{ $event->event_code }} · {{ $event->event_id }}</strong><p>{{ strtoupper($event->severity) }} / {{ $event->action }}</p><small>{{ $event->created_at?->diffForHumans() }}</small></div><em>{{ $event->severity === 'high' ? '高置信' : '观察' }}</em></article>
+            @empty
+                <div class="risk-feed-empty"><span>✓</span><strong>暂无客户端安全事件</strong></div>
+            @endforelse
+        </div>
+    </section>
+        <section class="dashboard-panel honeypot-device-panel">
+            <header><div><p class="eyebrow">DEVICE BLOCKLIST</p><h2>设备黑名单</h2></div><span>最近 20 条</span></header>
+            <div class="honeypot-device-list">
+                @forelse($securityDeviceStates as $deviceState)
+                    <article><code>{{ substr($deviceState->device_hash, 0, 12) }}…{{ substr($deviceState->device_hash, -8) }}</code><span>{{ $deviceState->reason_code ?: '—' }} · {{ $deviceState->last_event_at?->diffForHumans() }}</span><b>{{ $deviceState->status === 'blocked' ? '已拉黑' : '观察' }}</b>@if($deviceState->status === 'blocked')<form method="post" action="{{ route('admin.risk-control.device-states.unblock', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">@csrf<button type="submit">解除拉黑</button></form>@endif</article>
+                @empty
+                    <p class="risk-feed-empty">暂无设备黑名单</p>
+                @endforelse
+            </div>
+        </section>
+    </section>
+    @endif
+
 @endif
 </div>
 @endsection
