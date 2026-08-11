@@ -154,6 +154,16 @@
             @endforelse
         </div>
     </section>
+        <section class="dashboard-panel honeypot-device-panel">
+            <header><div><p class="eyebrow">DEVICE BLOCKLIST</p><h2>设备黑名单</h2></div><span>最近 20 条</span></header>
+            <div class="honeypot-device-list">
+                @forelse($securityDeviceStates as $deviceState)
+                    <article><code>{{ substr($deviceState->device_hash, 0, 12) }}…{{ substr($deviceState->device_hash, -8) }}</code><span>{{ $deviceState->reason_code ?: '—' }} · {{ $deviceState->last_event_at?->diffForHumans() }}</span><b>{{ $deviceState->status === 'blocked' ? '已拉黑' : '观察' }}</b>@if($deviceState->status === 'blocked')<form method="post" action="{{ route('admin.risk-control.device-states.unblock', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">@csrf<button type="submit">解除拉黑</button></form>@endif</article>
+                @empty
+                    <p class="risk-feed-empty">暂无设备黑名单</p>
+                @endforelse
+            </div>
+        </section>
     </section>
 
     <x-admin.table-shell title="风险 IP 列表" subtitle="只显示进入低级或高级档位的 IP" panel-class="risk-table-panel">

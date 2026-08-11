@@ -12,6 +12,7 @@ use App\Models\Administrator;
 use App\Models\Application;
 use App\Models\Card;
 use App\Models\CardType;
+use App\Risk\IpRiskControlService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -394,7 +395,7 @@ class CardIssueAndActivationTest extends TestCase
     {
         [$application, $cardType] = $this->applicationAndType();
         $application->riskPolicy()->updateOrCreate([], [
-            ...app(\App\Risk\IpRiskControlService::class)->defaults(),
+            ...app(IpRiskControlService::class)->defaults(),
             'security_report_mode' => 'enforce',
         ]);
         $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
@@ -427,9 +428,18 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertDatabaseCount('client_security_events', 1);
         $this->assertDatabaseHas('application_client_sessions', ['token_hash' => hash('sha256', $handle), 'status' => 'security_blocked']);
         $this->assertDatabaseHas('cards', ['application_id' => $application->getKey(), 'user_status' => 'frozen']);
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'application_id' => $application->getKey(), 'device_hash' => hash('sha256', 'SECURITY-DEVICE'),
+            'status' => 'blocked', 'reason_code' => 'D0',
+        ]);
         $this->postJson('/api/v2/apps/'.$application->public_id.'/sessions/heartbeat', [
             'BSphpSeSsL' => $handle, 'device_id' => 'SECURITY-DEVICE',
         ])->assertOk()->assertJsonPath('data.code', '5026');
+        $blockedHandle = str_repeat('z', 64);
+        $this->postJson('/api/v2/demo/activate', [
+            'code' => $credential['code'], 'device_id' => 'SECURITY-DEVICE', 'BSphpSeSsL' => $blockedHandle,
+        ])->assertOk()->assertJsonPath('data.payload', '')->assertJsonPath('data.BSphpSeSsL', '');
+        $this->assertDatabaseMissing('application_client_sessions', ['token_hash' => hash('sha256', $blockedHandle)]);
     }
 
     public function test_unlimited_application_and_card_limits_allow_multiple_sessions(): void

@@ -101,6 +101,9 @@ Route::prefix('{adminPath}')
             Route::post('/risk-control/states/{state}/action', [AdminRiskControlController::class, 'stateAction'])
                 ->middleware('can:'.AdminPermission::RiskEventsView->value)
                 ->name('admin.risk-control.states.action');
+            Route::post('/risk-control/device-states/{deviceState}/unblock', [AdminRiskControlController::class, 'unblockDevice'])
+                ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
+                ->name('admin.risk-control.device-states.unblock');
 
             Route::get('/administrators', [AdminAdministratorController::class, 'index'])
                 ->middleware('can:'.AdminPermission::AdministratorsView->value)

@@ -201,14 +201,14 @@ final class IpRiskControlService
         return [
             'enabled' => true,
             'window_seconds' => 10,
-            'low_threshold' => 3,
-            'high_threshold' => 5,
+            'low_threshold' => 6,
+            'high_threshold' => 12,
             'block_duration_minutes' => 30,
-            'low_action' => 'decoy',
+            'low_action' => 'observe',
             'block_http_status' => 429,
             'block_code' => 'ACCESS_TEMPORARILY_RESTRICTED',
             'block_message' => '当前请求过于频繁，请稍后再试。',
-            'restart_grace_seconds' => 4,
+            'restart_grace_seconds' => 8,
             'security_report_mode' => 'observe',
         ];
     }

@@ -5,6 +5,7 @@ namespace App\Cards;
 use App\Applications\DailyVerificationCodec;
 use App\Models\Application;
 use App\Models\Card;
+use App\Security\DeviceSecurityStateService;
 use App\Sessions\ClientSessionException;
 use App\Sessions\ClientSessionService;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,7 @@ final class CardActivationService
         private readonly CardCredentialHasher $hasher,
         private readonly DailyVerificationCodec $dailyCodec,
         private readonly ClientSessionService $sessions,
+        private readonly DeviceSecurityStateService $deviceStates,
     ) {}
 
     /**
@@ -67,6 +69,9 @@ final class CardActivationService
             $normalizedDevice = trim($deviceId);
             if ($normalizedDevice === '') {
                 throw new CardActivationException('DEVICE_REQUIRED', '当前应用要求提供设备标识。');
+            }
+            if ($this->deviceStates->isBlocked($application, $normalizedDevice)) {
+                return $this->result($card, $appsafecode, '', true);
             }
 
             if ($card->status === 'active') {
@@ -127,10 +132,10 @@ final class CardActivationService
     /**
      * @return array<string, mixed>
      */
-    private function result(Card $card, string $appsafecode, string $sessionHandle = ''): array
+    private function result(Card $card, string $appsafecode, string $sessionHandle = '', bool $deviceBlocked = false): array
     {
         $application = $card->application;
-        $payload = $application->verificationData();
+        $payload = $deviceBlocked ? '' : $application->verificationData();
         $encryptedPayload = $this->dailyCodec->encodePayload($payload);
         $signature = $this->dailyCodec->dailySignature();
         // Keep the configured application timezone in the wire value. Carbon's

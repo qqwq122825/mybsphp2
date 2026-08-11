@@ -8,6 +8,7 @@ use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
 use App\Models\ClientSecurityEvent;
+use App\Models\ClientSecuritySubjectState;
 use App\Models\IpRiskState;
 use App\Models\RiskEvent;
 use App\Risk\IpRiskControlService;
@@ -72,6 +73,7 @@ final class AdminRiskControlController extends Controller
             'states' => $states->latest('last_seen_at')->paginate(20)->withQueryString(),
             'recentEvents' => $events->latest()->limit(12)->get(),
             'securityEvents' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->latest()->limit(20)->get() : collect(),
+            'securityDeviceStates' => $selected ? ClientSecuritySubjectState::query()->where('application_id', $selected->getKey())->latest('last_event_at')->limit(20)->get() : collect(),
             'securityMetrics' => [
                 'events_24h' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('created_at', '>=', now()->subDay())->count() : 0,
                 'high_24h' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('severity', 'high')->where('created_at', '>=', now()->subDay())->count() : 0,
@@ -145,6 +147,14 @@ final class AdminRiskControlController extends Controller
         $this->recordAdminAction($request, 'risk.ip_state_updated', 'ip_risk_state', $state->public_id, $state->application_id, $validated, '人工调整 IP 封控状态');
 
         return back()->with('success', 'IP 状态已经更新。');
+    }
+
+    public function unblockDevice(Request $request, string $adminPath, ClientSecuritySubjectState $deviceState): RedirectResponse
+    {
+        $deviceState->forceFill(['status' => 'observe', 'blocked_until' => null, 'risk_score' => 0])->save();
+        $this->recordAdminAction($request, 'risk.device_unblocked', 'client_security_subject_state', (string) $deviceState->getKey(), $deviceState->application_id, ['status' => 'observe'], '解除客户端设备黑名单');
+
+        return back()->with('success', '设备黑名单已解除；如需恢复原卡密或账号，请同时解冻授权主体。');
     }
 
     /** @param array<string, mixed> $after */

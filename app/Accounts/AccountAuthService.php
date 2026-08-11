@@ -7,6 +7,7 @@ use App\Cards\CardCredentialHasher;
 use App\Models\Application;
 use App\Models\ApplicationAccount;
 use App\Models\Card;
+use App\Security\DeviceSecurityStateService;
 use App\Sessions\ClientSessionException;
 use App\Sessions\ClientSessionService;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,7 @@ final class AccountAuthService
         private readonly CardCredentialHasher $cardHasher,
         private readonly DailyVerificationCodec $dailyCodec,
         private readonly ClientSessionService $sessions,
+        private readonly DeviceSecurityStateService $deviceStates,
     ) {}
 
     /** @return array<string, mixed> */
@@ -94,6 +96,7 @@ final class AccountAuthService
 
             $account->refresh();
             $boundHandle = $account->expires_at?->isFuture() ? $this->bindAccountSession($application, $account, $sessionHandle, $deviceId) : '';
+
             return $this->result($account, $application, $appsafecode, $boundHandle);
         }, 3);
     }
@@ -112,6 +115,9 @@ final class AccountAuthService
         $deviceId = trim($deviceId);
         if ($deviceId === '') {
             throw new AccountAuthException('DEVICE_REQUIRED', '当前软件要求提供绑定特征。');
+        }
+        if ($this->deviceStates->isBlocked($application, $deviceId)) {
+            return $this->result($account, $application, $appsafecode, '', true);
         }
 
         $account = DB::transaction(function () use ($application, $account, $deviceId): ApplicationAccount {
@@ -157,6 +163,7 @@ final class AccountAuthService
         }
 
         $account->refresh();
+
         return $this->result($account, $application, $appsafecode, $this->bindAccountSession($application, $account, $sessionHandle, $deviceId));
     }
 
@@ -217,7 +224,9 @@ final class AccountAuthService
 
     private function extendAccount(ApplicationAccount $account, int $seconds): void
     {
-        if ($seconds <= 0) return;
+        if ($seconds <= 0) {
+            return;
+        }
         $base = $account->expires_at && $account->expires_at->isFuture() ? $account->expires_at : now();
         $account->expires_at = $base->copy()->addSeconds($seconds);
         $account->save();
@@ -241,14 +250,14 @@ final class AccountAuthService
     }
 
     /** @return array<string, mixed> */
-    private function result(ApplicationAccount $account, Application $application, string $appsafecode, string $sessionHandle = ''): array
+    private function result(ApplicationAccount $account, Application $application, string $appsafecode, string $sessionHandle = '', bool $deviceBlocked = false): array
     {
         $signature = $this->dailyCodec->dailySignature();
         // An explicit offset keeps the JSON, legacy wire response and
         // administration table on the same configured application timezone.
         $expires = $account->expires_at?->toIso8601String() ?? '';
         $device = (string) ($account->bound_device_ciphertext ?? '');
-        $payload = $application->verificationData();
+        $payload = $deviceBlocked ? '' : $application->verificationData();
         $encryptedPayload = $this->dailyCodec->encodePayload($payload);
         $legacy = implode('|', ['01', '1011', $device, $encryptedPayload, $expires, $appsafecode, $signature, $account->invitation_code, $account->username, $sessionHandle, '']);
 
@@ -265,7 +274,7 @@ final class AccountAuthService
             ],
             'authorization' => $this->authorization($account),
             'device' => $device,
-            'payload' => $application->verificationData(),
+            'payload' => $payload,
             'encrypted_payload' => $encryptedPayload,
             'appsafecode' => $appsafecode,
             'BSphpSeSsL' => $sessionHandle,
@@ -275,8 +284,9 @@ final class AccountAuthService
 
     private function bindAccountSession(Application $application, ApplicationAccount $account, string $handle, string $deviceId): string
     {
-        try { return $this->sessions->bindAccount($application, $account, $handle, $deviceId); }
-        catch (ClientSessionException $exception) {
+        try {
+            return $this->sessions->bindAccount($application, $account, $handle, $deviceId);
+        } catch (ClientSessionException $exception) {
             throw new AccountAuthException($exception->errorCode, $exception->getMessage(), $exception->status);
         }
     }
@@ -312,23 +322,32 @@ final class AccountAuthService
 
     private function newInvitationCode(Application $application): string
     {
-        do { $code = strtoupper(Str::random(10)); }
-        while ($application->accounts()->where('invitation_code', $code)->exists());
+        do {
+            $code = strtoupper(Str::random(10));
+        } while ($application->accounts()->where('invitation_code', $code)->exists());
+
         return $code;
     }
 
     private function assertAccountMode(Application $application): void
     {
-        if ($application->mode !== 'account_recharge') throw new AccountAuthException('MODE_MISMATCH', '当前软件不是账号登录模式。', 409);
-        if ($application->status !== 'active') throw new AccountAuthException('APP_DISABLED', $application->closedMessage(), 403, [
-            'application_status' => $application->status,
-            'is_open' => false,
-        ]);
+        if ($application->mode !== 'account_recharge') {
+            throw new AccountAuthException('MODE_MISMATCH', '当前软件不是账号登录模式。', 409);
+        }
+        if ($application->status !== 'active') {
+            throw new AccountAuthException('APP_DISABLED', $application->closedMessage(), 403, [
+                'application_status' => $application->status,
+                'is_open' => false,
+            ]);
+        }
     }
 
     private function maskDevice(string $device): ?string
     {
-        if ($device === '') return null;
+        if ($device === '') {
+            return null;
+        }
+
         return strlen($device) <= 8 ? substr($device, 0, 2).'••'.substr($device, -2) : substr($device, 0, 4).'••••'.substr($device, -4);
     }
 }
