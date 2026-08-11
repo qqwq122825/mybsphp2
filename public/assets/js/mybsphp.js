@@ -540,7 +540,10 @@
             if (event.submitter instanceof HTMLButtonElement && event.submitter.name) {
                 formData.set(event.submitter.name, event.submitter.value);
             }
-            let requestUrl = form.action || tab.url;
+            // A form without an explicit action inherits document.location. Workspace
+            // pages are rendered inside the applications index document, so using the
+            // resolved form.action would incorrectly submit back to software management.
+            let requestUrl = form.hasAttribute('action') ? form.action : tab.url;
             const options = { method };
             if (method === 'GET') {
                 const targetUrl = new URL(requestUrl, window.location.href);

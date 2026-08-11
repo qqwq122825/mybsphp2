@@ -173,7 +173,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/activation-query', false)
             ->assertSee('mybsphp.css?v=20260727-ipad-select', false)
             ->assertSee('custom-select.js?v=20260727-ipad-select', false)
-            ->assertSee('mybsphp.js?v=20260727-ipad-select', false)
+            ->assertSee('mybsphp.js?v=20260812-workspace-form', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -253,11 +253,12 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-workspace-base-link', false)
             ->assertSee('data-workspace-base-tab', false)
             ->assertSee('data-workspace-base-url=', false)
-            ->assertSee('mybsphp.js?v=20260727-ipad-select', false)
+            ->assertSee('mybsphp.js?v=20260812-workspace-form', false)
             ->assertSee($application->code.'-卡串类型');
 
         $this->get('/private-console/applications/'.$application->public_id.'/users')
             ->assertOk()
+            ->assertSee('action="'.route('admin.applications.users.index', ['adminPath' => 'private-console', 'application' => $application]).'"', false)
             ->assertSee('software-user-table-component', false)
             ->assertSee('admin-data-table-toolbar', false)
             ->assertSee('卡串验证模式')

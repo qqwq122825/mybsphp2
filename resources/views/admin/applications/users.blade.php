@@ -9,7 +9,8 @@
             <span class="bsphp-mode-chip">{{ $userType === 'card' ? '卡串验证模式' : '账号登录模式' }}</span>
         </header>
 
-        <x-admin.filter-bar button-label="⌕" :icon-only="true">
+        <x-admin.filter-bar button-label="⌕" :icon-only="true"
+            :action="route('admin.applications.users.index', ['adminPath' => $adminPath, 'application' => $application])">
             <x-slot:field><select aria-label="搜索字段"><option>{{ $userType === 'card' ? '充值卡号(激活码)' : '用户名' }}</option></select></x-slot:field>
             <x-slot:keyword><input name="keyword" value="{{ request('keyword') }}" placeholder="请输入"></x-slot:keyword>
             <x-slot:sort><select name="sort">
