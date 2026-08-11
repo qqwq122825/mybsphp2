@@ -127,6 +127,11 @@ class ApplicationManagementTest extends TestCase
             ->assertOk()
             ->assertSee($generated['credentials'][0]['code'])
             ->assertDontSee('无数据');
+        $partialCode = substr($generated['credentials'][0]['code'], 0, -5);
+        $this->get('/private-console/applications/'.$application->public_id.'/users?keyword='.urlencode($partialCode).'&sort=latest')
+            ->assertOk()
+            ->assertSee($generated['credentials'][0]['code'])
+            ->assertDontSee('无数据');
 
         $this->from('/private-console/applications/'.$application->public_id.'/card-types')
             ->delete('/private-console/card-types', [

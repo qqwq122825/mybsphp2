@@ -11,6 +11,7 @@ use App\Models\Card;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -36,17 +37,26 @@ final class AdminApplicationUserController extends Controller
                 ->whereNotNull('activated_at')
                 ->orderBy('id', $sort);
             if ($keyword !== '') {
-                $query->where(function ($builder) use ($keyword): void {
-                    if (mb_strlen($keyword) > 4) {
-                        $builder->where('code_lookup_hash', $this->credentialHasher->lookupHash($keyword))
-                            ->orWhere('public_id', 'like', '%'.$keyword.'%');
-                    } else {
-                        $builder->where('code_last4', 'like', '%'.$keyword.'%')
-                            ->orWhere('public_id', 'like', '%'.$keyword.'%');
-                    }
-                });
+                // Card codes are encrypted at rest, so arbitrary prefix/substring
+                // matching must happen after Eloquent decrypts the value.
+                $normalizedKeyword = $this->credentialHasher->normalizeCode($keyword);
+                $matched = $query->get()->filter(function (Card $card) use ($keyword, $normalizedKeyword): bool {
+                    return ($normalizedKeyword !== '' && str_contains(
+                        $this->credentialHasher->normalizeCode((string) $card->code_ciphertext),
+                        $normalizedKeyword,
+                    )) || str_contains(strtoupper($card->public_id), strtoupper($keyword));
+                })->values();
+                $page = max(1, $request->integer('page', 1));
+                $users = new LengthAwarePaginator(
+                    $matched->forPage($page, 30)->values(),
+                    $matched->count(),
+                    30,
+                    $page,
+                    ['path' => $request->url(), 'query' => $request->query()],
+                );
+            } else {
+                $users = $query->paginate(30)->withQueryString();
             }
-            $users = $query->paginate(30)->withQueryString();
         } else {
             $query = $application->accounts()->orderBy('id', $sort);
             if ($keyword !== '') {
