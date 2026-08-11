@@ -95,6 +95,9 @@ Route::prefix('{adminPath}')
             Route::put('/risk-control/applications/{application}/policy', [AdminRiskControlController::class, 'updatePolicy'])
                 ->middleware('can:'.AdminPermission::RiskEventsView->value)
                 ->name('admin.risk-control.policy.update');
+            Route::put('/risk-control/applications/{application}/security-policy', [AdminRiskControlController::class, 'updateSecurityPolicy'])
+                ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
+                ->name('admin.risk-control.security-policy.update');
             Route::post('/risk-control/states/{state}/action', [AdminRiskControlController::class, 'stateAction'])
                 ->middleware('can:'.AdminPermission::RiskEventsView->value)
                 ->name('admin.risk-control.states.action');

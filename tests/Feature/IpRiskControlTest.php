@@ -206,7 +206,10 @@ class IpRiskControlTest extends TestCase
 
             $this->get('/private-console/risk-control')
                 ->assertOk()
-                ->assertSee('IP 封控中心')
+                ->assertSee('风控中心')
+                ->assertSee('请求频率封控')
+                ->assertSee('客户端蜜罐封控')
+                ->assertSee('心跳和安全上报不计入此处')
                 ->assertSee('最近 10 秒滚动窗口')
                 ->assertSee('请求 4 · 仍计 3 次')
                 ->assertSee('当前软件策略')
@@ -215,7 +218,7 @@ class IpRiskControlTest extends TestCase
                 ->assertDontSee('/private-console/applications/'.$application->public_id.'/edit', false)
                 ->assertSee('低级封控')
                 ->assertSee('高级封控')
-                ->assertSee('客户端蜜罐上报')
+                ->assertSee('蜜罐事件处置模式')
                 ->assertSee('风险 IP 列表');
 
             $this->put('/private-console/risk-control/applications/'.$application->public_id.'/policy', [
@@ -229,6 +232,12 @@ class IpRiskControlTest extends TestCase
                 'application_id' => $application->getKey(), 'window_seconds' => 90,
                 'low_threshold' => 5, 'high_threshold' => 11, 'low_action' => 'observe',
                 'security_report_mode' => 'disabled',
+            ]);
+            $this->put('/private-console/risk-control/applications/'.$application->public_id.'/security-policy', [
+                'security_report_mode' => 'enforce',
+            ])->assertRedirect()->assertSessionHas('success');
+            $this->assertDatabaseHas('risk_policies', [
+                'application_id' => $application->getKey(), 'security_report_mode' => 'enforce',
             ]);
         } finally {
             @unlink($lockPath);

@@ -1,14 +1,14 @@
 @extends('admin.layout')
 
-@section('title', 'IP 封控中心')
+@section('title', '风控中心')
 
 @section('content')
 <div data-risk-content>
 <header class="page-heading page-heading-actions risk-page-heading">
     <div>
-        <p class="eyebrow">IP RISK CONTROL</p>
-        <h1>IP 封控中心</h1>
-        <p>按短时登录频率自动分档；上线时隐藏封控特征，调试时显示判定明细。</p>
+        <p class="eyebrow">RISK CONTROL CENTER</p>
+        <h1>风控中心</h1>
+        <p>请求频率封控与客户端蜜罐封控分区配置、分开查看。</p>
     </div>
     @if($applications->isNotEmpty())
         <div class="risk-heading-tools">
@@ -31,6 +31,12 @@
         <span>⌁</span><h2>还没有可配置的软件</h2><p>创建软件后即可自动生成独立封控策略。</p>
     </section>
 @else
+    <nav class="risk-lane-nav" aria-label="风控分区">
+        <a href="#request-risk"><b>01</b><span><strong>请求频率封控</strong><small>只统计登录 API 的短时请求频率</small></span></a>
+        <a href="#honeypot-risk"><b>02</b><span><strong>客户端蜜罐封控</strong><small>处理 D0 / D1 / R0 等客户端安全事件</small></span></a>
+    </nav>
+    <section id="request-risk" class="risk-lane risk-lane-request">
+        <header class="risk-lane-heading"><b>01</b><div><p>REQUEST RATE CONTROL</p><h2>请求频率封控</h2><span>防止登录洪泛和批量凭据尝试；心跳和安全上报不计入此处。</span></div></header>
     <section class="risk-status-strip {{ $policy->enabled ? 'is-on' : 'is-off' }}">
         <div><span class="risk-pulse"></span><strong>{{ $policy->enabled ? '自动封控运行中' : '自动封控已暂停' }}</strong></div>
         <p>{{ $selectedApplication->name }} · 最近 {{ $policy->window_seconds }} 秒滚动窗口 · 每个 IP 独立计数</p>
@@ -101,7 +107,6 @@
                 </div>
 
                 <div class="risk-policy-fields">
-                    <label><span>客户端蜜罐上报</span><select name="security_report_mode"><option value="disabled" @selected(old('security_report_mode',$policy->security_report_mode)==='disabled')>关闭 · 不下发上报令牌</option><option value="observe" @selected(old('security_report_mode',$policy->security_report_mode)==='observe')>观察 · 只记录不冻结</option><option value="enforce" @selected(old('security_report_mode',$policy->security_report_mode)==='enforce')>处置 · 高置信事件自动冻结</option></select><small>没有蜜罐、旧版或 Android 未接入时选择关闭；建议先观察后处置。</small></label>
                     <label><span>低级处理方式</span><select name="low_action"><option value="decoy" @selected(old('low_action',$policy->low_action)==='decoy')>静默替换验证数据</option><option value="observe" @selected(old('low_action',$policy->low_action)==='observe')>仅记录观察</option></select><small>没有验证数据的软件会保持原成功结果，仅记录风险。</small></label>
                     <label><span>替换值</span><input name="decoy_value" value="{{ old('decoy_value',$policy->decoy_value) }}" placeholder="留空则每次随机生成"><small>建议留空，降低固定特征。</small></label>
                     <label><span>调试模式 HTTP 状态</span><select name="block_http_status"><option value="429" @selected((int)old('block_http_status',$policy->block_http_status)===429)>429 · 请求过多</option><option value="403" @selected((int)old('block_http_status',$policy->block_http_status)===403)>403 · 禁止访问</option></select><small>上线运行固定使用 503，不读取此项。</small></label>
@@ -124,7 +129,22 @@
         </aside>
     </div>
 
-    <section class="dashboard-panel risk-feed-panel">
+    </section>
+
+    <section id="honeypot-risk" class="risk-lane risk-lane-honeypot">
+        <header class="risk-lane-heading"><b>02</b><div><p>CLIENT HONEYPOT CONTROL</p><h2>客户端蜜罐封控</h2><span>仅处理已验证会话上报的高置信安全事件，与登录频率完全分离。</span></div></header>
+        <section class="dashboard-panel honeypot-policy-panel">
+            <div><strong>蜜罐事件处置模式</strong><small>建议新客户端先使用“观察”，确认没有正常误报后再开启自动冻结。</small></div>
+            <form method="post" action="{{ route('admin.risk-control.security-policy.update', ['adminPath'=>$adminPath, 'application'=>$selectedApplication]) }}">@csrf @method('PUT')
+                <select name="security_report_mode"><option value="disabled" @selected($policy->security_report_mode==='disabled')>关闭上报</option><option value="observe" @selected($policy->security_report_mode==='observe')>观察·只记录</option><option value="enforce" @selected($policy->security_report_mode==='enforce')>处置·高置信自动冻结</option></select><button class="button button-primary" type="submit">保存蜜罐策略</button>
+            </form>
+        </section>
+        <section class="metric-grid honeypot-metric-grid">
+            <article class="metric-card metric-blue"><span>24 小时上报</span><strong>{{ $securityMetrics['events_24h'] }}</strong><small>客户端安全事件</small></article>
+            <article class="metric-card metric-orange"><span>高置信事件</span><strong>{{ $securityMetrics['high_24h'] }}</strong><small>D0 / D1 / R0</small></article>
+            <article class="metric-card metric-red"><span>已冻结主体</span><strong>{{ $securityMetrics['frozen_subjects'] }}</strong><small>卡密或账号</small></article>
+        </section>
+    <section class="dashboard-panel risk-feed-panel honeypot-event-panel">
         <header><div><p class="eyebrow">CLIENT SECURITY</p><h2>客户端安全事件</h2></div><span>24 小时 {{ $securityMetrics['events_24h'] }} 条 · 高置信 {{ $securityMetrics['high_24h'] }} 条 · 冻结主体 {{ $securityMetrics['frozen_subjects'] }} 个</span></header>
         <div class="risk-feed-list">
             @forelse($securityEvents as $event)
@@ -133,6 +153,7 @@
                 <div class="risk-feed-empty"><span>✓</span><strong>暂无客户端安全事件</strong></div>
             @endforelse
         </div>
+    </section>
     </section>
 
     <x-admin.table-shell title="风险 IP 列表" subtitle="只显示进入低级或高级档位的 IP" panel-class="risk-table-panel">

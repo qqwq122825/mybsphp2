@@ -92,7 +92,7 @@ final class AdminRiskControlController extends Controller
             'enabled' => ['nullable', 'boolean'],
             'window_seconds' => ['required', 'integer', 'min:10', 'max:3600'],
             'restart_grace_seconds' => ['nullable', 'integer', 'min:0', 'max:15'],
-            'security_report_mode' => ['required', Rule::in(['disabled', 'observe', 'enforce'])],
+            'security_report_mode' => ['nullable', Rule::in(['disabled', 'observe', 'enforce'])],
             'low_threshold' => ['required', 'integer', 'min:2', 'max:1000'],
             'high_threshold' => ['required', 'integer', 'min:3', 'max:2000', 'gt:low_threshold'],
             'block_duration_minutes' => ['required', 'integer', 'min:1', 'max:43200'],
@@ -104,11 +104,23 @@ final class AdminRiskControlController extends Controller
         ]);
         $validated['enabled'] = $request->boolean('enabled');
         $validated['restart_grace_seconds'] ??= (int) ($application->riskPolicy?->restart_grace_seconds ?? 4);
+        $validated['security_report_mode'] ??= (string) ($application->riskPolicy?->security_report_mode ?? 'observe');
 
         $application->riskPolicy()->updateOrCreate([], $validated);
         $this->recordAdminAction($request, 'risk.policy_updated', 'risk_policy', $application->public_id, $application->getKey(), $validated, '更新 IP 封控策略');
 
         return back()->with('success', '封控策略已保存并立即生效。');
+    }
+
+    public function updateSecurityPolicy(Request $request, string $adminPath, Application $application): RedirectResponse
+    {
+        $validated = $request->validate([
+            'security_report_mode' => ['required', Rule::in(['disabled', 'observe', 'enforce'])],
+        ]);
+        $application->riskPolicy()->updateOrCreate([], $validated);
+        $this->recordAdminAction($request, 'risk.security_policy_updated', 'risk_policy', $application->public_id, $application->getKey(), $validated, '更新客户端蜜罐封控策略');
+
+        return back()->with('success', '客户端蜜罐封控策略已保存。');
     }
 
     public function stateAction(Request $request, string $adminPath, IpRiskState $state): RedirectResponse
