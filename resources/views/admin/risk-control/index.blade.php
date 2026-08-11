@@ -1,29 +1,15 @@
 @extends('admin.layout')
 
-@section('title', '风控中心')
+@section('title', ($selectedApplication?->name ?? '软件').' · 封控设置')
 
 @section('content')
 <div data-risk-content>
-<header class="page-heading page-heading-actions risk-page-heading">
+<header class="page-heading risk-page-heading">
     <div>
-        <p class="eyebrow">RISK CONTROL CENTER</p>
-        <h1>风控中心</h1>
-        <p>请求频率封控与客户端蜜罐封控分区配置、分开查看。</p>
+        <p class="eyebrow">SOFTWARE RISK CONTROL</p>
+        <h1>{{ $selectedApplication?->name ?? '软件' }} · 封控设置</h1>
+        <p>@if($selectedApplication)软件代号 {{ $selectedApplication->code }}，@endif请求频率封控与客户端蜜罐封控分区配置。</p>
     </div>
-    @if($applications->isNotEmpty())
-        <div class="risk-heading-tools">
-            <form class="risk-app-switcher" method="get">
-                <label for="risk-application">当前软件策略</label>
-                <select id="risk-application" name="application" onchange="this.form.submit()">
-                    @foreach($applications as $application)
-                        <option value="{{ $application->public_id }}" @selected($selectedApplication?->is($application))>
-                            {{ $application->name }} · {{ $application->code }}
-                        </option>
-                    @endforeach
-                </select>
-            </form>
-        </div>
-    @endif
 </header>
 
 @if(!$selectedApplication)
