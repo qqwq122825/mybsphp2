@@ -101,6 +101,7 @@
                 </div>
 
                 <div class="risk-policy-fields">
+                    <label><span>客户端蜜罐上报</span><select name="security_report_mode"><option value="disabled" @selected(old('security_report_mode',$policy->security_report_mode)==='disabled')>关闭 · 不下发上报令牌</option><option value="observe" @selected(old('security_report_mode',$policy->security_report_mode)==='observe')>观察 · 只记录不冻结</option><option value="enforce" @selected(old('security_report_mode',$policy->security_report_mode)==='enforce')>处置 · 高置信事件自动冻结</option></select><small>没有蜜罐、旧版或 Android 未接入时选择关闭；建议先观察后处置。</small></label>
                     <label><span>低级处理方式</span><select name="low_action"><option value="decoy" @selected(old('low_action',$policy->low_action)==='decoy')>静默替换验证数据</option><option value="observe" @selected(old('low_action',$policy->low_action)==='observe')>仅记录观察</option></select><small>没有验证数据的软件会保持原成功结果，仅记录风险。</small></label>
                     <label><span>替换值</span><input name="decoy_value" value="{{ old('decoy_value',$policy->decoy_value) }}" placeholder="留空则每次随机生成"><small>建议留空，降低固定特征。</small></label>
                     <label><span>调试模式 HTTP 状态</span><select name="block_http_status"><option value="429" @selected((int)old('block_http_status',$policy->block_http_status)===429)>429 · 请求过多</option><option value="403" @selected((int)old('block_http_status',$policy->block_http_status)===403)>403 · 禁止访问</option></select><small>上线运行固定使用 503，不读取此项。</small></label>

@@ -215,17 +215,20 @@ class IpRiskControlTest extends TestCase
                 ->assertDontSee('/private-console/applications/'.$application->public_id.'/edit', false)
                 ->assertSee('低级封控')
                 ->assertSee('高级封控')
+                ->assertSee('客户端蜜罐上报')
                 ->assertSee('风险 IP 列表');
 
             $this->put('/private-console/risk-control/applications/'.$application->public_id.'/policy', [
                 'enabled' => '1', 'window_seconds' => 90, 'low_threshold' => 5, 'high_threshold' => 11,
                 'block_duration_minutes' => 120, 'low_action' => 'observe', 'decoy_value' => '',
+                'security_report_mode' => 'disabled',
                 'block_http_status' => 403, 'block_code' => 'RISK_BLOCKED', 'block_message' => '当前访问受限。',
             ])->assertRedirect()->assertSessionHas('success');
 
             $this->assertDatabaseHas('risk_policies', [
                 'application_id' => $application->getKey(), 'window_seconds' => 90,
                 'low_threshold' => 5, 'high_threshold' => 11, 'low_action' => 'observe',
+                'security_report_mode' => 'disabled',
             ]);
         } finally {
             @unlink($lockPath);

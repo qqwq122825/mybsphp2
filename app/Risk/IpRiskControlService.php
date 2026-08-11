@@ -209,6 +209,7 @@ final class IpRiskControlService
             'block_code' => 'ACCESS_TEMPORARILY_RESTRICTED',
             'block_message' => '当前请求过于频繁，请稍后再试。',
             'restart_grace_seconds' => 4,
+            'security_report_mode' => 'observe',
         ];
     }
 

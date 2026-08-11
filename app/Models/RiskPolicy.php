@@ -10,7 +10,7 @@ class RiskPolicy extends Model
     protected $fillable = [
         'application_id', 'enabled', 'window_seconds', 'low_threshold', 'high_threshold',
         'block_duration_minutes', 'low_action', 'decoy_value', 'block_http_status',
-        'block_code', 'block_message', 'restart_grace_seconds',
+        'block_code', 'block_message', 'restart_grace_seconds', 'security_report_mode',
     ];
 
     protected function casts(): array

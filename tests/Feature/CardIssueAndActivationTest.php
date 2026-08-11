@@ -364,6 +364,8 @@ class CardIssueAndActivationTest extends TestCase
         $heartbeatResponse = $this->postJson($gateway, $heartbeat['envelope'])->assertOk()->json();
         $fields = explode('|', $cipher->openResponse($heartbeatResponse, $heartbeat['session_key'], $heartbeat['request_nonce']));
         $this->assertSame(['5031', $handle, 'HEART-SAFE'], array_slice($fields, 0, 3));
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9_-]{43}$/', $fields[4] ?? '');
+        $this->assertNotSame($loginFields[10], $fields[4]);
 
         $card = $application->cards()->sole();
         $card->forceFill(['user_status' => 'frozen'])->save();
@@ -375,11 +377,26 @@ class CardIssueAndActivationTest extends TestCase
         $this->postJson('/api/v2/apps/'.$application->public_id.'/sessions/heartbeat', [
             'BSphpSeSsL' => $handle, 'device_id' => 'HEARTBEAT-DEVICE',
         ])->assertOk()->assertJsonPath('data.code', '5030');
+
+        // 首次和后续再次登录都保持明确的到期业务码，客户端可稳定展示到期弹窗。
+        foreach ([str_repeat('e', 64), str_repeat('f', 64)] as $expiredHandle) {
+            $expiredLogin = $cipher->sealRequestWithContext($application, http_build_query([
+                'api' => 'login.ic', 'icid' => $credential['code'], 'icpwd' => '', 'key' => 'HEARTBEAT-DEVICE',
+                'BSphpSeSsL' => $expiredHandle, 'appsafecode' => 'EXPIRED-SAFE',
+            ], '', '&', PHP_QUERY_RFC3986));
+            $this->postJson($gateway, $expiredLogin['envelope'])
+                ->assertForbidden()
+                ->assertJsonPath('error.code', 'CARD_EXPIRED');
+        }
     }
 
     public function test_encrypted_security_report_is_idempotent_and_freezes_high_confidence_subject(): void
     {
         [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->updateOrCreate([], [
+            ...app(\App\Risk\IpRiskControlService::class)->defaults(),
+            'security_report_mode' => 'enforce',
+        ]);
         $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
         $cipher = app(HybridPacketCipher::class);
         $handle = str_repeat('s', 64);

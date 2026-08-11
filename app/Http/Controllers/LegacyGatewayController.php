@@ -128,7 +128,14 @@ final class LegacyGatewayController extends Controller
                     throw new AccountAuthException('MODE_MISMATCH', '心跳接口后缀与软件模式不一致。', 409);
                 }
                 $heartbeat = $clientSessions->heartbeat($application, $sessionHandle, $device);
-                $result = ['legacy_response' => implode('|', [$heartbeat['code'], $heartbeat['handle'], $appsafecode, $heartbeat['server_time']])];
+                $heartbeatToken = $heartbeat['code'] === '5031'
+                    ? $securityReports->rotateToken($application, $heartbeat['handle'])
+                    : '';
+                $heartbeatFields = [$heartbeat['code'], $heartbeat['handle'], $appsafecode, $heartbeat['server_time']];
+                if ($heartbeatToken !== '') {
+                    $heartbeatFields[] = $heartbeatToken;
+                }
+                $result = ['legacy_response' => implode('|', $heartbeatFields)];
             } elseif ($application->mode === 'account_recharge') {
                 $result = match ($api) {
                     'login.lg' => $accountAuth->login($application, $code, $secret, $device, $appsafecode, $sessionHandle),

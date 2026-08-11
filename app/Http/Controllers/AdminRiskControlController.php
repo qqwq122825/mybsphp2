@@ -92,6 +92,7 @@ final class AdminRiskControlController extends Controller
             'enabled' => ['nullable', 'boolean'],
             'window_seconds' => ['required', 'integer', 'min:10', 'max:3600'],
             'restart_grace_seconds' => ['nullable', 'integer', 'min:0', 'max:15'],
+            'security_report_mode' => ['required', Rule::in(['disabled', 'observe', 'enforce'])],
             'low_threshold' => ['required', 'integer', 'min:2', 'max:1000'],
             'high_threshold' => ['required', 'integer', 'min:3', 'max:2000', 'gt:low_threshold'],
             'block_duration_minutes' => ['required', 'integer', 'min:1', 'max:43200'],

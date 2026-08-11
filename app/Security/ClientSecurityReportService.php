@@ -18,6 +18,9 @@ final class ClientSecurityReportService
 
     public function rotateToken(Application $application, string $handle): string
     {
+        if ($this->mode($application) === 'disabled') {
+            return '';
+        }
         if (! preg_match('/^[A-Za-z0-9_-]{64}$/', $handle)) {
             return '';
         }
@@ -30,6 +33,10 @@ final class ClientSecurityReportService
 
     public function report(Application $application, string $handle, string $device, string $token, string $eventId, string $eventCode, mixed $evidence, string $ip): void
     {
+        $mode = $this->mode($application);
+        if ($mode === 'disabled') {
+            throw new InvalidArgumentException('SECURITY_REPORT_DISABLED');
+        }
         if (! preg_match('/^[A-Za-z0-9_-]{64}$/', $handle) || ! preg_match('/^[A-Za-z0-9_-]{8,64}$/', $eventId) || ! isset(self::EVENTS[$eventCode])) {
             throw new InvalidArgumentException('SECURITY_REPORT_INVALID');
         }
@@ -38,7 +45,7 @@ final class ClientSecurityReportService
             throw new InvalidArgumentException('SECURITY_REPORT_INVALID');
         }
 
-        DB::transaction(function () use ($application, $handle, $device, $token, $eventId, $eventCode, $evidence, $ip): void {
+        DB::transaction(function () use ($application, $handle, $device, $token, $eventId, $eventCode, $evidence, $ip, $mode): void {
             $session = ApplicationClientSession::query()->where('application_id', $application->getKey())->where('token_hash', hash('sha256', $handle))->lockForUpdate()->first();
             if (! $session || trim($device) === '' || ! hash_equals((string) $session->device_id_ciphertext, trim($device))
                 || ! $session->security_report_token_hash || ! hash_equals($session->security_report_token_hash, hash('sha256', $token))
@@ -52,6 +59,9 @@ final class ClientSecurityReportService
                 throw new InvalidArgumentException('SECURITY_REPORT_INVALID');
             }
             [$severity, $action] = self::EVENTS[$eventCode];
+            if ($mode !== 'enforce') {
+                $action = 'observe';
+            }
             ClientSecurityEvent::query()->create(['public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(), 'application_client_session_id' => $session->getKey(), 'card_id' => $session->card_id, 'application_account_id' => $session->application_account_id, 'event_id' => $eventId, 'event_code' => $eventCode, 'severity' => $severity, 'ip_hash' => hash('sha256', $ip), 'device_hash' => hash('sha256', trim($device)), 'evidence' => $evidence, 'action' => $action]);
             if ($action === 'freeze') {
                 $session->forceFill(['status' => 'security_blocked'])->save();
@@ -63,5 +73,12 @@ final class ClientSecurityReportService
                 }
             }
         }, 3);
+    }
+
+    private function mode(Application $application): string
+    {
+        $mode = (string) ($application->riskPolicy()->value('security_report_mode') ?? 'observe');
+
+        return in_array($mode, ['disabled', 'observe', 'enforce'], true) ? $mode : 'observe';
     }
 }

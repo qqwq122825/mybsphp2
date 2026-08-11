@@ -58,7 +58,10 @@ final class CardActivationService
             if ($card->status !== 'active' && ($card->card_is_frozen || $card->status === 'frozen')) {
                 throw new CardActivationException('CARD_FROZEN', '你选择卡串已冻结！');
             }
-            if (in_array($card->status, ['revoked', 'expired', 'consumed'], true)) {
+            if ($card->status === 'expired') {
+                throw new CardActivationException('CARD_EXPIRED', '该卡密已经到期。', 403);
+            }
+            if (in_array($card->status, ['revoked', 'consumed'], true)) {
                 throw new CardActivationException('CARD_UNAVAILABLE', '该卡密当前状态不可激活。');
             }
             $normalizedDevice = trim($deviceId);
@@ -88,7 +91,7 @@ final class CardActivationService
 
                 if ($card->expires_at?->isPast()) {
                     $card->forceFill(['status' => 'expired'])->save();
-                    throw new CardActivationException('CARD_EXPIRED', '该卡密已经到期。');
+                    throw new CardActivationException('CARD_EXPIRED', '该卡密已经到期。', 403);
                 }
 
                 $card->forceFill(['last_online_at' => now()])->save();
