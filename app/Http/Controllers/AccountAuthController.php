@@ -44,16 +44,21 @@ final class AccountAuthController extends Controller
             'device_id' => ['nullable', 'string', 'max:160'], 'appsafecode' => ['nullable', 'string', 'max:255'],
             'BSphpSeSsL' => ['nullable', 'string', 'size:64'],
         ]);
-        $decision = $risk->evaluate($application, $request, 'accounts.login', $validated['device_id'] ?? '');
+        $decision = $risk->evaluate($application, $request, 'accounts.login', $validated['device_id'] ?? '', $validated['username']."\0".$validated['password'], isset($validated['BSphpSeSsL']));
         if ($decision->shouldBlock()) {
             return $risk->blockedResponse($decision, $request);
         }
 
-        return $this->run($request, fn () => $risk->applyDecoy(
-            $auth->login($application, $validated['username'], $validated['password'], $validated['device_id'] ?? '', $validated['appsafecode'] ?? '', $validated['BSphpSeSsL'] ?? ''),
-            $application,
-            $decision,
-        ));
+        try {
+            $result = $auth->login($application, $validated['username'], $validated['password'], $validated['device_id'] ?? '', $validated['appsafecode'] ?? '', $validated['BSphpSeSsL'] ?? '');
+            $risk->complete($decision, true);
+
+            return ApiResponse::success($risk->applyDecoy($result, $application, $decision), request: $request);
+        } catch (AccountAuthException $exception) {
+            $risk->complete($decision, false);
+
+            return ApiResponse::error($exception->errorCode, $exception->getMessage(), $exception->status, $exception->details, request: $request);
+        }
     }
 
     public function recharge(Request $request, Application $application, AccountAuthService $auth): JsonResponse

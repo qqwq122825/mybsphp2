@@ -25,7 +25,7 @@ final class CardActivationController extends Controller
 
         $card = Card::query()->with('application')->where('code_lookup_hash', $hasher->lookupHash($validated['code']))->first();
         $decision = $card instanceof Card
-            ? $risk->evaluate($card->application, $request, 'cards.login', $validated['device_id'] ?? '')
+            ? $risk->evaluate($card->application, $request, 'cards.login', $validated['device_id'] ?? '', $validated['code']."\0".($validated['secret'] ?? ''), isset($validated['BSphpSeSsL']))
             : null;
         if ($decision?->shouldBlock()) {
             return $risk->blockedResponse($decision, $request);
@@ -40,6 +40,10 @@ final class CardActivationController extends Controller
                 $validated['BSphpSeSsL'] ?? '',
             );
         } catch (CardActivationException $exception) {
+            if ($decision !== null) {
+                $risk->complete($decision, false);
+            }
+
             return ApiResponse::error(
                 $exception->errorCode,
                 $exception->getMessage(),
@@ -49,6 +53,7 @@ final class CardActivationController extends Controller
         }
 
         if ($decision !== null) {
+            $risk->complete($decision, true);
             $result = $risk->applyDecoy($result, $card->application, $decision);
         }
 

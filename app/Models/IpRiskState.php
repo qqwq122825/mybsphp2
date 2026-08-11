@@ -11,7 +11,7 @@ class IpRiskState extends Model
     protected $fillable = [
         'public_id', 'application_id', 'ip', 'ip_hash', 'level', 'window_attempts', 'recent_attempt_timestamps',
         'total_attempts', 'window_started_at', 'last_seen_at', 'blocked_until',
-        'permanently_blocked', 'last_device_hash', 'last_endpoint', 'note',
+        'permanently_blocked', 'last_device_hash', 'last_subject_hash', 'last_endpoint', 'last_attempt_succeeded', 'note',
     ];
 
     protected function casts(): array
@@ -24,6 +24,7 @@ class IpRiskState extends Model
             'last_seen_at' => 'immutable_datetime',
             'blocked_until' => 'immutable_datetime',
             'permanently_blocked' => 'boolean',
+            'last_attempt_succeeded' => 'boolean',
         ];
     }
 

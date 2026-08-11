@@ -107,6 +107,39 @@ class IpRiskControlTest extends TestCase
         $this->assertDatabaseHas('risk_events', ['application_id' => $application->getKey(), 'level' => 'low', 'action' => 'observe']);
     }
 
+    public function test_active_session_restarts_are_deduplicated_but_failed_passwords_are_counted(): void
+    {
+        $application = $this->application('RESTART-VALUE');
+        $application->riskPolicy()->create([
+            'enabled' => true, 'window_seconds' => 10, 'restart_grace_seconds' => 4,
+            'low_threshold' => 5, 'high_threshold' => 7, 'block_duration_minutes' => 30,
+            'low_action' => 'observe', 'block_http_status' => 429,
+            'block_code' => 'ACCESS_TEMPORARILY_RESTRICTED', 'block_message' => '请求过于频繁。',
+        ]);
+        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/register', [
+            'username' => 'restart-user', 'password' => 'secret123', 'device_id' => 'RESTART-DEVICE',
+        ])->assertCreated();
+        $payload = [
+            'username' => 'restart-user', 'password' => 'secret123', 'device_id' => 'RESTART-DEVICE',
+            'BSphpSeSsL' => str_repeat('r', 64),
+        ];
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)->assertOk();
+        }
+        $this->assertDatabaseHas('ip_risk_states', [
+            'application_id' => $application->getKey(), 'window_attempts' => 1, 'total_attempts' => 5,
+        ]);
+
+        for ($i = 0; $i < 4; $i++) {
+            $failed = $payload;
+            $failed['password'] = 'wrong-password-'.$i;
+            $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $failed)->assertStatus(401);
+        }
+        $this->assertDatabaseHas('ip_risk_states', [
+            'application_id' => $application->getKey(), 'window_attempts' => 5, 'total_attempts' => 9,
+        ]);
+    }
+
     public function test_sliding_window_keeps_recent_requests_when_the_first_request_has_expired(): void
     {
         Carbon::setTestNow('2026-07-23 12:00:00');

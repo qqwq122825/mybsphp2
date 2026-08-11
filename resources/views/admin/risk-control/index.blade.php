@@ -72,6 +72,7 @@
                 <div class="risk-window-row">
                     <label><span>滚动统计窗口</span><div><input type="number" name="window_seconds" min="10" max="3600" value="{{ old('window_seconds', $policy->window_seconds) }}"><em>秒</em></div></label>
                     <label><span>高级封禁时长</span><div><input type="number" name="block_duration_minutes" min="1" max="43200" value="{{ old('block_duration_minutes', $policy->block_duration_minutes) }}"><em>分钟</em></div></label>
+                    <label><span>相同请求重启宽限</span><div><input type="number" name="restart_grace_seconds" min="0" max="15" value="{{ old('restart_grace_seconds', $policy->restart_grace_seconds) }}"><em>秒</em></div><small>仅去重同端点、同设备、同凭据的上次成功登录；0 表示关闭。</small></label>
                 </div>
 
                 <section class="risk-window-explainer">
@@ -121,6 +122,17 @@
             </div>
         </aside>
     </div>
+
+    <section class="dashboard-panel risk-feed-panel">
+        <header><div><p class="eyebrow">CLIENT SECURITY</p><h2>客户端安全事件</h2></div><span>24 小时 {{ $securityMetrics['events_24h'] }} 条 · 高置信 {{ $securityMetrics['high_24h'] }} 条 · 冻结主体 {{ $securityMetrics['frozen_subjects'] }} 个</span></header>
+        <div class="risk-feed-list">
+            @forelse($securityEvents as $event)
+                <article><span class="risk-feed-dot is-{{ $event->severity === 'high' ? 'high' : 'low' }}"></span><div><strong>{{ $event->event_code }} · {{ $event->event_id }}</strong><p>{{ strtoupper($event->severity) }} / {{ $event->action }}</p><small>{{ $event->created_at?->diffForHumans() }}</small></div><em>{{ $event->severity === 'high' ? '高置信' : '观察' }}</em></article>
+            @empty
+                <div class="risk-feed-empty"><span>✓</span><strong>暂无客户端安全事件</strong></div>
+            @endforelse
+        </div>
+    </section>
 
     <x-admin.table-shell title="风险 IP 列表" subtitle="只显示进入低级或高级档位的 IP" panel-class="risk-table-panel">
         <x-slot:search>

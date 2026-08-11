@@ -11,10 +11,12 @@ use App\Cards\CardActivationService;
 use App\Http\ApiResponse;
 use App\Models\Application;
 use App\Risk\IpRiskControlService;
+use App\Security\ClientSecurityReportService;
 use App\Sessions\ClientSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use InvalidArgumentException;
 
 final class LegacyGatewayController extends Controller
 {
@@ -25,6 +27,7 @@ final class LegacyGatewayController extends Controller
         AccountAuthService $accountAuth,
         ClientSessionService $clientSessions,
         IpRiskControlService $risk,
+        ClientSecurityReportService $securityReports,
     ): JsonResponse {
         $appCode = (string) $request->query('appid', '');
         $gatewayToken = (string) $request->query('md5', '');
@@ -96,7 +99,7 @@ final class LegacyGatewayController extends Controller
 
         $riskDecision = null;
         if (in_array($api, ['login.ic', 'login.lg'], true)) {
-            $riskDecision = $risk->evaluate($application, $request, 'legacy.'.$api, $device);
+            $riskDecision = $risk->evaluate($application, $request, 'legacy.'.$api, $device, $code."\0".$secret, preg_match('/^[A-Za-z0-9_-]{64}$/', $sessionHandle) === 1);
             if ($riskDecision->shouldBlock()) {
                 return $risk->blockedResponse($riskDecision, $request);
             }
@@ -105,6 +108,20 @@ final class LegacyGatewayController extends Controller
         try {
             if ($api === 'BSphpSeSsL.in') {
                 $result = ['legacy_response' => $clientSessions->issueHandle($sessionHandle)];
+            } elseif ($api === 'security.report') {
+                $evidenceRaw = $this->firstParameter($parameters, ['evidence']);
+                $evidence = json_decode($evidenceRaw, true);
+                if (! is_array($evidence)) {
+                    $evidence = ['digest' => $evidenceRaw];
+                }
+                $securityReports->report(
+                    $application, $sessionHandle, $device,
+                    $this->firstParameter($parameters, ['report_token']),
+                    $this->firstParameter($parameters, ['event_id']),
+                    $this->firstParameter($parameters, ['event_code']),
+                    $evidence, (string) ($request->ip() ?: '0.0.0.0'),
+                );
+                $result = ['legacy_response' => implode('|', ['01', 'accepted', $appsafecode, now()->utc()->toISOString()])];
             } elseif (in_array($api, ['timeout.ic', 'timeout.lg'], true)) {
                 $expected = $application->mode === 'account_recharge' ? 'timeout.lg' : 'timeout.ic';
                 if ($api !== $expected) {
@@ -143,7 +160,12 @@ final class LegacyGatewayController extends Controller
                 }
                 $result = $activation->activate($code, $secret, $device, $appsafecode, $sessionHandle);
             }
+        } catch (InvalidArgumentException $exception) {
+            return ApiResponse::error('SECURITY_REPORT_REJECTED', '上报校验失败。', 422, request: $request);
         } catch (CardActivationException|AccountAuthException $exception) {
+            if ($riskDecision !== null) {
+                $risk->complete($riskDecision, false);
+            }
             // Some Nginx installations internally rewrite upstream 404 responses
             // to a GET error page, which turns the useful JSON into HTTP_405.
             // Keep legacy business errors on a successful transport response.
@@ -160,6 +182,18 @@ final class LegacyGatewayController extends Controller
                 $details,
                 request: $request,
             );
+        }
+
+        if ($riskDecision !== null) {
+            $risk->complete($riskDecision, true);
+            $handle = (string) ($result['BSphpSeSsL'] ?? '');
+            $reportToken = $securityReports->rotateToken($application, $handle);
+            if ($reportToken !== '' && isset($result['legacy_response'])) {
+                $parts = explode('|', (string) $result['legacy_response']);
+                $parts[10] = $reportToken;
+                $result['legacy_response'] = implode('|', $parts);
+                $result['report_token'] = $reportToken;
+            }
         }
 
         if ($riskDecision !== null) {

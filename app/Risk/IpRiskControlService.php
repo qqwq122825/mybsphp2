@@ -20,13 +20,16 @@ final class IpRiskControlService
         private readonly OperationalMode $operationalMode,
     ) {}
 
-    public function evaluate(Application $application, Request $request, string $endpoint, string $deviceId = ''): RiskDecision
+    public function evaluate(Application $application, Request $request, string $endpoint, string $deviceId = '', string $subjectProof = '', bool $restartEligible = false): RiskDecision
     {
         $policy = $application->riskPolicy()->firstOrCreate([], $this->defaults());
         $ip = (string) ($request->ip() ?: '0.0.0.0');
         $ipHash = hash('sha256', $ip);
 
-        return DB::transaction(function () use ($application, $policy, $ip, $ipHash, $endpoint, $deviceId): RiskDecision {
+        $deviceHash = trim($deviceId) !== '' ? hash('sha256', trim($deviceId)) : null;
+        $subjectHash = hash_hmac('sha256', $endpoint."\0".trim($deviceId)."\0".$subjectProof, (string) config('app.key'));
+
+        return DB::transaction(function () use ($application, $policy, $ip, $ipHash, $endpoint, $deviceId, $deviceHash, $subjectHash, $restartEligible): RiskDecision {
             $state = IpRiskState::query()
                 ->where('application_id', $application->getKey())
                 ->where('ip_hash', $ipHash)
@@ -60,11 +63,25 @@ final class IpRiskControlService
                 is_array($state->recent_attempt_timestamps) ? $state->recent_attempt_timestamps : [],
                 static fn (mixed $timestamp): bool => is_int($timestamp) && $timestamp > $cutoff,
             ));
-            $recentAttempts[] = $now->getTimestamp();
+            $withinGrace = $restartEligible
+                && (int) $policy->restart_grace_seconds > 0
+                && $recentAttempts !== []
+                && $state->last_attempt_succeeded === true
+                && $state->last_endpoint === $endpoint
+                && $state->last_device_hash !== null
+                && hash_equals((string) $state->last_device_hash, (string) $deviceHash)
+                && $state->last_subject_hash !== null
+                && hash_equals((string) $state->last_subject_hash, $subjectHash)
+                && $state->last_seen_at?->gte($now->copy()->subSeconds((int) $policy->restart_grace_seconds));
+            if (! $withinGrace) {
+                $recentAttempts[] = $now->getTimestamp();
+            }
             $state->recent_attempt_timestamps = $recentAttempts;
             $state->window_attempts = count($recentAttempts);
             $state->window_started_at = $now->copy()->setTimestamp($recentAttempts[0]);
             $state->total_attempts++;
+            $state->last_subject_hash = $subjectHash;
+            $state->last_attempt_succeeded = false;
             $this->touchState($state, $endpoint, $deviceId);
 
             $level = 'normal';
@@ -108,6 +125,11 @@ final class IpRiskControlService
 
             return new RiskDecision($level, $action, $state->window_attempts, $policy, $state);
         }, 3);
+    }
+
+    public function complete(RiskDecision $decision, bool $succeeded): void
+    {
+        $decision->state->forceFill(['last_attempt_succeeded' => $succeeded])->save();
     }
 
     /** @param array<string, mixed> $result @return array<string, mixed> */
@@ -186,6 +208,7 @@ final class IpRiskControlService
             'block_http_status' => 429,
             'block_code' => 'ACCESS_TEMPORARILY_RESTRICTED',
             'block_message' => '当前请求过于频繁，请稍后再试。',
+            'restart_grace_seconds' => 4,
         ];
     }
 

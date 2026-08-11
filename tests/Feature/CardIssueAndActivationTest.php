@@ -356,6 +356,7 @@ class CardIssueAndActivationTest extends TestCase
         $loginResponse = $this->postJson($gateway, $login['envelope'])->assertOk()->json();
         $loginFields = explode('|', $cipher->openResponse($loginResponse, $login['session_key'], $login['request_nonce']));
         $this->assertSame($handle, $loginFields[9]);
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9_-]{43}$/', $loginFields[10]);
 
         $heartbeat = $cipher->sealRequestWithContext($application, http_build_query([
             'api' => 'timeout.ic', 'BSphpSeSsL' => $handle, 'key' => 'HEARTBEAT-DEVICE', 'appsafecode' => 'HEART-SAFE',
@@ -374,6 +375,44 @@ class CardIssueAndActivationTest extends TestCase
         $this->postJson('/api/v2/apps/'.$application->public_id.'/sessions/heartbeat', [
             'BSphpSeSsL' => $handle, 'device_id' => 'HEARTBEAT-DEVICE',
         ])->assertOk()->assertJsonPath('data.code', '5030');
+    }
+
+    public function test_encrypted_security_report_is_idempotent_and_freezes_high_confidence_subject(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $handle = str_repeat('s', 64);
+        $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
+
+        $login = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $credential['code'], 'key' => 'SECURITY-DEVICE',
+            'BSphpSeSsL' => $handle, 'appsafecode' => 'LOGIN-SAFE',
+        ], '', '&', PHP_QUERY_RFC3986));
+        $response = $this->postJson($gateway, $login['envelope'])->assertOk()->json();
+        $fields = explode('|', $cipher->openResponse($response, $login['session_key'], $login['request_nonce']));
+        $reportToken = $fields[10];
+
+        $sendReport = function () use ($cipher, $application, $gateway, $handle, $reportToken): void {
+            $report = $cipher->sealRequestWithContext($application, http_build_query([
+                'api' => 'security.report', 'BSphpSeSsL' => $handle, 'key' => 'SECURITY-DEVICE',
+                'appsafecode' => 'REPORT-SAFE', 'event_id' => '01SECURITYEVENT000000000001',
+                'event_code' => 'D0', 'report_token' => $reportToken,
+                'evidence' => json_encode(['selector_hash' => str_repeat('a', 16)]),
+            ], '', '&', PHP_QUERY_RFC3986));
+            $response = $this->postJson($gateway, $report['envelope'])->assertOk()->json();
+            $plain = $cipher->openResponse($response, $report['session_key'], $report['request_nonce']);
+            $this->assertSame(['01', 'accepted', 'REPORT-SAFE'], array_slice(explode('|', $plain), 0, 3));
+        };
+
+        $sendReport();
+        $sendReport();
+        $this->assertDatabaseCount('client_security_events', 1);
+        $this->assertDatabaseHas('application_client_sessions', ['token_hash' => hash('sha256', $handle), 'status' => 'security_blocked']);
+        $this->assertDatabaseHas('cards', ['application_id' => $application->getKey(), 'user_status' => 'frozen']);
+        $this->postJson('/api/v2/apps/'.$application->public_id.'/sessions/heartbeat', [
+            'BSphpSeSsL' => $handle, 'device_id' => 'SECURITY-DEVICE',
+        ])->assertOk()->assertJsonPath('data.code', '5026');
     }
 
     public function test_unlimited_application_and_card_limits_allow_multiple_sessions(): void

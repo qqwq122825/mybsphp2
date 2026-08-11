@@ -7,6 +7,7 @@ use App\Audit\AuditLogger;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
+use App\Models\ClientSecurityEvent;
 use App\Models\IpRiskState;
 use App\Models\RiskEvent;
 use App\Risk\IpRiskControlService;
@@ -70,6 +71,12 @@ final class AdminRiskControlController extends Controller
             'operationalMode' => $this->operationalMode->current(),
             'states' => $states->latest('last_seen_at')->paginate(20)->withQueryString(),
             'recentEvents' => $events->latest()->limit(12)->get(),
+            'securityEvents' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->latest()->limit(20)->get() : collect(),
+            'securityMetrics' => [
+                'events_24h' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('created_at', '>=', now()->subDay())->count() : 0,
+                'high_24h' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('severity', 'high')->where('created_at', '>=', now()->subDay())->count() : 0,
+                'frozen_subjects' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('action', 'freeze')->get(['card_id', 'application_account_id'])->unique(fn ($event) => $event->card_id ? 'c'.$event->card_id : 'a'.$event->application_account_id)->count() : 0,
+            ],
             'metrics' => [
                 'events_24h' => $selected ? RiskEvent::query()->where('application_id', $selected->getKey())->where('created_at', '>=', now()->subDay())->count() : 0,
                 'low' => (clone $base)->where('level', 'low')->count(),
@@ -84,6 +91,7 @@ final class AdminRiskControlController extends Controller
         $validated = $request->validate([
             'enabled' => ['nullable', 'boolean'],
             'window_seconds' => ['required', 'integer', 'min:10', 'max:3600'],
+            'restart_grace_seconds' => ['nullable', 'integer', 'min:0', 'max:15'],
             'low_threshold' => ['required', 'integer', 'min:2', 'max:1000'],
             'high_threshold' => ['required', 'integer', 'min:3', 'max:2000', 'gt:low_threshold'],
             'block_duration_minutes' => ['required', 'integer', 'min:1', 'max:43200'],
@@ -94,6 +102,7 @@ final class AdminRiskControlController extends Controller
             'block_message' => ['required', 'string', 'max:255'],
         ]);
         $validated['enabled'] = $request->boolean('enabled');
+        $validated['restart_grace_seconds'] ??= (int) ($application->riskPolicy?->restart_grace_seconds ?? 4);
 
         $application->riskPolicy()->updateOrCreate([], $validated);
         $this->recordAdminAction($request, 'risk.policy_updated', 'risk_policy', $application->public_id, $application->getKey(), $validated, '更新 IP 封控策略');
