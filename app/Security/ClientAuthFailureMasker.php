@@ -2,6 +2,8 @@
 
 namespace App\Security;
 
+use App\Audit\AuditEvent;
+use App\Audit\AuditLogger;
 use App\Cards\CardActivationException;
 use App\Models\Application;
 use Illuminate\Http\Request;
@@ -9,6 +11,10 @@ use Illuminate\Support\Facades\Log;
 
 final class ClientAuthFailureMasker
 {
+    public function __construct(
+        private readonly AuditLogger $audit,
+    ) {}
+
     /** @var list<string> */
     private const CARD_INPUT_ERRORS = [
         'EMPTY_CARD',
@@ -61,6 +67,35 @@ final class ClientAuthFailureMasker
             'request_path' => $request->path(),
             'ip_hash' => hash('sha256', (string) ($request->ip() ?: '0.0.0.0')),
         ]);
+
+        try {
+            $this->audit->record(new AuditEvent(
+                action: 'client.auth_failure_masked',
+                targetType: 'application',
+                targetId: $application?->public_id,
+                applicationId: $application?->getKey(),
+                before: [
+                    'application' => [
+                        'public_id' => $application?->public_id,
+                        'name' => $application?->name,
+                    ],
+                ],
+                after: [
+                    'diagnostic_reference' => $reference,
+                    'diagnostic_code' => $internalCode,
+                    'internal_code' => $internalCode,
+                    'internal_message' => $internalMessage,
+                    'public_code' => 'INVALID_CARD',
+                    'public_message' => '卡密不存在'.$reference,
+                    'http_status' => 200,
+                ],
+                reason: "诊断编号 {$reference} · {$internalCode}",
+                result: 'failed',
+                actorRole: 'client',
+            ), $request);
+        } catch (\Throwable) {
+            // 审计存储旁路认证响应；文件日志仍保留同一诊断编号。
+        }
 
         return [
             'code' => 'INVALID_CARD',

@@ -87,6 +87,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('系统制卡日志')
             ->assertSee('系统安全防护日志')
             ->assertSee('客户端请求日志')
+            ->assertSee('诊断编号查询')
             ->assertDontSee('用户反馈')
             ->assertDontSee('邮件设置')
             ->assertDontSee('在线支付');
@@ -150,6 +151,41 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('DEVICE_MISMATCH')
             ->assertSee('REQUEST-DEVICE')
             ->assertDontSee('client-trace-details');
+
+        AuditLog::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'actor_role_snapshot' => 'client',
+            'action' => 'client.auth_failure_masked',
+            'target_type' => 'application',
+            'target_id' => 'diagnostic-app',
+            'request_id' => (string) Str::ulid(),
+            'ip' => '203.0.113.24',
+            'before_data' => [
+                'application' => ['public_id' => 'diagnostic-app', 'name' => '编号查询软件'],
+            ],
+            'after_data' => [
+                'diagnostic_reference' => 241,
+                'internal_code' => 'DEVICE_BLOCKED',
+                'internal_message' => '设备已进入安全封控。',
+                'public_code' => 'INVALID_CARD',
+                'public_message' => '卡密不存在241',
+                'http_status' => 200,
+            ],
+            'reason' => '诊断编号 241 · DEVICE_BLOCKED',
+            'result' => 'failed',
+        ]);
+
+        $this->get('/private-console/system-logs/diagnostics/lookup')
+            ->assertOk()
+            ->assertSee('诊断编号查询')
+            ->assertSee('输入三位诊断编号后查询');
+        $this->get('/private-console/system-logs/diagnostics/lookup?reference=241')
+            ->assertOk()
+            ->assertSee('编号查询软件')
+            ->assertSee('DEVICE_BLOCKED')
+            ->assertSee('设备已进入安全封控。')
+            ->assertSee('卡密不存在241')
+            ->assertSee('203.0.113.24');
 
         $this->post('/private-console/logout')
             ->assertRedirect('/private-console');

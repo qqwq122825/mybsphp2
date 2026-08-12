@@ -81,6 +81,9 @@ Route::prefix('{adminPath}')
                 ->where('type', 'login|card-making|protection|client-requests')
                 ->middleware('can:'.AdminPermission::AuditView->value)
                 ->name('admin.system-logs.index');
+            Route::get('/system-logs/diagnostics/lookup', [AdminSystemLogController::class, 'diagnostics'])
+                ->middleware('can:'.AdminPermission::AuditView->value)
+                ->name('admin.system-logs.diagnostics');
             Route::post('/system-logs/{type}/maintenance', [AdminSystemLogController::class, 'maintenance'])
                 ->where('type', 'login|card-making|protection|client-requests')
                 ->middleware('can:'.AdminPermission::AuditView->value)

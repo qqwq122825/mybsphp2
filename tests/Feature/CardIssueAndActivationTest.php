@@ -281,6 +281,10 @@ class CardIssueAndActivationTest extends TestCase
             'secret' => $credential['secret'],
             'device_id' => 'IOS-DEVICE-001',
         ]));
+        $maskedLog = AuditLog::query()->where('action', 'client.auth_failure_masked')->latest('id')->firstOrFail();
+        $this->assertSame('USER_FROZEN', data_get($maskedLog->after_data, 'internal_code'));
+        $this->assertSame('INVALID_CARD', data_get($maskedLog->after_data, 'public_code'));
+        $this->assertSame(200, data_get($maskedLog->after_data, 'http_status'));
         $this->assertTrue($expiresAt->equalTo($card->fresh()->expires_at));
         $card->forceFill(['user_status' => 'active', 'user_frozen_at' => null])->save();
 
