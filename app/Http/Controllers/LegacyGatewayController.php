@@ -22,6 +22,9 @@ use InvalidArgumentException;
 
 final class LegacyGatewayController extends Controller
 {
+    /** 心跳协议 fields[6...] 的固定预留槽位，避免后续扩展移动既有字段。 */
+    private const HEARTBEAT_RESERVED_FIELD_COUNT = 4;
+
     public function __invoke(
         Request $request,
         HybridPacketCipher $cipher,
@@ -136,10 +139,12 @@ final class LegacyGatewayController extends Controller
                     ? $securityReports->rotateToken($application, $heartbeat['handle'])
                     : '';
                 // 固定位置保持向后兼容：旧客户端只读前 4 项；新客户端
-                // 使用 fields[4] 旋转上报令牌，fields[5] 执行日级动态校验。
+                // 使用 fields[4] 旋转上报令牌，fields[5] 执行日级动态校验，
+                // fields[6...] 作为空白预留槽，后续扩展不移动既有字段。
                 $heartbeatFields = [
                     $heartbeat['code'], $heartbeat['handle'], $appsafecode, $heartbeat['server_time'],
                     $heartbeatToken, $dailyCodec->dailySignature(),
+                    ...array_fill(0, self::HEARTBEAT_RESERVED_FIELD_COUNT, ''),
                 ];
                 $result = ['legacy_response' => implode('|', $heartbeatFields)];
             } elseif ($application->mode === 'account_recharge') {

@@ -364,6 +364,8 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertSame(['5031', $handle, 'HEART-SAFE'], array_slice($fields, 0, 3));
         $this->assertMatchesRegularExpression('/^[A-Za-z0-9_-]{43}$/', $fields[4] ?? '');
         $this->assertSame(app(DailyVerificationCodec::class)->dailySignature(), $fields[5] ?? '');
+        $this->assertCount(10, $fields);
+        $this->assertSame(['', '', '', ''], array_slice($fields, 6));
         $this->assertNotSame($loginFields[10], $fields[4]);
 
         $card = $application->cards()->sole();
