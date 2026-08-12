@@ -15,6 +15,7 @@ use App\Risk\IpRiskControlService;
 use App\Support\OperationalMode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -70,6 +71,14 @@ final class AdminRiskControlController extends Controller
                 ->where(fn ($query) => $query->whereNull('blocked_until')->orWhere('blocked_until', '>', now()))
                 ->count()
             : 0;
+        $securityDeviceStates = $selected
+            ? ClientSecuritySubjectState::query()
+                ->where('application_id', $selected->getKey())
+                ->latest('last_event_at')
+                ->limit(20)
+                ->get()
+            : collect();
+        $securityDeviceDetails = $this->resolveSecurityDeviceDetails($securityDeviceStates);
 
         return view('admin.risk-control.index', [
             'appName' => $this->installation->applicationName(),
@@ -83,7 +92,8 @@ final class AdminRiskControlController extends Controller
             'states' => $states->latest('last_seen_at')->paginate(20)->withQueryString(),
             'recentEvents' => $events->latest()->limit(12)->get(),
             'securityEvents' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->latest()->limit(20)->get() : collect(),
-            'securityDeviceStates' => $selected ? ClientSecuritySubjectState::query()->where('application_id', $selected->getKey())->latest('last_event_at')->limit(20)->get() : collect(),
+            'securityDeviceStates' => $securityDeviceStates,
+            'securityDeviceDetails' => $securityDeviceDetails,
             'securityMetrics' => [
                 'events_24h' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('created_at', '>=', now()->subDay())->count() : 0,
                 'high_24h' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('severity', 'high')->where('created_at', '>=', now()->subDay())->count() : 0,
@@ -170,6 +180,62 @@ final class AdminRiskControlController extends Controller
         $this->recordAdminAction($request, 'risk.device_unblocked', 'client_security_subject_state', (string) $deviceState->getKey(), $deviceState->application_id, ['status' => 'observe'], '解除客户端设备黑名单');
 
         return back()->with('success', '设备黑名单已解除；如需恢复原卡密或账号，请同时解冻授权主体。');
+    }
+
+    /**
+     * @param  Collection<int, ClientSecuritySubjectState>  $deviceStates
+     * @return array<string, array{identifier: string|null, credential_type: string|null, credential: string|null}>
+     */
+    private function resolveSecurityDeviceDetails(Collection $deviceStates): array
+    {
+        $hashes = $deviceStates->pluck('device_hash')->filter()->unique()->values();
+        if ($hashes->isEmpty()) {
+            return [];
+        }
+
+        $details = [];
+        $events = ClientSecurityEvent::query()
+            ->with([
+                'session:id,device_id_ciphertext,device_mask',
+                'card:id,code_ciphertext,code_last4,bound_device_ciphertext,bound_device_mask',
+                'account:id,username,bound_device_ciphertext,bound_device_mask',
+            ])
+            ->whereIn('device_hash', $hashes)
+            ->latest('created_at')
+            ->get();
+
+        foreach ($events as $event) {
+            $hash = (string) $event->device_hash;
+            $detail = $details[$hash] ?? [
+                'identifier' => null,
+                'credential_type' => null,
+                'credential' => null,
+            ];
+            $candidates = [
+                $event->session?->device_id_ciphertext,
+                $event->card?->bound_device_ciphertext,
+                $event->account?->bound_device_ciphertext,
+            ];
+            if ($detail['identifier'] === null) {
+                foreach ($candidates as $candidate) {
+                    $device = trim((string) $candidate);
+                    if ($device !== '' && hash_equals($hash, hash('sha256', $device))) {
+                        $detail['identifier'] = $device;
+                        break;
+                    }
+                }
+            }
+            if ($detail['credential'] === null && $event->card !== null) {
+                $detail['credential_type'] = '登录卡密';
+                $detail['credential'] = trim((string) $event->card->code_ciphertext);
+            } elseif ($detail['credential'] === null && $event->account !== null) {
+                $detail['credential_type'] = '登录账号';
+                $detail['credential'] = trim((string) $event->account->username);
+            }
+            $details[$hash] = $detail;
+        }
+
+        return $details;
     }
 
     /** @param array<string, mixed> $after */

@@ -4,9 +4,15 @@ namespace Tests\Feature;
 
 use App\Applications\ApplicationCredentialService;
 use App\Auth\SystemAccessSynchronizer;
+use App\Cards\CardCredentialHasher;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
+use App\Models\ApplicationClientSession;
+use App\Models\Card;
+use App\Models\CardBatch;
+use App\Models\CardType;
+use App\Models\ClientSecurityEvent;
 use App\Models\ClientSecuritySubjectState;
 use App\Models\Role;
 use App\Models\SystemSetting;
@@ -207,6 +213,43 @@ class IpRiskControlTest extends TestCase
                 'application_id' => $application->getKey(), 'device_hash' => hash('sha256', 'BLOCKED-DEVICE'),
                 'risk_score' => 100, 'status' => 'blocked', 'last_event_at' => now(), 'reason_code' => 'S0',
             ]);
+            $securityCardType = CardType::query()->create([
+                'public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(),
+                'name' => '风控登录卡', 'code' => 'risk-login', 'purpose' => 'login_credential',
+                'benefit_kind' => 'duration', 'duration_seconds' => 86400,
+                'duration_value' => 1, 'duration_unit' => 'day', 'code_length' => 24,
+                'secret_length' => 0, 'status' => 'active',
+            ]);
+            $securityBatch = CardBatch::query()->create([
+                'public_id' => (string) Str::ulid(), 'card_type_id' => $securityCardType->getKey(),
+                'batch_no' => 'RISK-'.Str::upper(Str::random(10)), 'source' => 'generated',
+                'planned_quantity' => 1, 'actual_quantity' => 1, 'status' => 'ready',
+            ]);
+            $securityCardCode = 'RISK-LOGIN-CARD-000001';
+            $securityCard = Card::query()->create([
+                'public_id' => (string) Str::ulid(), 'batch_id' => $securityBatch->getKey(),
+                'card_type_id' => $securityCardType->getKey(), 'application_id' => $application->getKey(),
+                'code_lookup_hash' => app(CardCredentialHasher::class)->lookupHash($securityCardCode),
+                'code_ciphertext' => $securityCardCode, 'code_last4' => '0001',
+                'status' => 'issued', 'card_is_frozen' => true,
+                'bound_device_ciphertext' => 'BLOCKED-DEVICE', 'bound_device_mask' => 'BLOCKED-DEVICE',
+            ]);
+            $securitySession = ApplicationClientSession::query()->create([
+                'public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(),
+                'token_hash' => hash('sha256', 'risk-device-session'), 'auth_mode' => 'card',
+                'card_id' => $securityCard->getKey(),
+                'device_id_ciphertext' => 'BLOCKED-DEVICE', 'device_mask' => 'BLOCKED-DEVICE',
+                'status' => 'security_blocked', 'last_heartbeat_at' => now(),
+            ]);
+            ClientSecurityEvent::query()->create([
+                'public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(),
+                'application_client_session_id' => $securitySession->getKey(),
+                'card_id' => $securityCard->getKey(),
+                'event_id' => '01RISKDEVICEEVENT000000000001', 'event_code' => 'S0',
+                'severity' => 'high', 'ip_hash' => hash('sha256', '127.0.0.1'),
+                'device_hash' => hash('sha256', 'BLOCKED-DEVICE'), 'evidence' => [],
+                'action' => 'freeze', 'created_at' => now(),
+            ]);
             $this->actingAs($administrator, 'admin');
 
             $this->get('/private-console/risk-control')
@@ -233,6 +276,12 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('蜜罐事件与异常退出策略')
                 ->assertSee('设备黑名单')
                 ->assertSee('当前有 1 台设备处于黑名单')
+                ->assertSee('设备序列号')
+                ->assertSee('BLOCKED-DEVICE')
+                ->assertSee('已关联绑定设备')
+                ->assertSee('登录卡密')
+                ->assertSee($securityCardCode)
+                ->assertSee(substr(hash('sha256', 'BLOCKED-DEVICE'), 0, 12).'…'.substr(hash('sha256', 'BLOCKED-DEVICE'), -8))
                 ->assertSee('使用新卡密时也会进入蜜罐返回')
                 ->assertDontSee('风险 IP 列表');
 

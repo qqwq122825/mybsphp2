@@ -31,4 +31,16 @@ class ClientSecurityEvent extends Model
     {
         return $this->belongsTo(ApplicationClientSession::class, 'application_client_session_id');
     }
+
+    /** @return BelongsTo<Card, $this> */
+    public function card(): BelongsTo
+    {
+        return $this->belongsTo(Card::class);
+    }
+
+    /** @return BelongsTo<ApplicationAccount, $this> */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(ApplicationAccount::class, 'application_account_id');
+    }
 }
