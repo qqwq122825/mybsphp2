@@ -39,11 +39,11 @@ class IpRiskControlTest extends TestCase
 
         $payload = ['username' => 'riskuser', 'password' => 'secret123', 'device_id' => 'RISK-DEVICE-001'];
         $first = $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-            ->assertOk()->assertJsonPath('data.payload', 'REAL-VERIFICATION-VALUE');
+            ->assertOk()->assertJsonMissingPath('data.payload');
 
         $second = $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
             ->assertOk()->assertJsonMissingPath('data.risk_control');
-        $this->assertNotSame('REAL-VERIFICATION-VALUE', $second->json('data.payload'));
+        $second->assertJsonMissingPath('data.payload');
         $this->assertSame($first->json('data.account.expires_at'), $second->json('data.account.expires_at'));
 
         $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
@@ -103,7 +103,7 @@ class IpRiskControlTest extends TestCase
         $payload = ['username' => 'observer', 'password' => 'secret123', 'device_id' => 'OBSERVE-DEVICE'];
         $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)->assertOk();
         $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-            ->assertOk()->assertJsonPath('data.payload', '');
+            ->assertOk()->assertJsonMissingPath('data.payload');
         $this->assertDatabaseHas('risk_events', ['application_id' => $application->getKey(), 'level' => 'low', 'action' => 'observe']);
     }
 
@@ -156,20 +156,20 @@ class IpRiskControlTest extends TestCase
             $payload = ['username' => 'slider', 'password' => 'secret123', 'device_id' => 'SLIDING-DEVICE'];
 
             $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-                ->assertOk()->assertJsonPath('data.payload', 'REAL-SLIDING-VALUE');
+                ->assertOk()->assertJsonMissingPath('data.payload');
 
             Carbon::setTestNow(now()->addSeconds(3));
             $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-                ->assertOk()->assertJsonPath('data.payload', 'REAL-SLIDING-VALUE');
+                ->assertOk()->assertJsonMissingPath('data.payload');
 
             Carbon::setTestNow(now()->addSeconds(3));
             $third = $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)->assertOk();
-            $this->assertNotSame('REAL-SLIDING-VALUE', $third->json('data.payload'));
+            $third->assertJsonMissingPath('data.payload');
 
             // 第 11 秒：第 0 秒请求移出，但第 3、6、11 秒仍是最近 10 秒内的 3 次。
             Carbon::setTestNow(now()->addSeconds(5));
             $fourth = $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)->assertOk();
-            $this->assertNotSame('REAL-SLIDING-VALUE', $fourth->json('data.payload'));
+            $fourth->assertJsonMissingPath('data.payload');
             $this->assertDatabaseHas('ip_risk_states', [
                 'application_id' => $application->getKey(), 'level' => 'low', 'window_attempts' => 3,
             ]);
@@ -177,7 +177,7 @@ class IpRiskControlTest extends TestCase
             // 第 17 秒：窗口内只剩第 11、17 秒两次，自动恢复正常返回。
             Carbon::setTestNow(now()->addSeconds(6));
             $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-                ->assertOk()->assertJsonPath('data.payload', 'REAL-SLIDING-VALUE');
+                ->assertOk()->assertJsonMissingPath('data.payload');
             $this->assertDatabaseHas('ip_risk_states', [
                 'application_id' => $application->getKey(), 'level' => 'normal', 'window_attempts' => 2,
             ]);

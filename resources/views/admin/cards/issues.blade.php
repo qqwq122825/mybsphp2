@@ -17,7 +17,7 @@
             <div><span>ISSUED CREDENTIALS · 本次交付</span><strong>{{ count($issuedCredentials) }} 张卡</strong></div>
             <textarea readonly rows="{{ min(10, count($issuedCredentials) + 1) }}">@foreach($issuedCredentials as $credential){{ $credential['code'] }} | {{ $credential['secret'] }}
 @endforeach</textarea>
-            <a class="button button-secondary" href="{{ route('demo.activate') }}" target="_blank">打开激活模拟页</a>
+            <p class="muted">客户端通过 AppEn 加密网关完成激活验证。</p>
         </section>
     @endif
 
@@ -51,7 +51,7 @@
                 <div><dt>线上支付</dt><dd>暂未接入</dd></div>
                 <div><dt>邮件/验证码</dt><dd>首版排除</dd></div>
                 <div><dt>发卡方式</dt><dd>后台手动</dd></div>
-                <div><dt>激活验证</dt><dd><a href="{{ route('demo.activate') }}" target="_blank">打开模拟页 ↗</a></dd></div>
+                <div><dt>激活验证</dt><dd>AppEn 加密网关</dd></div>
             </dl>
         </section>
     </section>

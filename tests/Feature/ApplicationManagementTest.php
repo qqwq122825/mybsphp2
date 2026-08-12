@@ -150,7 +150,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('浏览器密码测试卡')
             ->assertSee('已激活')
             ->assertSee('到期时间');
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $generated['credentials'][0]['code'],
             'secret' => $generated['credentials'][0]['secret'],
             'device_id' => 'DELETE-TYPE-QUERY-DEVICE',

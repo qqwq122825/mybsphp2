@@ -53,7 +53,10 @@ final class AccountAuthController extends Controller
             $result = $auth->login($application, $validated['username'], $validated['password'], $validated['device_id'] ?? '', $validated['appsafecode'] ?? '', $validated['BSphpSeSsL'] ?? '');
             $risk->complete($decision, true);
 
-            return ApiResponse::success($risk->applyDecoy($result, $application, $decision), request: $request);
+            return ApiResponse::success(
+                $this->withoutProtectedPayload($risk->applyDecoy($result, $application, $decision)),
+                request: $request,
+            );
         } catch (AccountAuthException $exception) {
             $risk->complete($decision, false);
 
@@ -75,7 +78,11 @@ final class AccountAuthController extends Controller
     private function run(Request $request, callable $callback, int $status = 200): JsonResponse
     {
         try {
-            return ApiResponse::success($callback(), status: $status, request: $request);
+            return ApiResponse::success(
+                $this->withoutProtectedPayload($callback()),
+                status: $status,
+                request: $request,
+            );
         } catch (AccountAuthException $exception) {
             return ApiResponse::error(
                 $exception->errorCode,
@@ -85,5 +92,19 @@ final class AccountAuthController extends Controller
                 request: $request,
             );
         }
+    }
+
+    /** @param array<string, mixed> $result @return array<string, mixed> */
+    private function withoutProtectedPayload(array $result): array
+    {
+        unset(
+            $result['payload'],
+            $result['encrypted_payload'],
+            $result['daily_signature'],
+            $result['legacy_response'],
+            $result['report_token'],
+        );
+
+        return $result;
     }
 }

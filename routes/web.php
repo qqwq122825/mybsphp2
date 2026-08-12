@@ -23,10 +23,6 @@ use App\Install\InstallationManager;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', SiteController::class)->name('site.home');
-Route::get('/demo/activate', fn () => response()->file(public_path('demo-activate.html')))
-    ->name('demo.activate');
-Route::get('/demo/ios', fn () => response()->file(public_path('ios-demo.html')))
-    ->name('demo.ios');
 Route::get('/activation-query', [PublicCardQueryController::class, 'show'])
     ->name('activation.query');
 Route::post('/activation-query', [PublicCardQueryController::class, 'query'])

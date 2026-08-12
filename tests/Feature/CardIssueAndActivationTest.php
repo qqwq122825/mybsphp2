@@ -55,7 +55,7 @@ class CardIssueAndActivationTest extends TestCase
         ]);
         $this->assertDatabaseCount('manual_issue_items', 1);
 
-        $response = $this->postJson('/api/v2/demo/activate', [
+        $response = $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
             'device_id' => 'IOS-DEVICE-001',
@@ -155,7 +155,7 @@ class CardIssueAndActivationTest extends TestCase
             ->assertJsonPath('error.code', 'APP_DISABLED');
         $application->forceFill(['status' => 'active'])->save();
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
             'device_id' => 'IOS-DEVICE-001',
@@ -169,7 +169,7 @@ class CardIssueAndActivationTest extends TestCase
 
         // BSPHP semantics: freezing a used card does not freeze its software user.
         $card->forceFill(['card_is_frozen' => true, 'frozen_at' => now()])->save();
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
             'device_id' => 'IOS-DEVICE-001',
@@ -178,7 +178,7 @@ class CardIssueAndActivationTest extends TestCase
         // Freezing the software user blocks subsequent logins without changing expiry.
         $expiresAt = $card->fresh()->expires_at;
         $card->forceFill(['user_status' => 'frozen', 'user_frozen_at' => now()])->save();
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
             'device_id' => 'IOS-DEVICE-001',
@@ -186,7 +186,7 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertTrue($expiresAt->equalTo($card->fresh()->expires_at));
         $card->forceFill(['user_status' => 'active', 'user_frozen_at' => null])->save();
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
             'device_id' => 'OTHER-DEVICE',
@@ -194,11 +194,8 @@ class CardIssueAndActivationTest extends TestCase
             ->assertConflict()
             ->assertJsonPath('error.code', 'DEVICE_MISMATCH');
 
-        $this->get('/demo/activate')->assertOk();
-        $demoHtml = file_get_contents(public_path('demo-activate.html'));
-        $this->assertIsString($demoHtml);
-        $this->assertStringContainsString('卡密激活模拟', $demoHtml);
-        $this->assertStringContainsString('/api/v2/demo/activate', $demoHtml);
+        $this->postJson('/api/v2/demo/activate', [])->assertNotFound();
+        $this->get('/demo/activate')->assertNotFound();
     }
 
     public function test_generated_inventory_card_can_be_activated_directly(): void
@@ -207,7 +204,7 @@ class CardIssueAndActivationTest extends TestCase
         $credential = app(CardGenerationService::class)
             ->generate($cardType, 1, $this->administrator())['credentials'][0];
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
             'device_id' => 'IOS-DEVICE-001',
@@ -223,7 +220,7 @@ class CardIssueAndActivationTest extends TestCase
         $credential = app(CardGenerationService::class)
             ->generate($cardType, 1, $this->administrator())['credentials'][0];
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'device_id' => 'FIRST-DEVICE',
         ])->assertOk();
@@ -234,14 +231,14 @@ class CardIssueAndActivationTest extends TestCase
             'bound_device_mask' => null,
         ])->save();
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'device_id' => 'REBOUND-DEVICE',
         ])->assertOk();
 
         $this->assertSame('REBOUND-DEVICE', $card->fresh()->bound_device_ciphertext);
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'device_id' => 'OTHER-DEVICE',
         ])->assertConflict()
@@ -257,7 +254,7 @@ class CardIssueAndActivationTest extends TestCase
         Card::query()->where('code_lookup_hash', app(CardCredentialHasher::class)->lookupHash($credential['code']))
             ->update(['card_is_frozen' => true, 'frozen_at' => now()]);
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
             'device_id' => 'IOS-DEVICE-001',
@@ -272,7 +269,7 @@ class CardIssueAndActivationTest extends TestCase
         $credential = app(CardGenerationService::class)
             ->generate($cardType, 1, $this->administrator())['credentials'][0];
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => 'WRONG-SECRET',
             'device_id' => 'IOS-DEVICE-001',
@@ -290,7 +287,7 @@ class CardIssueAndActivationTest extends TestCase
 
         $this->assertSame(8, strlen($credential['secret']));
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => 'WRONG-SECRET',
             'device_id' => 'IOS-DEVICE-001',
@@ -299,7 +296,7 @@ class CardIssueAndActivationTest extends TestCase
             ->assertJsonPath('error.code', 'INVALID_CARD')
             ->assertJsonPath('error.message', '卡密不存在。');
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
             'device_id' => 'IOS-DEVICE-001',
@@ -436,7 +433,7 @@ class CardIssueAndActivationTest extends TestCase
             'BSphpSeSsL' => $handle, 'device_id' => 'SECURITY-DEVICE',
         ])->assertOk()->assertJsonPath('data.code', '5026');
         $blockedHandle = str_repeat('z', 64);
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'], 'device_id' => 'SECURITY-DEVICE', 'BSphpSeSsL' => $blockedHandle,
         ])->assertOk()->assertJsonPath('data.payload', '')->assertJsonPath('data.BSphpSeSsL', '');
         $this->assertDatabaseMissing('application_client_sessions', ['token_hash' => hash('sha256', $blockedHandle)]);
@@ -610,13 +607,13 @@ class CardIssueAndActivationTest extends TestCase
         $credential = app(CardGenerationService::class)
             ->generate($cardType, 1, $this->administrator())['credentials'][0];
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'device_id' => 'UNLIMITED-DEVICE-1',
             'BSphpSeSsL' => str_repeat('a', 64),
         ])->assertOk();
 
-        $this->postJson('/api/v2/demo/activate', [
+        $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'device_id' => 'UNLIMITED-DEVICE-2',
             'BSphpSeSsL' => str_repeat('b', 64),
