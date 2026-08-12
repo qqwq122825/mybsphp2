@@ -276,6 +276,7 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('蜜罐事件与异常退出策略')
                 ->assertSee('设备黑名单')
                 ->assertSee('当前有 1 台设备处于黑名单')
+                ->assertSee('客户端序列号')
                 ->assertSee('设备序列号')
                 ->assertSee('BLOCKED-DEVICE')
                 ->assertSee('已关联绑定设备')

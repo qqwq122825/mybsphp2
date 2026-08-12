@@ -79,6 +79,18 @@ final class AdminRiskControlController extends Controller
                 ->get()
             : collect();
         $securityDeviceDetails = $this->resolveSecurityDeviceDetails($securityDeviceStates);
+        $securityEvents = $selected
+            ? ClientSecurityEvent::query()
+                ->with([
+                    'session:id,device_id_ciphertext,device_mask',
+                    'card:id,code_ciphertext,code_last4,bound_device_ciphertext,bound_device_mask',
+                    'account:id,username,bound_device_ciphertext,bound_device_mask',
+                ])
+                ->where('application_id', $selected->getKey())
+                ->latest()
+                ->limit(20)
+                ->get()
+            : collect();
 
         return view('admin.risk-control.index', [
             'appName' => $this->installation->applicationName(),
@@ -91,7 +103,7 @@ final class AdminRiskControlController extends Controller
             'operationalMode' => $this->operationalMode->current(),
             'states' => $states->latest('last_seen_at')->paginate(20)->withQueryString(),
             'recentEvents' => $events->latest()->limit(12)->get(),
-            'securityEvents' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->latest()->limit(20)->get() : collect(),
+            'securityEvents' => $securityEvents,
             'securityDeviceStates' => $securityDeviceStates,
             'securityDeviceDetails' => $securityDeviceDetails,
             'securityMetrics' => [

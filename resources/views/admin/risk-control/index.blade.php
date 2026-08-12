@@ -220,7 +220,23 @@
         <header><div><p class="eyebrow">CLIENT SECURITY</p><h2>客户端安全事件</h2></div><span>24 小时 {{ $securityMetrics['events_24h'] }} 条 · 高置信 {{ $securityMetrics['high_24h'] }} 条 · 冻结主体 {{ $securityMetrics['frozen_subjects'] }} 个</span></header>
         <div class="risk-feed-list">
             @forelse($securityEvents as $event)
-                <article><span class="risk-feed-dot is-{{ $event->severity === 'high' ? 'high' : 'low' }}"></span><div><strong>{{ $event->event_code }} · {{ $event->event_id }}</strong><p>{{ strtoupper($event->severity) }} / {{ $event->action }}@if($event->event_code === 'T1') · {{ (int)($event->evidence['count'] ?? 0) }} 次异常退出@elseif($event->event_code === 'S0') · 每日签名失配@endif</p><small>{{ $event->created_at?->diffForHumans() }}</small></div><em class="risk-feed-badge">{{ $event->severity === 'high' ? '高置信' : '观察' }}</em></article>
+                @php($eventCredentialType = $event->card ? '登录卡密' : ($event->account ? '登录账号' : '授权来源'))
+                @php($eventCredential = $event->card?->code_ciphertext ?: ($event->account?->username ?: '历史记录未关联'))
+                @php($eventDevice = $event->session?->device_id_ciphertext ?: ($event->card?->bound_device_ciphertext ?: $event->account?->bound_device_ciphertext))
+                @php($eventDeviceSummary = substr($event->device_hash, 0, 12).'…'.substr($event->device_hash, -8))
+                <article>
+                    <span class="risk-feed-dot is-{{ $event->severity === 'high' ? 'high' : 'low' }}"></span>
+                    <div class="risk-feed-content">
+                        <strong>{{ $event->event_code }} · {{ $event->event_id }}</strong>
+                        <p>{{ strtoupper($event->severity) }} / {{ $event->action }}@if($event->event_code === 'T1') · {{ (int)($event->evidence['count'] ?? 0) }} 次异常退出@elseif($event->event_code === 'S0') · 每日签名失配@endif</p>
+                        <div class="risk-feed-identity">
+                            <span><i>{{ $eventCredentialType }}</i><code title="{{ $eventCredential }}">{{ $eventCredential }}</code></span>
+                            <span><i>客户端序列号</i><code title="{{ $eventDevice ?: $event->device_hash }}">{{ $eventDevice ?: $eventDeviceSummary }}</code></span>
+                        </div>
+                        <small>{{ $event->created_at?->diffForHumans() }}</small>
+                    </div>
+                    <em class="risk-feed-badge">{{ $event->severity === 'high' ? '高置信' : '观察' }}</em>
+                </article>
             @empty
                 <div class="risk-feed-empty"><span>✓</span><strong>暂无客户端安全事件</strong></div>
             @endforelse
