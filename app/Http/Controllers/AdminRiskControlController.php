@@ -17,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -188,10 +189,82 @@ final class AdminRiskControlController extends Controller
 
     public function unblockDevice(Request $request, string $adminPath, ClientSecuritySubjectState $deviceState): RedirectResponse
     {
-        $deviceState->forceFill(['status' => 'observe', 'blocked_until' => null, 'risk_score' => 0])->save();
-        $this->recordAdminAction($request, 'risk.device_unblocked', 'client_security_subject_state', (string) $deviceState->getKey(), $deviceState->application_id, ['status' => 'observe'], '解除客户端设备黑名单');
+        $result = DB::transaction(function () use ($deviceState): array {
+            $lockedState = ClientSecuritySubjectState::query()->lockForUpdate()->findOrFail($deviceState->getKey());
+            $events = ClientSecurityEvent::query()
+                ->where('application_id', $lockedState->application_id)
+                ->where('device_hash', $lockedState->device_hash)
+                ->lockForUpdate()
+                ->get();
 
-        return back()->with('success', '设备黑名单已解除；关联 IP 与原卡密/账号保持原状态，可在对应列表中分别解除。');
+            $baselineEvents = 0;
+            foreach ($events->where('event_code', 'T1') as $event) {
+                $evidence = is_array($event->evidence) ? $event->evidence : [];
+                if ((int) ($evidence['version'] ?? 0) !== 3) {
+                    continue;
+                }
+                $evidence['pardon_revision'] = (int) ($evidence['revision'] ?? 0);
+                $evidence['pardon_count'] = (int) ($evidence['count'] ?? 0);
+                $evidence['pardon_short_runs'] = (int) ($evidence['short_runs'] ?? 0);
+                $evidence['effective_count'] = 0;
+                $evidence['effective_short_runs'] = 0;
+                $evidence['effective_burst'] = 0;
+                $evidence['pardoned_at'] = now()->toIso8601String();
+                $event->forceFill(['evidence' => $evidence])->save();
+                $baselineEvents++;
+            }
+
+            $cardIds = $events->pluck('card_id')->filter()->unique()->values();
+            $accountIds = $events->pluck('application_account_id')->filter()->unique()->values();
+            $sessionIds = $events->pluck('application_client_session_id')->filter()->unique()->values();
+            $cardsReleased = $cardIds->isEmpty() ? 0 : DB::table('cards')
+                ->whereIn('id', $cardIds)
+                ->where('user_status', 'frozen')
+                ->update(['user_status' => 'active', 'user_frozen_at' => null, 'updated_at' => now()]);
+            $accountsReleased = $accountIds->isEmpty() ? 0 : DB::table('application_accounts')
+                ->whereIn('id', $accountIds)
+                ->where('status', 'frozen')
+                ->update(['status' => 'active', 'updated_at' => now()]);
+            $sessionsReleased = $sessionIds->isEmpty() ? 0 : DB::table('application_client_sessions')
+                ->whereIn('id', $sessionIds)
+                ->where('status', 'security_blocked')
+                ->update(['status' => 'revoked', 'logged_out_at' => now(), 'updated_at' => now()]);
+            $ipsReleased = IpRiskState::query()
+                ->where('application_id', $lockedState->application_id)
+                ->where('last_device_hash', $lockedState->device_hash)
+                ->update([
+                    'level' => 'normal',
+                    'window_attempts' => 0,
+                    'recent_attempt_timestamps' => '[]',
+                    'window_started_at' => now(),
+                    'blocked_until' => null,
+                    'permanently_blocked' => false,
+                    'last_attempt_succeeded' => false,
+                    'note' => '设备解除封控并建立新基线',
+                    'updated_at' => now(),
+                ]);
+
+            $lockedState->forceFill([
+                'status' => 'observe',
+                'blocked_until' => null,
+                'risk_score' => 0,
+                'reason_code' => 'ADMIN_RESET',
+            ])->save();
+
+            return compact('baselineEvents', 'cardsReleased', 'accountsReleased', 'sessionsReleased', 'ipsReleased');
+        }, 3);
+
+        $this->recordAdminAction(
+            $request,
+            'risk.device_unblocked',
+            'client_security_subject_state',
+            (string) $deviceState->getKey(),
+            $deviceState->application_id,
+            ['status' => 'observe', ...$result],
+            '解除客户端设备黑名单并建立永久总账新基线',
+        );
+
+        return back()->with('success', '设备、关联 IP 与安全冻结主体已经恢复；历史闪退总账保留，新异常将从当前基线重新计算。');
     }
 
     /**

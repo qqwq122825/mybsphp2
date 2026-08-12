@@ -215,11 +215,13 @@ class IpRiskControlTest extends TestCase
                 'ip' => '2409:8a55:d336:d350:c5ac:6a09:45d4:572a',
                 'ip_hash' => hash('sha256', '2409:8a55:d336:d350:c5ac:6a09:45d4:572a'),
                 'level' => 'high', 'window_attempts' => 3, 'total_attempts' => 3,
+                'permanently_blocked' => true,
+                'last_device_hash' => hash('sha256', 'BLOCKED-DEVICE'),
                 'last_seen_at' => now(), 'last_endpoint' => 'client.security-event',
             ]);
-            ClientSecuritySubjectState::query()->create([
+            $deviceState = ClientSecuritySubjectState::query()->create([
                 'application_id' => $application->getKey(), 'device_hash' => hash('sha256', 'BLOCKED-DEVICE'),
-                'risk_score' => 100, 'status' => 'blocked', 'last_event_at' => now(), 'reason_code' => 'S0',
+                'risk_score' => 100, 'status' => 'blocked', 'last_event_at' => now(), 'reason_code' => 'T1',
             ]);
             $securityCardType = CardType::query()->create([
                 'public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(),
@@ -239,7 +241,8 @@ class IpRiskControlTest extends TestCase
                 'card_type_id' => $securityCardType->getKey(), 'application_id' => $application->getKey(),
                 'code_lookup_hash' => app(CardCredentialHasher::class)->lookupHash($securityCardCode),
                 'code_ciphertext' => $securityCardCode, 'code_last4' => '0001',
-                'status' => 'issued', 'card_is_frozen' => true,
+                'status' => 'active', 'card_is_frozen' => false, 'user_status' => 'frozen',
+                'activated_at' => now(), 'expires_at' => now()->addDay(), 'user_frozen_at' => now(),
                 'bound_device_ciphertext' => 'BLOCKED-DEVICE', 'bound_device_mask' => 'BLOCKED-DEVICE',
             ]);
             $securitySession = ApplicationClientSession::query()->create([
@@ -253,9 +256,13 @@ class IpRiskControlTest extends TestCase
                 'public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(),
                 'application_client_session_id' => $securitySession->getKey(),
                 'card_id' => $securityCard->getKey(),
-                'event_id' => '01RISKDEVICEEVENT000000000001', 'event_code' => 'S0',
+                'event_id' => str_repeat('e', 32), 'event_code' => 'T1',
                 'severity' => 'high', 'ip_hash' => hash('sha256', '127.0.0.1'),
-                'device_hash' => hash('sha256', 'BLOCKED-DEVICE'), 'evidence' => [],
+                'device_hash' => hash('sha256', 'BLOCKED-DEVICE'),
+                'evidence' => [
+                    'version' => 3, 'revision' => 8, 'count' => 8, 'short_runs' => 8,
+                    'recent_count' => 8, 'pending_burst' => 8, 'effective_count' => 8,
+                ],
                 'action' => 'freeze', 'created_at' => now(),
             ]);
             $this->actingAs($administrator, 'admin');
@@ -298,7 +305,30 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('使用新卡密时也会进入隐藏响应')
                 ->assertSee('客户端统一显示“卡密不存在”')
                 ->assertSee('按完整卡密查询真实原因')
+                ->assertSee('解除并继续测试')
                 ->assertDontSee('风险 IP 列表');
+
+            $this->post('/private-console/risk-control/device-states/'.$deviceState->getKey().'/unblock')
+                ->assertRedirect()
+                ->assertSessionHas('success', '设备、关联 IP 与安全冻结主体已经恢复；历史闪退总账保留，新异常将从当前基线重新计算。');
+            $this->assertDatabaseHas('client_security_subject_states', [
+                'id' => $deviceState->getKey(), 'status' => 'observe', 'risk_score' => 0,
+                'reason_code' => 'ADMIN_RESET',
+            ]);
+            $this->assertDatabaseHas('ip_risk_states', [
+                'application_id' => $application->getKey(), 'level' => 'normal',
+                'permanently_blocked' => false, 'last_device_hash' => hash('sha256', 'BLOCKED-DEVICE'),
+            ]);
+            $this->assertDatabaseHas('cards', [
+                'id' => $securityCard->getKey(), 'user_status' => 'active',
+            ]);
+            $this->assertDatabaseHas('application_client_sessions', [
+                'id' => $securitySession->getKey(), 'status' => 'revoked',
+            ]);
+            $securityEvent = ClientSecurityEvent::query()->where('event_id', str_repeat('e', 32))->firstOrFail();
+            $this->assertSame(8, data_get($securityEvent->evidence, 'pardon_revision'));
+            $this->assertSame(8, data_get($securityEvent->evidence, 'pardon_count'));
+            $this->assertSame(0, data_get($securityEvent->evidence, 'effective_count'));
 
             $this->put('/private-console/risk-control/applications/'.$application->public_id.'/policy', [
                 'enabled' => '1', 'window_seconds' => 90, 'low_threshold' => 5, 'high_threshold' => 11,

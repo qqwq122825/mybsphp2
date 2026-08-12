@@ -214,7 +214,7 @@ final class CardLoginTraceService
                 $result[$key] = $scalar === '' ? '' : '[REQUEST_SAFE_CODE]';
             } elseif (in_array(strtolower($key), ['bsphpsessl', 'session_token'], true)) {
                 $result[$key] = $scalar === '' ? '' : '[SESSION_HANDLE]';
-            } elseif ($key === 'launch_telemetry') {
+            } elseif (in_array($key, ['render_profile', 'launch_telemetry'], true)) {
                 $result[$key] = $scalar === '' ? '' : '[PRESENT '.strlen($scalar).' BYTES]';
             } else {
                 $result[$key] = $this->redactor->redact(mb_substr($scalar, 0, 512), $key);

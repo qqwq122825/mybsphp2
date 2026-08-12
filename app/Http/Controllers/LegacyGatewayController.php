@@ -244,7 +244,8 @@ final class LegacyGatewayController extends Controller
                     $application,
                     $handle,
                     $device,
-                    $this->firstParameter($parameters, ['launch_telemetry']),
+                    // render_profile 是协议层伪装字段名；旧键仅用于已安装版本的过渡兼容。
+                    $this->firstParameter($parameters, ['render_profile', 'launch_telemetry']),
                     (string) ($request->ip() ?: '0.0.0.0'),
                 );
                 if ($launchBlocked) {

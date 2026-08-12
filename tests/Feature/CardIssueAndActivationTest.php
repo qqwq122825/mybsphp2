@@ -8,15 +8,18 @@ use App\Applications\HybridPacketCipher;
 use App\Cards\CardCredentialHasher;
 use App\Cards\CardGenerationService;
 use App\Cards\ManualIssueService;
+use App\Http\Controllers\AdminRiskControlController;
 use App\Models\Administrator;
 use App\Models\Application;
 use App\Models\AuditLog;
 use App\Models\Card;
 use App\Models\CardType;
+use App\Models\ClientSecurityEvent;
 use App\Models\ClientSecuritySubjectState;
 use App\Models\SystemSetting;
 use App\Risk\IpRiskControlService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -601,16 +604,17 @@ class CardIssueAndActivationTest extends TestCase
         $cipher = app(HybridPacketCipher::class);
         $handle = str_repeat('l', 64);
         $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
-        $now = now()->timestamp;
-        $times = [$now - 100, $now - 75, $now - 50, $now - 25, $now - 5];
         $telemetry = json_encode([
-            'v' => 1,
-            'id' => str_repeat('a', 32),
-            'count' => 5,
-            'times' => $times,
-            'intervals' => [25, 25, 25, 20],
-            'uptimes' => [4, 6, 3, 8, 5],
-            'window' => 3600,
+            'v' => 3,
+            'i' => str_repeat('a', 32),
+            'q' => 5,
+            'c' => 5,
+            'n' => 5,
+            'm' => 5,
+            's' => 95,
+            'r' => 4,
+            'u' => 5,
+            'w' => 3600,
         ], JSON_THROW_ON_ERROR);
 
         $login = function (string $payload) use ($cipher, $application, $gateway, $credential, $handle): void {
@@ -620,7 +624,7 @@ class CardIssueAndActivationTest extends TestCase
                 'key' => 'LAUNCH-TELEMETRY-DEVICE',
                 'BSphpSeSsL' => $handle,
                 'appsafecode' => 'LOGIN-SAFE',
-                'launch_telemetry' => $payload,
+                'render_profile' => $payload,
             ], '', '&', PHP_QUERY_RFC3986));
             $this->postJson($gateway, $request['envelope'])->assertOk();
         };
@@ -643,6 +647,23 @@ class CardIssueAndActivationTest extends TestCase
             'status' => 'observe',
             'reason_code' => 'T1',
         ]);
+        $event = ClientSecurityEvent::query()->where('event_id', str_repeat('a', 32))->firstOrFail();
+        $this->assertSame(3, data_get($event->evidence, 'version'));
+        $this->assertSame(5, data_get($event->evidence, 'revision'));
+        $this->assertSame(5, data_get($event->evidence, 'count'));
+        $this->assertArrayNotHasKey('times', $event->evidence);
+        $this->assertArrayNotHasKey('intervals', $event->evidence);
+        $this->assertArrayNotHasKey('uptimes', $event->evidence);
+
+        // 永久账本使用相同 i 更新更高修订，不新增重复事件。
+        $login(json_encode([
+            'v' => 3, 'i' => str_repeat('a', 32), 'q' => 6, 'c' => 6,
+            'n' => 1, 'm' => 1, 'u' => 6, 'r' => 0, 's' => 3600, 'w' => 3600,
+        ], JSON_THROW_ON_ERROR));
+        $this->assertDatabaseCount('client_security_events', 1);
+        $event->refresh();
+        $this->assertSame(6, data_get($event->evidence, 'revision'));
+        $this->assertSame(6, data_get($event->evidence, 'count'));
 
         // 可选参数损坏时保留正常登录结果，也不产生第二条事件。
         $login('{broken');
@@ -658,21 +679,23 @@ class CardIssueAndActivationTest extends TestCase
         ]);
         $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
         $cipher = app(HybridPacketCipher::class);
-        $now = now()->timestamp;
         $request = $cipher->sealRequestWithContext($application, http_build_query([
             'api' => 'login.ic',
             'icid' => $credential['code'],
             'key' => 'LOW-COUNT-LAUNCH-DEVICE',
             'BSphpSeSsL' => str_repeat('r', 64),
             'appsafecode' => 'LOGIN-SAFE',
-            'launch_telemetry' => json_encode([
-                'v' => 1,
-                'id' => str_repeat('c', 32),
-                'count' => 2,
-                'times' => [$now - 30, $now - 10],
-                'intervals' => [20],
-                'uptimes' => [5, 6],
-                'window' => 3600,
+            'render_profile' => json_encode([
+                'v' => 3,
+                'i' => str_repeat('c', 32),
+                'q' => 2,
+                'c' => 2,
+                'n' => 2,
+                'm' => 2,
+                's' => 20,
+                'r' => 1,
+                'u' => 2,
+                'w' => 3600,
             ], JSON_THROW_ON_ERROR),
         ], '', '&', PHP_QUERY_RFC3986));
 
@@ -691,26 +714,28 @@ class CardIssueAndActivationTest extends TestCase
             'abnormal_exit_window_minutes' => 60,
             'abnormal_exit_high_threshold' => 8,
         ]);
-        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $administrator = $this->administrator();
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $administrator)['credentials'][0];
         $cipher = app(HybridPacketCipher::class);
         $handle = str_repeat('q', 64);
         $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
-        $first = now()->timestamp - 3360;
-        $times = array_map(fn (int $index): int => $first + ($index * 480), range(0, 7));
         $request = $cipher->sealRequestWithContext($application, http_build_query([
             'api' => 'login.ic',
             'icid' => $credential['code'],
             'key' => 'SEVERE-LAUNCH-DEVICE',
             'BSphpSeSsL' => $handle,
             'appsafecode' => 'LOGIN-SAFE',
-            'launch_telemetry' => json_encode([
-                'v' => 1,
-                'id' => str_repeat('b', 32),
-                'count' => 8,
-                'times' => $times,
-                'intervals' => array_fill(0, 7, 480),
-                'uptimes' => array_fill(0, 8, 5),
-                'window' => 3600,
+            'render_profile' => json_encode([
+                'v' => 3,
+                'i' => str_repeat('b', 32),
+                'q' => 8,
+                'c' => 8,
+                'n' => 8,
+                'm' => 8,
+                's' => 3360,
+                'r' => 0,
+                'u' => 8,
+                'w' => 3600,
             ], JSON_THROW_ON_ERROR),
         ], '', '&', PHP_QUERY_RFC3986));
 
@@ -745,6 +770,96 @@ class CardIssueAndActivationTest extends TestCase
             'last_device_hash' => hash('sha256', 'SEVERE-LAUNCH-DEVICE'),
             'last_endpoint' => 'client.launch.telemetry',
         ]);
+
+        // 测试设备解除封控后保留历史总账，但从当前修订建立新的处置基线。
+        $deviceState = ClientSecuritySubjectState::query()
+            ->where('application_id', $application->getKey())
+            ->where('device_hash', hash('sha256', 'SEVERE-LAUNCH-DEVICE'))
+            ->firstOrFail();
+        $this->actingAs($administrator, 'admin');
+        app(AdminRiskControlController::class)->unblockDevice(
+            Request::create('/private-console/risk-control/device-states/'.$deviceState->getKey().'/unblock', 'POST'),
+            'private-console',
+            $deviceState,
+        );
+
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'id' => $deviceState->getKey(), 'status' => 'observe', 'risk_score' => 0,
+            'reason_code' => 'ADMIN_RESET',
+        ]);
+        $this->assertDatabaseHas('cards', [
+            'application_id' => $application->getKey(), 'user_status' => 'active',
+        ]);
+        $event = ClientSecurityEvent::query()->where('event_id', str_repeat('b', 32))->firstOrFail();
+        $this->assertSame(8, data_get($event->evidence, 'pardon_revision'));
+        $this->assertSame(8, data_get($event->evidence, 'pardon_count'));
+
+        $resumedHandle = str_repeat('z', 64);
+        $resumedRequest = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $credential['code'], 'key' => 'SEVERE-LAUNCH-DEVICE',
+            'BSphpSeSsL' => $resumedHandle, 'appsafecode' => 'LOGIN-SAFE',
+            'render_profile' => json_encode([
+                'v' => 3, 'i' => str_repeat('b', 32), 'q' => 9, 'c' => 9,
+                'n' => 1, 'm' => 1, 's' => 30, 'r' => 0, 'u' => 9, 'w' => 3600,
+            ], JSON_THROW_ON_ERROR),
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->postJson($gateway, $resumedRequest['envelope'])->assertOk();
+        $event->refresh();
+        $this->assertSame(1, data_get($event->evidence, 'effective_count'));
+        $this->assertSame('observe', $event->action);
+
+        // 基线之后再累积到高级阈值，会重新进入封控。
+        $reblockRequest = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $credential['code'], 'key' => 'SEVERE-LAUNCH-DEVICE',
+            'BSphpSeSsL' => $resumedHandle, 'appsafecode' => 'LOGIN-SAFE',
+            'render_profile' => json_encode([
+                'v' => 3, 'i' => str_repeat('b', 32), 'q' => 16, 'c' => 16,
+                'n' => 8, 'm' => 8, 's' => 330, 'r' => 7, 'u' => 16, 'w' => 3600,
+            ], JSON_THROW_ON_ERROR),
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->assertMaskedCardFailure($this->postJson($gateway, $reblockRequest['envelope']));
+        $event->refresh();
+        $this->assertSame(8, data_get($event->evidence, 'effective_count'));
+        $this->assertSame('freeze', $event->action);
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'id' => $deviceState->getKey(), 'status' => 'blocked', 'reason_code' => 'T1',
+        ]);
+    }
+
+    public function test_month_old_permanent_exit_ledger_still_freezes_when_short_run_ratio_is_high(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->updateOrCreate([], [
+            ...app(IpRiskControlService::class)->defaults(),
+            'security_report_mode' => 'enforce',
+            'abnormal_exit_window_minutes' => 60,
+            'abnormal_exit_high_threshold' => 8,
+        ]);
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $request = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic',
+            'icid' => $credential['code'],
+            'key' => 'MONTH-OLD-LAUNCH-DEVICE',
+            'BSphpSeSsL' => str_repeat('m', 64),
+            'appsafecode' => 'LOGIN-SAFE',
+            'render_profile' => json_encode([
+                'v' => 3, 'i' => str_repeat('d', 32), 'q' => 30, 'c' => 30,
+                'n' => 0, 'm' => 3, 'u' => 27, 'r' => 0,
+                's' => 30 * 86400, 'w' => 3600,
+            ], JSON_THROW_ON_ERROR),
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $this->assertMaskedCardFailure($this->postJson(
+            '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token,
+            $request['envelope'],
+        ));
+
+        $event = ClientSecurityEvent::query()->where('event_id', str_repeat('d', 32))->firstOrFail();
+        $this->assertSame('high', $event->severity);
+        $this->assertSame('freeze', $event->action);
+        $this->assertTrue((bool) data_get($event->evidence, 'persistent_severe'));
+        $this->assertSame(30, data_get($event->evidence, 'effective_count'));
     }
 
     public function test_unlimited_application_and_card_limits_allow_multiple_sessions(): void

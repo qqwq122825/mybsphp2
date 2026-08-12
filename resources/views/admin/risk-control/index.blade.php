@@ -267,7 +267,7 @@
                         </div>
                         <span>登录 IP {{ $blockedIp ?: '待关联' }} · {{ $deviceIdentifier ? '已关联绑定设备' : '摘要记录' }} · {{ $deviceState->reason_code ?: '—' }} · 风险分 {{ $deviceState->risk_score }} · {{ $deviceState->last_event_at?->diffForHumans() }}</span>
                         <b>{{ $deviceState->status === 'blocked' ? '已拉黑' : ($deviceState->status === 'quarantined' ? '重点观察' : '观察') }}</b>
-                        @if($deviceState->status === 'blocked')<form method="post" action="{{ route('admin.risk-control.device-states.unblock', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">@csrf<button type="submit">解除拉黑</button></form>@endif
+                        @if($deviceState->status === 'blocked')<form method="post" action="{{ route('admin.risk-control.device-states.unblock', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">@csrf<button type="submit" onclick="return confirm('解除设备及关联安全封控，并以当前永久闪退次数建立新基线？')">解除并继续测试</button></form>@endif
                     </article>
                 @empty
                     <p class="risk-feed-empty">暂无设备黑名单</p>
