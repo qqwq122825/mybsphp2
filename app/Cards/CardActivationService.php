@@ -71,7 +71,9 @@ final class CardActivationService
                 throw new CardActivationException('DEVICE_REQUIRED', '当前应用要求提供设备标识。');
             }
             if ($this->deviceStates->isBlocked($application, $normalizedDevice)) {
-                return $this->result($card, $appsafecode, '', true);
+                // 黑名单设备使用与普通无效卡密相同的对外结果，
+                // 避免客户端因蜜罐空设备字段落入“状态异常”分支。
+                throw new CardActivationException('INVALID_CARD', '卡密不存在。', 200);
             }
 
             if ($card->status === 'active') {
@@ -132,10 +134,10 @@ final class CardActivationService
     /**
      * @return array<string, mixed>
      */
-    private function result(Card $card, string $appsafecode, string $sessionHandle = '', bool $deviceBlocked = false): array
+    private function result(Card $card, string $appsafecode, string $sessionHandle = ''): array
     {
         $application = $card->application;
-        $payload = $deviceBlocked ? '' : $application->verificationData();
+        $payload = $application->verificationData();
         $encryptedPayload = $this->dailyCodec->encodePayload($payload);
         $signature = $this->dailyCodec->dailySignature();
         // Keep the configured application timezone in the wire value. Carbon's

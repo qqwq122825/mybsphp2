@@ -520,7 +520,7 @@ class CardIssueAndActivationTest extends TestCase
         $blockedHandle = str_repeat('z', 64);
         $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'], 'device_id' => 'SECURITY-DEVICE', 'BSphpSeSsL' => $blockedHandle,
-        ])->assertOk()->assertJsonPath('data.payload', '')->assertJsonPath('data.BSphpSeSsL', '');
+        ])->assertOk()->assertJsonPath('ok', false)->assertJsonPath('error.code', 'INVALID_CARD');
         $this->assertDatabaseMissing('application_client_sessions', ['token_hash' => hash('sha256', $blockedHandle)]);
     }
 
