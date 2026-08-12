@@ -31,8 +31,8 @@
                 <input type="hidden" name="view" value="{{ $clientLogMode }}">
             </x-slot:hidden>
         @endif
-        <x-slot:field><select aria-label="搜索字段"><option>{{ $isClientRequestLog ? ($isClientSimpleLog ? '卡密 / 诊断编号 / 设备 / IP' : '卡密 / 设备 / 错误码 / IP') : ($isCardMakingLog ? '用户' : '用户 / IP / 信息') }}</option></select></x-slot:field>
-        <x-slot:keyword><input name="keyword" value="{{ request('keyword') }}" placeholder="{{ $isClientRequestLog ? ($isClientSimpleLog ? '输入完整卡密或三位编号' : '输入卡密、设备或错误码') : '请输入' }}"></x-slot:keyword>
+        <x-slot:field><select aria-label="搜索字段"><option>{{ $isClientRequestLog ? '卡密 / 设备 / 错误码 / IP' : ($isCardMakingLog ? '用户' : '用户 / IP / 信息') }}</option></select></x-slot:field>
+        <x-slot:keyword><input name="keyword" value="{{ request('keyword') }}" placeholder="{{ $isClientRequestLog ? '输入完整卡密、设备或错误码' : '请输入' }}"></x-slot:keyword>
         <x-slot:sort><select name="sort"><option value="latest" @selected(request('sort','latest')==='latest')>正序</option><option value="oldest" @selected(request('sort')==='oldest')>倒序</option></select></x-slot:sort>
     </x-admin.filter-bar></x-slot:search>
     <x-slot:toolbar>
@@ -50,7 +50,7 @@
     </x-slot:toolbar>
         <table class="{{ $isClientRequestLog ? 'client-trace-table' : '' }}">
             @if($isClientSimpleLog)
-            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>诊断编号</th><th>真实原因</th><th>客户端提示</th><th>设备</th></tr></thead>
+            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>真实原因</th><th>客户端提示</th><th>设备</th></tr></thead>
             <tbody>
             @forelse($logs as $log)
                 @php
@@ -61,12 +61,11 @@
                     <td class="admin-select-column"><input type="checkbox" name="log_ids[]" value="{{ $log->id }}" form="system-log-maintenance-form" aria-label="选择日志 {{ $log->id }}" data-card-select></td>
                     <td><strong>{{ $log->created_at?->format('m-d H:i:s') }}</strong><small class="client-trace-meta">{{ $log->ip ?: '—' }} · #{{ $log->id }}</small></td>
                     <td><strong>{{ data_get($simpleRequest, 'application.name', '—') }}</strong><small class="client-trace-meta">{{ data_get($simpleRequest, 'credential_masked', '—') }}</small></td>
-                    <td><strong>{{ data_get($simpleResult, 'diagnostic_reference', '—') }}</strong><small class="client-trace-meta">{{ $log->request_id }}</small></td>
                     <td><strong>{{ data_get($simpleResult, 'internal_code', '未标注') }}</strong><small class="client-trace-meta">{{ data_get($simpleResult, 'internal_message', '未记录') }}</small></td>
                     <td><span class="log-result is-danger">{{ data_get($simpleResult, 'public_message', '卡密不存在') }}</span></td>
                     <td><code>{{ data_get($simpleRequest, 'device', '—') ?: '—' }}</code></td>
                 </tr>
-            @empty<tr><td class="empty-cell" colspan="7">当前没有需要客服介入的简要诊断记录。</td></tr>@endforelse
+            @empty<tr><td class="empty-cell" colspan="6">当前没有需要客服介入的简要诊断记录。</td></tr>@endforelse
             </tbody>
             @elseif($isClientRequestLog)
             <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>响应摘要</th><th>结果</th><th>详情</th></tr></thead>

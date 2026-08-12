@@ -87,7 +87,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('系统制卡日志')
             ->assertSee('系统安全防护日志')
             ->assertSee('客户端请求日志')
-            ->assertSee('诊断编号查询')
+            ->assertDontSee('诊断编号查询')
             ->assertDontSee('用户反馈')
             ->assertDontSee('邮件设置')
             ->assertDontSee('在线支付');
@@ -169,14 +169,13 @@ class AdminAuthenticationTest extends TestCase
                 'device' => 'DIAGNOSTIC-DEVICE',
             ],
             'after_data' => [
-                'diagnostic_reference' => 241,
                 'internal_code' => 'DEVICE_BLOCKED',
                 'internal_message' => '设备已进入安全封控。',
                 'public_code' => 'INVALID_CARD',
-                'public_message' => '卡密不存在241',
+                'public_message' => '卡密不存在',
                 'http_status' => 200,
             ],
-            'reason' => '诊断编号 241 · DEVICE_BLOCKED',
+            'reason' => 'DEVICE_BLOCKED',
             'result' => 'failed',
         ]);
 
@@ -184,26 +183,11 @@ class AdminAuthenticationTest extends TestCase
             ->assertOk()
             ->assertSee('编号查询软件')
             ->assertSee('DEVICE_BLOCKED')
-            ->assertSee('卡密不存在241');
-        $this->get('/private-console/system-logs/client-requests?view=simple&keyword=241')
-            ->assertOk()
-            ->assertSee('DEVICE_BLOCKED');
+            ->assertSee('卡密不存在');
         $this->get('/private-console/system-logs/client-requests?view=simple&keyword=FULL-CARD-LOOKUP-001')
             ->assertOk()
             ->assertSee('DEVICE_BLOCKED')
             ->assertSee('DIAGNOSTIC-DEVICE');
-
-        $this->get('/private-console/system-logs/diagnostics/lookup')
-            ->assertOk()
-            ->assertSee('诊断编号查询')
-            ->assertSee('输入三位诊断编号后查询');
-        $this->get('/private-console/system-logs/diagnostics/lookup?reference=241')
-            ->assertOk()
-            ->assertSee('编号查询软件')
-            ->assertSee('DEVICE_BLOCKED')
-            ->assertSee('设备已进入安全封控。')
-            ->assertSee('卡密不存在241')
-            ->assertSee('203.0.113.24');
 
         $this->post('/private-console/logout')
             ->assertRedirect('/private-console');

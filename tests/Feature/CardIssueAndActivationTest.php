@@ -831,10 +831,6 @@ class CardIssueAndActivationTest extends TestCase
     private function assertMaskedCardFailure(TestResponse $response): void
     {
         $response->assertOk()->assertJsonPath('error.code', 'INVALID_CARD');
-        $message = (string) $response->json('error.message');
-        $this->assertMatchesRegularExpression('/^卡密不存在\d{3}$/u', $message);
-        $reference = (int) mb_substr($message, -3);
-        $this->assertGreaterThanOrEqual(201, $reference);
-        $this->assertLessThanOrEqual(999, $reference);
+        $response->assertJsonPath('error.message', '卡密不存在');
     }
 }

@@ -63,35 +63,6 @@ final class AdminSystemLogController extends Controller
         ]);
     }
 
-    public function diagnostics(Request $request, string $adminPath): View
-    {
-        $validated = $request->validate([
-            'reference' => ['nullable', 'integer', 'min:201', 'max:999'],
-        ]);
-        $reference = isset($validated['reference']) ? (int) $validated['reference'] : null;
-        $logs = collect();
-        if ($reference !== null) {
-            $logs = AuditLog::query()
-                ->where('action', 'client.auth_failure_masked')
-                ->where('after_data->diagnostic_reference', $reference)
-                ->latest('id')
-                ->limit(20)
-                ->get();
-        }
-
-        $administrator = Auth::guard('admin')->user();
-        abort_unless($administrator instanceof Administrator, 401);
-
-        return view('admin.logs.diagnostics', [
-            'appName' => $this->installation->applicationName(),
-            'adminPath' => $adminPath,
-            'administrator' => $administrator,
-            'databaseHealthy' => true,
-            'reference' => $reference,
-            'logs' => $logs,
-        ]);
-    }
-
     public function maintenance(Request $request, string $adminPath, string $type): RedirectResponse
     {
         validator(['type' => $type], ['type' => ['required', Rule::in(['login', 'card-making', 'protection', 'client-requests'])]])->validate();
@@ -165,15 +136,6 @@ final class AdminSystemLogController extends Controller
 
     private function applyClientRequestSearch(Builder $query, string $keyword, string $clientLogMode): void
     {
-        if ($clientLogMode === 'simple' && preg_match('/^[0-9]{3}$/', $keyword) === 1) {
-            $reference = (int) $keyword;
-            if ($reference >= 201 && $reference <= 999) {
-                $query->where('after_data->diagnostic_reference', $reference);
-
-                return;
-            }
-        }
-
         $card = Card::query()
             ->where('code_lookup_hash', $this->cardHasher->lookupHash($keyword))
             ->first(['public_id']);

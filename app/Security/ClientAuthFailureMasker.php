@@ -28,7 +28,7 @@ final class ClientAuthFailureMasker
     ];
 
     /**
-     * @return array{code: string, message: string, status: int, details: array<string, mixed>|null, masked: bool, reference: int|null}
+     * @return array{code: string, message: string, status: int, details: array<string, mixed>|null, masked: bool}
      */
     public function cardException(
         CardActivationException $exception,
@@ -44,7 +44,6 @@ final class ClientAuthFailureMasker
                 'status' => $exception->status,
                 'details' => null,
                 'masked' => false,
-                'reference' => null,
             ];
         }
 
@@ -59,7 +58,7 @@ final class ClientAuthFailureMasker
     }
 
     /**
-     * @return array{code: string, message: string, status: int, details: null, masked: true, reference: int}
+     * @return array{code: string, message: string, status: int, details: null, masked: true}
      */
     public function maskedCardFailure(
         string $internalCode,
@@ -69,11 +68,9 @@ final class ClientAuthFailureMasker
         string $credential = '',
         string $device = '',
     ): array {
-        $reference = random_int(201, 999);
         $credentialContext = $this->credentialContext($application, $credential);
 
         Log::notice('client.card_auth_failure_masked', [
-            'diagnostic_reference' => $reference,
             'internal_code' => $internalCode,
             'internal_message' => $internalMessage,
             'application_public_id' => $application?->public_id,
@@ -97,30 +94,28 @@ final class ClientAuthFailureMasker
                         'device' => trim($device),
                     ],
                     after: [
-                        'diagnostic_reference' => $reference,
                         'diagnostic_code' => $internalCode,
                         'internal_code' => $internalCode,
                         'internal_message' => $internalMessage,
                         'public_code' => 'INVALID_CARD',
-                        'public_message' => '卡密不存在'.$reference,
+                        'public_message' => '卡密不存在',
                         'http_status' => 200,
                     ],
-                    reason: "诊断编号 {$reference} · {$internalCode}",
+                    reason: $internalCode,
                     result: 'failed',
                     actorRole: 'client',
                 ), $request);
             } catch (\Throwable) {
-                // 审计存储旁路认证响应；文件日志仍保留同一诊断编号。
+                // 审计存储旁路认证响应；认证结果仍按统一文案返回。
             }
         }
 
         return [
             'code' => 'INVALID_CARD',
-            'message' => '卡密不存在'.$reference,
+            'message' => '卡密不存在',
             'status' => 200,
             'details' => null,
             'masked' => true,
-            'reference' => $reference,
         ];
     }
 
