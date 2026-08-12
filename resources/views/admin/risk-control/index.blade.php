@@ -172,12 +172,36 @@
     <section id="honeypot-risk" class="risk-lane risk-lane-honeypot">
         <header class="risk-lane-heading"><b>02</b><div><p>CLIENT HONEYPOT CONTROL</p><h2>客户端安全信号</h2><span>展示已验证会话的蜜罐事件，以及统计窗口内累计至少 3 次的异常退出批次；零星退出仅在客户端短期保留。</span></div></header>
         <section class="dashboard-panel honeypot-policy-panel">
-            <div><strong>蜜罐事件处置模式与异常退出策略</strong><small>异常退出达到高级阈值后，在处置模式下冻结当前授权并拉黑设备；默认统计最近 60 分钟内 8 次。</small></div>
+            <header class="honeypot-policy-heading">
+                <div>
+                    <span class="honeypot-policy-kicker"><i></i>SECURITY POLICY</span>
+                    <strong>蜜罐事件与异常退出策略</strong>
+                    <small>高置信事件由处置模式立即执行；普通异常退出在统计窗口内达到阈值后冻结当前授权并拉黑设备。</small>
+                </div>
+                <span class="honeypot-policy-state is-{{ $policy->security_report_mode }}">
+                    {{ $policy->security_report_mode === 'enforce' ? '自动处置' : ($policy->security_report_mode === 'observe' ? '仅记录' : '已停用') }}
+                </span>
+            </header>
             <form method="post" action="{{ route('admin.risk-control.security-policy.update', ['adminPath'=>$adminPath, 'application'=>$selectedApplication]) }}">@csrf @method('PUT')
-                <select name="security_report_mode"><option value="disabled" @selected($policy->security_report_mode==='disabled')>关闭上报</option><option value="observe" @selected($policy->security_report_mode==='observe')>观察·只记录</option><option value="enforce" @selected($policy->security_report_mode==='enforce')>处置·高置信自动冻结</option></select>
-                <label><span>异常退出窗口</span><div><input type="number" name="abnormal_exit_window_minutes" min="15" max="60" value="{{ old('abnormal_exit_window_minutes', $policy->abnormal_exit_window_minutes) }}"><em>分钟</em></div></label>
-                <label><span>异常退出高级阈值</span><div><input type="number" name="abnormal_exit_high_threshold" min="3" max="20" value="{{ old('abnormal_exit_high_threshold', $policy->abnormal_exit_high_threshold) }}"><em>次</em></div></label>
-                <button class="button button-primary" type="submit">保存安全策略</button>
+                <label class="honeypot-policy-field honeypot-policy-mode">
+                    <span>处置模式</span>
+                    <select name="security_report_mode"><option value="disabled" @selected($policy->security_report_mode==='disabled')>关闭上报</option><option value="observe" @selected($policy->security_report_mode==='observe')>观察 · 只记录</option><option value="enforce" @selected($policy->security_report_mode==='enforce')>处置 · 高置信自动冻结</option></select>
+                    <small>控制 D0、D1、R0、S0 与 T1 的服务端处置。</small>
+                </label>
+                <label class="honeypot-policy-field">
+                    <span>异常退出窗口</span>
+                    <div class="honeypot-unit-input"><input type="number" name="abnormal_exit_window_minutes" min="15" max="60" value="{{ old('abnormal_exit_window_minutes', $policy->abnormal_exit_window_minutes) }}"><em>分钟</em></div>
+                    <small>可设置 15～60 分钟。</small>
+                </label>
+                <label class="honeypot-policy-field">
+                    <span>高级冻结阈值</span>
+                    <div class="honeypot-unit-input"><input type="number" name="abnormal_exit_high_threshold" min="3" max="20" value="{{ old('abnormal_exit_high_threshold', $policy->abnormal_exit_high_threshold) }}"><em>次</em></div>
+                    <small>窗口内累计 3～20 次。</small>
+                </label>
+                <div class="honeypot-policy-action">
+                    <button class="button button-primary" type="submit">保存策略</button>
+                    <small>保存后立即生效</small>
+                </div>
             </form>
         </section>
         <section class="metric-grid honeypot-metric-grid">

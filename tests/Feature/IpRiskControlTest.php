@@ -220,12 +220,12 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('高级封控')
                 ->assertSee('IP 封控')
                 ->assertSee('蜜罐封控')
-                ->assertDontSee('蜜罐事件处置模式')
+                ->assertDontSee('蜜罐事件与异常退出策略')
                 ->assertSee('风险 IP 列表');
 
             $this->get('/private-console/risk-control?application='.$application->public_id.'&tab=honeypot')
                 ->assertOk()
-                ->assertSee('蜜罐事件处置模式')
+                ->assertSee('蜜罐事件与异常退出策略')
                 ->assertSee('设备黑名单')
                 ->assertDontSee('风险 IP 列表');
 

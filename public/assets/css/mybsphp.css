@@ -6130,13 +6130,29 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 .risk-lane-honeypot .risk-lane-heading p { color: #8649bc; }
 .risk-lane-heading h2 { margin: 0 0 3px; color: #1d3156; font-size: 20px; }
 .risk-lane-heading span { color: #7c899e; font-size: 11px; }
-.honeypot-policy-panel { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 14px; padding: 18px; border-left: 5px solid #9959cf; }
-.honeypot-policy-panel > div { display: grid; gap: 5px; }
-.honeypot-policy-panel strong { color: #283b60; }
-.honeypot-policy-panel small { color: #8793a6; }
-.honeypot-policy-panel form { display: flex; gap: 10px; }
-.honeypot-policy-panel select { min-width: 210px; padding: 9px 12px; border: 1px solid #d9e1ed; border-radius: 9px; background: #fff; color: #344b72; }
-.honeypot-metric-grid { grid-template-columns: repeat(3,1fr); margin-bottom: 14px; }
+.honeypot-policy-panel { margin-bottom: 14px; padding: 0; overflow: visible; border-color: #dfe5f0; box-shadow: 0 10px 28px rgba(35,52,88,.055); }
+.honeypot-policy-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 19px 22px 17px; border-bottom: 1px solid #e8ebf2; border-radius: inherit; border-bottom-right-radius: 0; border-bottom-left-radius: 0; background: linear-gradient(105deg,#fbf9ff 0%,#fff 58%); }
+.honeypot-policy-heading > div { display: grid; max-width: 840px; gap: 5px; }
+.honeypot-policy-heading strong { color: #283b60; font-size: 15px; }
+.honeypot-policy-heading small { color: #7f8ba0; font-size: 10px; line-height: 1.65; }
+.honeypot-policy-kicker { display: inline-flex; align-items: center; gap: 7px; color: #8752b4; font-size: 8px; font-weight: 900; letter-spacing: .16em; }
+.honeypot-policy-kicker i { width: 7px; height: 7px; border-radius: 50%; background: #9859cf; box-shadow: 0 0 0 4px #f0e5fa; }
+.honeypot-policy-state { flex: 0 0 auto; padding: 6px 10px; border-radius: 999px; background: #edf1f6; color: #68768b; font-size: 9px; font-weight: 900; }
+.honeypot-policy-state.is-observe { background: #fff3dd; color: #a66b12; }
+.honeypot-policy-state.is-enforce { background: #ede8ff; color: #7048b3; }
+.honeypot-policy-panel form { display: grid; grid-template-columns: minmax(250px,1.35fr) minmax(160px,.72fr) minmax(160px,.72fr) auto; align-items: start; gap: 15px; padding: 18px 22px 20px; }
+.honeypot-policy-field { display: grid; min-width: 0; gap: 6px; }
+.honeypot-policy-field > span { color: #52637e; font-size: 10px; font-weight: 900; }
+.honeypot-policy-field > small, .honeypot-policy-action > small { min-height: 14px; color: #98a2b2; font-size: 8px; line-height: 1.5; }
+.honeypot-policy-panel select { width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid #d9e1ed; border-radius: 9px; outline: 0; background: #fff; color: #344b72; }
+.honeypot-policy-panel select:focus, .honeypot-unit-input:focus-within { border-color: #8a72df; box-shadow: 0 0 0 3px rgba(119,82,190,.1); }
+.honeypot-unit-input { display: grid; grid-template-columns: minmax(64px,1fr) auto; min-height: 42px; overflow: hidden; border: 1px solid #d9e1ed; border-radius: 9px; background: #fff; }
+.honeypot-unit-input input { width: 100%; min-width: 0; padding: 9px 11px; border: 0; outline: 0; background: transparent; color: #263a5e; font-weight: 800; }
+.honeypot-unit-input em { display: grid; min-width: 48px; padding: 0 11px; place-items: center; border-left: 1px solid #edf0f5; background: #f8f9fc; color: #7e8a9e; font-size: 9px; font-style: normal; font-weight: 800; }
+.honeypot-policy-action { display: grid; align-self: start; gap: 6px; padding-top: 21px; justify-items: center; }
+.honeypot-policy-action .button { min-width: 132px; min-height: 42px; padding: 9px 20px; white-space: nowrap; }
+.honeypot-policy-action > small { text-align: center; }
+.honeypot-metric-grid { grid-template-columns: repeat(4,1fr); margin-bottom: 14px; }
 .honeypot-event-panel { margin-bottom: 0; }
 .honeypot-device-panel { margin-top: 14px; }
 .honeypot-device-list { padding: 0 18px 16px; }
@@ -6149,12 +6165,17 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 @media (max-width: 1100px) {
     .risk-layout { grid-template-columns: 1fr; }
     .risk-feed-list { max-height: 360px; }
+    .honeypot-policy-panel form { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .honeypot-policy-action { align-self: end; padding-top: 0; justify-items: stretch; }
+    .honeypot-policy-action .button { width: 100%; }
+    .honeypot-metric-grid { grid-template-columns: repeat(2,1fr); }
 }
 
 @media (max-width: 700px) {
     .risk-lane-nav, .honeypot-metric-grid { grid-template-columns: 1fr; }
     .risk-lane { padding: 12px; }
-    .honeypot-policy-panel, .honeypot-policy-panel form { align-items: stretch; flex-direction: column; }
+    .honeypot-policy-heading { align-items: flex-start; flex-direction: column; gap: 12px; padding: 17px; }
+    .honeypot-policy-panel form { grid-template-columns: 1fr; padding: 16px 17px 18px; }
     .risk-heading-tools { width: 100%; flex-direction: column-reverse; }
     .risk-heading-tools > .button { width: 100%; }
     .risk-app-switcher { width: 100%; min-width: 0; }
@@ -6196,9 +6217,7 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 
 /* Keep the honeypot mode selector above the following metric cards. */
 .honeypot-policy-panel { position:relative; z-index:12; overflow:visible; }
-.honeypot-policy-panel form { flex:0 0 auto; align-items:center; }
-.honeypot-policy-panel form .custom-select { width:240px; }
-.honeypot-policy-panel form .button { min-width:146px; white-space:nowrap; }
+.honeypot-policy-panel form .custom-select { width:100%; }
 @media (max-width:700px) {
     .honeypot-policy-panel form .custom-select,
     .honeypot-policy-panel form .button { width:100%; min-width:0; }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1b3473">
     <title>@yield('title', '管理后台') · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260812-risk-tabs">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260812-honeypot-policy">
     <script src="/assets/js/custom-select.js?v=20260727-ipad-select" defer></script>
     <script src="/assets/js/mybsphp.js?v=20260812-workspace-form" defer></script>
     @stack('head')
