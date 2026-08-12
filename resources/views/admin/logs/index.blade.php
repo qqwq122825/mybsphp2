@@ -50,12 +50,22 @@
     </x-slot:toolbar>
         <table class="{{ $isClientRequestLog ? 'client-trace-table' : '' }}">
             @if($isClientSimpleLog)
-            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>真实原因</th><th>客户端提示</th><th>设备</th></tr></thead>
+            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>真实原因</th><th>客户端提示</th><th>设备</th><th>详细请求</th></tr></thead>
             <tbody>
             @forelse($logs as $log)
                 @php
                     $simpleRequest = is_array($log->before_data) ? $log->before_data : [];
                     $simpleResult = is_array($log->after_data) ? $log->after_data : [];
+                    $detailLog = $clientTraceDetails->get($log->request_id) ?? $log;
+                    $detailRequest = is_array($detailLog->before_data) ? $detailLog->before_data : $simpleRequest;
+                    $detailResponse = is_array($detailLog->after_data) ? $detailLog->after_data : $simpleResult;
+                    $requestDevice = (string) data_get($detailRequest, 'device', data_get($simpleRequest, 'device', ''));
+                    $boundDevice = (string) data_get($detailResponse, 'bound_device', data_get($detailResponse, 'card_state.bound_device', ''));
+                    $returnedDevice = (string) data_get($detailResponse, 'returned_device', '');
+                    $responseCode = (string) data_get($detailResponse, 'diagnostic_code', data_get($detailResponse, 'business_code', data_get($simpleResult, 'internal_code', '未标注')));
+                    $httpStatus = (string) data_get($detailResponse, 'http_status', data_get($simpleResult, 'http_status', '—'));
+                    $requestPayload = base64_encode(json_encode($detailRequest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}');
+                    $responsePayload = base64_encode(json_encode($detailResponse, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}');
                 @endphp
                 <tr>
                     <td class="admin-select-column"><input type="checkbox" name="log_ids[]" value="{{ $log->id }}" form="system-log-maintenance-form" aria-label="选择日志 {{ $log->id }}" data-card-select></td>
@@ -64,8 +74,25 @@
                     <td><strong>{{ data_get($simpleResult, 'internal_code', '未标注') }}</strong><small class="client-trace-meta">{{ data_get($simpleResult, 'internal_message', '未记录') }}</small></td>
                     <td><span class="log-result is-danger">{{ data_get($simpleResult, 'public_message', '卡密不存在') }}</span></td>
                     <td><code>{{ data_get($simpleRequest, 'device', '—') ?: '—' }}</code></td>
+                    <td><button type="button"
+                                class="client-trace-detail-button"
+                                data-client-trace-detail
+                                data-log-id="{{ $detailLog->id }}"
+                                data-created-at="{{ $detailLog->created_at?->format('Y-m-d H:i:s') }}"
+                                data-ip="{{ $detailLog->ip ?: '—' }}"
+                                data-application="{{ data_get($detailRequest, 'application.name', data_get($simpleRequest, 'application.name', '—')) }}"
+                                data-credential="{{ data_get($detailRequest, 'credential_masked', data_get($simpleRequest, 'credential_masked', '—')) }}"
+                                data-request-device="{{ $requestDevice ?: '—' }}"
+                                data-bound-device="{{ $boundDevice ?: '未绑定' }}"
+                                data-returned-device="{{ $returnedDevice ?: '—' }}"
+                                data-response-code="{{ $responseCode }}"
+                                data-http-status="{{ $httpStatus }}"
+                                data-result="{{ $detailLog->result === 'success' ? '成功' : '拦截/失败' }}"
+                                data-result-tone="{{ $detailLog->result === 'success' ? 'success' : 'danger' }}"
+                                data-request-payload="{{ $requestPayload }}"
+                                data-response-payload="{{ $responsePayload }}">详细请求 <span aria-hidden="true">→</span></button></td>
                 </tr>
-            @empty<tr><td class="empty-cell" colspan="6">当前没有需要客服介入的简要诊断记录。</td></tr>@endforelse
+            @empty<tr><td class="empty-cell" colspan="7">当前没有需要客服介入的简要诊断记录。</td></tr>@endforelse
             </tbody>
             @elseif($isClientRequestLog)
             <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>响应摘要</th><th>结果</th><th>详情</th></tr></thead>
@@ -151,7 +178,7 @@
     @endif
 </x-admin.table-shell>
 
-@if($isClientRequestLog && !$isClientSimpleLog)
+@if($isClientRequestLog)
 <x-admin.window-dialog title="客户端请求详情" eyebrow="LOGIN.IC DIAGNOSTIC" :workspace="false" class="client-trace-dialog" data-client-trace-dialog>
     <div class="client-trace-dialog-body">
         <section class="client-trace-dialog-summary">

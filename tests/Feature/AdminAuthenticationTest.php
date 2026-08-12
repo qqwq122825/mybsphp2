@@ -183,7 +183,10 @@ class AdminAuthenticationTest extends TestCase
             ->assertOk()
             ->assertSee('编号查询软件')
             ->assertSee('DEVICE_BLOCKED')
-            ->assertSee('卡密不存在');
+            ->assertSee('卡密不存在')
+            ->assertSee('详细请求')
+            ->assertSee('data-client-trace-detail', false)
+            ->assertSee('客户端请求详情');
         $this->get('/private-console/system-logs/client-requests?view=simple&keyword=FULL-CARD-LOOKUP-001')
             ->assertOk()
             ->assertSee('DEVICE_BLOCKED')

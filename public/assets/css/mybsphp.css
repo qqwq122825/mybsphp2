@@ -4594,6 +4594,10 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 .card-issue-table-component { margin:0 20px 20px; }
 .admin-data-table-footer .pager { margin:0; padding:0; }
 .admin-data-table-footer a { min-height:32px; display:inline-flex; align-items:center; padding:0 11px; border:1px solid #d8dde5; border-radius:6px; color:#377edc; background:#fff; text-decoration:none; }
+.admin-data-table-footer .pager svg { width:16px; height:16px; flex:0 0 16px; }
+.admin-data-table-footer .pager nav > div:first-child { display:none; }
+.admin-data-table-footer .pager nav > div:last-child { display:flex; align-items:center; gap:14px; }
+.admin-data-table-footer .pager nav > div:last-child > div:last-child > span { display:inline-flex; align-items:center; gap:4px; }
 .admin-data-table-footer button,.admin-data-table-footer select { min-height:32px; border:1px solid #d8dde5; border-radius:6px; background:#fff; }
 
 /* Full BSPHP-style user bulk maintenance dialog */

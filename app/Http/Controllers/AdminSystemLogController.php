@@ -46,6 +46,25 @@ final class AdminSystemLogController extends Controller
         $administrator = Auth::guard('admin')->user();
         abort_unless($administrator instanceof Administrator, 401);
 
+        $logs = $query->orderBy('id', $sort)->paginate(30)->withQueryString();
+        $clientTraceDetails = collect();
+        if ($type === 'client-requests' && $clientLogMode === 'simple') {
+            $requestIds = $logs->getCollection()
+                ->pluck('request_id')
+                ->filter(fn ($requestId): bool => is_string($requestId) && $requestId !== '')
+                ->unique()
+                ->values();
+            if ($requestIds->isNotEmpty()) {
+                $clientTraceDetails = AuditLog::query()
+                    ->where('action', 'client.card_login_trace')
+                    ->whereIn('request_id', $requestIds)
+                    ->orderByDesc('id')
+                    ->get()
+                    ->unique('request_id')
+                    ->keyBy('request_id');
+            }
+        }
+
         return view('admin.logs.index', [
             'appName' => $this->installation->applicationName(),
             'adminPath' => $adminPath,
@@ -59,7 +78,8 @@ final class AdminSystemLogController extends Controller
                 'protection' => '系统安全防护日志',
                 'client-requests' => '客户端请求日志',
             },
-            'logs' => $query->orderBy('id', $sort)->paginate(30)->withQueryString(),
+            'logs' => $logs,
+            'clientTraceDetails' => $clientTraceDetails,
         ]);
     }
 
