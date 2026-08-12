@@ -23,7 +23,7 @@ final class AdminSystemLogController extends Controller
 
     public function index(Request $request, string $adminPath, string $type): View
     {
-        validator(['type' => $type], ['type' => ['required', Rule::in(['login', 'card-making', 'protection'])]])->validate();
+        validator(['type' => $type], ['type' => ['required', Rule::in(['login', 'card-making', 'protection', 'client-requests'])]])->validate();
 
         $keyword = trim((string) $request->query('keyword', ''));
         $sort = $request->query('sort') === 'oldest' ? 'asc' : 'desc';
@@ -35,7 +35,9 @@ final class AdminSystemLogController extends Controller
                     ->orWhere('target_id', 'like', '%'.$keyword.'%')
                     ->orWhere('actor_role_snapshot', 'like', '%'.$keyword.'%')
                     ->orWhere('ip', 'like', '%'.$keyword.'%')
-                    ->orWhere('reason', 'like', '%'.$keyword.'%');
+                    ->orWhere('reason', 'like', '%'.$keyword.'%')
+                    ->orWhere('before_data', 'like', '%'.$keyword.'%')
+                    ->orWhere('after_data', 'like', '%'.$keyword.'%');
             });
         }
 
@@ -52,6 +54,7 @@ final class AdminSystemLogController extends Controller
                 'login' => '管理登录日志',
                 'card-making' => '代理制卡日志',
                 'protection' => '系统安全防护日志',
+                'client-requests' => '客户端请求日志',
             },
             'logs' => $query->orderBy('id', $sort)->paginate(30)->withQueryString(),
         ]);
@@ -59,7 +62,7 @@ final class AdminSystemLogController extends Controller
 
     public function maintenance(Request $request, string $adminPath, string $type): RedirectResponse
     {
-        validator(['type' => $type], ['type' => ['required', Rule::in(['login', 'card-making', 'protection'])]])->validate();
+        validator(['type' => $type], ['type' => ['required', Rule::in(['login', 'card-making', 'protection', 'client-requests'])]])->validate();
         $validated = $request->validate([
             'action' => ['required', Rule::in(['delete_selected', 'delete_older_7', 'delete_older_50', 'clear'])],
             'log_ids' => ['nullable', 'array'],
@@ -104,6 +107,7 @@ final class AdminSystemLogController extends Controller
                 $builder->where('result', '!=', 'success')
                     ->orWhereIn('action', ['admin.login_failed', 'security.blocked', 'security.rate_limited']);
             }),
+            'client-requests' => $query->where('action', 'client.card_login_trace'),
         };
     }
 }

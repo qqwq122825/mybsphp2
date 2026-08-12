@@ -78,11 +78,11 @@ Route::prefix('{adminPath}')
                 ->middleware('can:'.AdminPermission::DashboardView->value)
                 ->name('admin.dashboard');
             Route::get('/system-logs/{type}', [AdminSystemLogController::class, 'index'])
-                ->where('type', 'login|card-making|protection')
+                ->where('type', 'login|card-making|protection|client-requests')
                 ->middleware('can:'.AdminPermission::AuditView->value)
                 ->name('admin.system-logs.index');
             Route::post('/system-logs/{type}/maintenance', [AdminSystemLogController::class, 'maintenance'])
-                ->where('type', 'login|card-making|protection')
+                ->where('type', 'login|card-making|protection|client-requests')
                 ->middleware('can:'.AdminPermission::AuditView->value)
                 ->name('admin.system-logs.maintenance');
             Route::get('/risk-control', [AdminRiskControlController::class, 'index'])

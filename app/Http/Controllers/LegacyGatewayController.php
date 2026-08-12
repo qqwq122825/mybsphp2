@@ -9,6 +9,7 @@ use App\Applications\HybridPacketCipher;
 use App\Applications\PacketCipherException;
 use App\Cards\CardActivationException;
 use App\Cards\CardActivationService;
+use App\Diagnostics\CardLoginTraceService;
 use App\Http\ApiResponse;
 use App\Models\Application;
 use App\Risk\IpRiskControlService;
@@ -35,6 +36,7 @@ final class LegacyGatewayController extends Controller
         IpRiskControlService $risk,
         ClientLaunchTelemetryService $launchTelemetry,
         ClientSecurityReportService $securityReports,
+        CardLoginTraceService $cardLoginTrace,
     ): JsonResponse {
         $appCode = (string) $request->query('appid', '');
         $gatewayToken = (string) $request->query('md5', '');
@@ -103,12 +105,28 @@ final class LegacyGatewayController extends Controller
         $device = $this->parameter($parameters, $legacy->device_param);
         $appsafecode = $this->parameter($parameters, $legacy->appsafecode_param);
         $sessionHandle = $this->firstParameter($parameters, ['BSphpSeSsL', 'bsphpsessl', 'session_token']);
+        $traceParameterNames = [
+            'credential' => $legacy->credential_param,
+            'secret' => $legacy->credential_secret_param,
+            'device' => $legacy->device_param,
+            'safe_code' => $legacy->appsafecode_param,
+        ];
+        $traceCardLogin = $application->mode === 'card_login' && $api === 'login.ic';
 
         $riskDecision = null;
         if (in_array($api, ['login.ic', 'login.lg'], true)) {
             $riskDecision = $risk->evaluate($application, $request, 'legacy.'.$api, $device, $code."\0".$secret, preg_match('/^[A-Za-z0-9_-]{64}$/', $sessionHandle) === 1);
             if ($riskDecision->shouldBlock()) {
-                return $risk->blockedResponse($riskDecision, $request);
+                $blockedResponse = $risk->blockedResponse($riskDecision, $request);
+                if ($traceCardLogin) {
+                    $cardLoginTrace->recordJson(
+                        $application, $request, $parameters, $traceParameterNames,
+                        $code, $device, $sessionHandle, $opened['request_nonce'], $compactWire,
+                        $blockedResponse, 'RISK_BLOCKED',
+                    );
+                }
+
+                return $blockedResponse;
             }
         }
 
@@ -193,13 +211,22 @@ final class LegacyGatewayController extends Controller
                 $details = array_replace(['business_status' => 404], $details ?? []);
             }
 
-            return ApiResponse::error(
+            $errorResponse = ApiResponse::error(
                 $exception->errorCode,
                 $exception->getMessage(),
                 $transportStatus,
                 $details,
                 request: $request,
             );
+            if ($traceCardLogin && $exception instanceof CardActivationException) {
+                $cardLoginTrace->recordJson(
+                    $application, $request, $parameters, $traceParameterNames,
+                    $code, $device, $sessionHandle, $opened['request_nonce'], $compactWire,
+                    $errorResponse,
+                );
+            }
+
+            return $errorResponse;
         }
 
         if ($riskDecision !== null) {
@@ -215,9 +242,18 @@ final class LegacyGatewayController extends Controller
                 );
                 if ($launchBlocked) {
                     // 对外保持与普通凭据错误一致；真实 T1 处置只在后台安全事件中可见。
-                    return $application->mode === 'account_recharge'
+                    $launchBlockedResponse = $application->mode === 'account_recharge'
                         ? ApiResponse::error('INVALID_CREDENTIALS', '账号或密码错误。', 401, request: $request)
                         : ApiResponse::error('INVALID_CARD', '卡密不存在。', 200, request: $request);
+                    if ($traceCardLogin) {
+                        $cardLoginTrace->recordJson(
+                            $application, $request, $parameters, $traceParameterNames,
+                            $code, $device, $sessionHandle, $opened['request_nonce'], $compactWire,
+                            $launchBlockedResponse, 'T1_BLOCKED',
+                        );
+                    }
+
+                    return $launchBlockedResponse;
                 }
             } catch (InvalidArgumentException) {
                 // 遥测是可选信号；格式异常不改变已经完成的登录业务结果。
@@ -233,6 +269,14 @@ final class LegacyGatewayController extends Controller
 
         if ($riskDecision !== null) {
             $result = $risk->applyDecoy($result, $application, $riskDecision);
+        }
+
+        if ($traceCardLogin) {
+            $cardLoginTrace->recordLegacy(
+                $application, $request, $parameters, $traceParameterNames,
+                $code, $device, $sessionHandle, $opened['request_nonce'], $compactWire,
+                (string) $result['legacy_response'],
+            );
         }
 
         $responseEnvelope = $cipher->sealResponse(

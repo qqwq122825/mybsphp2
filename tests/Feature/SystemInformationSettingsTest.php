@@ -72,6 +72,8 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('调试模式')
             ->assertSee('客户端服务')
             ->assertSee('暂停提示')
+            ->assertSee('卡密登录请求日志')
+            ->assertSee('开启诊断记录')
             ->assertDontSee('个性化设置')
             ->assertDontSee('角色与权限')
             ->assertDontSee('设备解绑')
@@ -89,12 +91,14 @@ class SystemInformationSettingsTest extends TestCase
             'operational_mode' => 'debug',
             'client_service_enabled' => '0',
             'client_service_message' => '服务升级维护中，请稍后重新连接。',
+            'card_login_trace_enabled' => '1',
         ])->assertRedirect('/new-control-center/settings/system');
 
         $this->assertDatabaseHas('system_settings', ['key' => 'app_name', 'value' => '授权运营中心']);
         $this->assertDatabaseHas('system_settings', ['key' => 'admin_path', 'value' => 'new-control-center']);
         $this->assertDatabaseHas('system_settings', ['key' => 'agent_path', 'value' => 'partner-gateway']);
         $this->assertDatabaseHas('system_settings', ['key' => 'client_service_enabled', 'value' => '0']);
+        $this->assertDatabaseHas('system_settings', ['key' => 'card_login_trace_enabled', 'value' => '1', 'group' => 'diagnostics']);
         $this->assertDatabaseHas('system_settings', ['key' => 'operational_mode', 'value' => 'debug', 'group' => 'security']);
         $this->assertSame('new-control-center', app(InstallationManager::class)->adminPath());
         $this->assertSame('partner-gateway', app(InstallationManager::class)->agentPath());
@@ -108,6 +112,7 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('new-control-center')
             ->assertSee('partner-gateway')
             ->assertSee('调试信息正在开放')
+            ->assertSee('卡密登录诊断正在记录')
             ->assertSee('服务升级维护中，请稍后重新连接。');
 
         $this->postJson('/AppEn.php', [])

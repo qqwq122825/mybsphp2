@@ -22,6 +22,7 @@
                             <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'login' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'login']) }}">管理登录日志</a>
                             <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'card-making' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'card-making']) }}">系统制卡日志</a>
                             <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'protection' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'protection']) }}">系统安全防护日志</a>
+                            <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'client-requests' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'client-requests']) }}">客户端请求日志</a>
                         </div>
                     </details>
                 @endcan

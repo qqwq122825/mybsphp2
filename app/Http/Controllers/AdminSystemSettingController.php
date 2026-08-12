@@ -40,6 +40,7 @@ final class AdminSystemSettingController extends Controller
     {
         $settings = SystemSetting::query()->whereIn('key', [
             'app_name', 'app_url', 'app_timezone', 'admin_path', 'agent_path', 'operational_mode', 'client_service_enabled', 'client_service_message',
+            'card_login_trace_enabled',
         ])->pluck('value', 'key');
 
         return view('admin.settings.system', [
@@ -56,6 +57,7 @@ final class AdminSystemSettingController extends Controller
                 'operational_mode' => (string) ($settings['operational_mode'] ?? 'production'),
                 'client_service_enabled' => (string) ($settings['client_service_enabled'] ?? '1'),
                 'client_service_message' => (string) ($settings['client_service_message'] ?? '系统维护中，请稍后再试。'),
+                'card_login_trace_enabled' => (string) ($settings['card_login_trace_enabled'] ?? '0'),
             ],
             'timezones' => self::TIMEZONES,
             'serverTime' => now()->format('Y-m-d H:i:s'),
@@ -93,10 +95,11 @@ final class AdminSystemSettingController extends Controller
             'operational_mode' => ['required', Rule::in(['production', 'debug'])],
             'client_service_enabled' => ['required', 'boolean'],
             'client_service_message' => ['required', 'string', 'min:2', 'max:500'],
+            'card_login_trace_enabled' => ['required', 'boolean'],
         ]);
 
         $before = SystemSetting::query()->whereIn('key', array_keys($validated))->pluck('value', 'key')->all();
-        $types = ['client_service_enabled' => 'boolean'];
+        $types = ['client_service_enabled' => 'boolean', 'card_login_trace_enabled' => 'boolean'];
         $now = now();
         foreach ($validated as $key => $value) {
             SystemSetting::query()->updateOrCreate(['key' => $key], [
@@ -104,6 +107,7 @@ final class AdminSystemSettingController extends Controller
                 'type' => $types[$key] ?? 'string',
                 'group' => match ($key) {
                     'client_service_enabled', 'client_service_message' => 'service',
+                    'card_login_trace_enabled' => 'diagnostics',
                     'admin_path', 'agent_path', 'operational_mode' => 'security',
                     default => 'site',
                 },
@@ -153,8 +157,12 @@ final class AdminSystemSettingController extends Controller
         ), $request);
 
         $entryChanges = [];
-        if ($adminPathChanged) $entryChanges[] = "后台入口 /{$newAdminPath}";
-        if ($agentPathChanged) $entryChanges[] = "代理入口 /{$newAgentPath}/index.php";
+        if ($adminPathChanged) {
+            $entryChanges[] = "后台入口 /{$newAdminPath}";
+        }
+        if ($agentPathChanged) {
+            $entryChanges[] = "代理入口 /{$newAgentPath}/index.php";
+        }
 
         return redirect()
             ->route('admin.settings.system.index', ['adminPath' => $newAdminPath])

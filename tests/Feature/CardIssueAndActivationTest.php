@@ -10,8 +10,11 @@ use App\Cards\CardGenerationService;
 use App\Cards\ManualIssueService;
 use App\Models\Administrator;
 use App\Models\Application;
+use App\Models\AuditLog;
 use App\Models\Card;
 use App\Models\CardType;
+use App\Models\ClientSecuritySubjectState;
+use App\Models\SystemSetting;
 use App\Risk\IpRiskControlService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -20,6 +23,85 @@ use Tests\TestCase;
 class CardIssueAndActivationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_card_login_diagnostic_switch_records_sanitized_request_response_and_device_mismatch(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->create(['enabled' => false]);
+        SystemSetting::query()->create([
+            'key' => 'card_login_trace_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'diagnostics',
+        ]);
+        $administrator = $this->administrator();
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $administrator)['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
+        $firstSession = str_repeat('t', 64);
+
+        $first = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $credential['code'], 'icpwd' => $credential['secret'],
+            'key' => 'TRACE-DEVICE-A', 'appsafecode' => 'TRACE-SAFE-A', 'BSphpSeSsL' => $firstSession,
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->postJson($gateway, $first['envelope'])->assertOk();
+
+        $successLog = AuditLog::query()->where('action', 'client.card_login_trace')->sole();
+        $this->assertSame('TRACE-DEVICE-A', data_get($successLog->before_data, 'device'));
+        $this->assertSame('v2-object', data_get($successLog->before_data, 'wire_format'));
+        $this->assertSame('[REDACTED]', data_get($successLog->before_data, 'parameters.appsafecode'));
+        $this->assertSame('[SESSION_HANDLE]', data_get($successLog->before_data, 'parameters.BSphpSeSsL'));
+        $this->assertSame('TRACE-DEVICE-A', data_get($successLog->after_data, 'returned_device'));
+        $this->assertTrue(data_get($successLog->after_data, 'request_device_matches_binding'));
+        $this->assertStringContainsString('[PAYLOAD]', (string) data_get($successLog->after_data, 'legacy_response'));
+        $successJson = json_encode([$successLog->before_data, $successLog->after_data], JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString($credential['code'], $successJson);
+        $this->assertStringNotContainsString('TRACE-SAFE-A', $successJson);
+        $this->assertStringNotContainsString($firstSession, $successJson);
+
+        $second = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $credential['code'], 'icpwd' => $credential['secret'],
+            'key' => 'TRACE-DEVICE-B', 'appsafecode' => 'TRACE-SAFE-B', 'BSphpSeSsL' => str_repeat('u', 64),
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->postJson($gateway, $second['envelope'])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'DEVICE_MISMATCH');
+
+        $mismatchLog = AuditLog::query()->where('action', 'client.card_login_trace')->latest('id')->firstOrFail();
+        $this->assertSame('failed', $mismatchLog->result);
+        $this->assertSame('DEVICE_MISMATCH', data_get($mismatchLog->after_data, 'business_code'));
+        $this->assertSame('TRACE-DEVICE-B', data_get($mismatchLog->before_data, 'device'));
+        $this->assertSame('TRACE-DEVICE-A', data_get($mismatchLog->after_data, 'bound_device'));
+        $this->assertFalse(data_get($mismatchLog->after_data, 'request_device_matches_binding'));
+
+        $blockedCredential = app(CardGenerationService::class)->generate($cardType, 1, $administrator)['credentials'][0];
+        ClientSecuritySubjectState::query()->create([
+            'application_id' => $application->getKey(),
+            'device_hash' => hash('sha256', 'TRACE-BLOCKED-DEVICE'),
+            'risk_score' => 100,
+            'status' => 'blocked',
+            'last_event_at' => now(),
+            'reason_code' => 'S0',
+        ]);
+        $blocked = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $blockedCredential['code'], 'icpwd' => $blockedCredential['secret'],
+            'key' => 'TRACE-BLOCKED-DEVICE', 'appsafecode' => 'TRACE-SAFE-BLOCKED',
+            'BSphpSeSsL' => str_repeat('v', 64),
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->postJson($gateway, $blocked['envelope'])->assertOk();
+        $blockedLog = AuditLog::query()->where('action', 'client.card_login_trace')->latest('id')->firstOrFail();
+        $this->assertSame('DEVICE_BLOCKLIST_HONEYPOT', data_get($blockedLog->after_data, 'diagnostic_code'));
+        $this->assertTrue(data_get($blockedLog->after_data, 'device_security_state.actively_blocked'));
+        $this->assertSame('S0', data_get($blockedLog->after_data, 'device_security_state.reason_code'));
+        $blockedCard = Card::query()->where('code_lookup_hash', app(CardCredentialHasher::class)->lookupHash($blockedCredential['code']))->sole();
+        $this->assertSame('inventory', $blockedCard->status);
+        $this->assertNull($blockedCard->bound_device_ciphertext);
+
+        SystemSetting::query()->whereKey('card_login_trace_enabled')->update(['value' => '0']);
+        $third = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $credential['code'], 'key' => 'TRACE-DEVICE-A',
+            'appsafecode' => 'TRACE-SAFE-C', 'BSphpSeSsL' => $firstSession,
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->postJson($gateway, $third['envelope'])->assertOk();
+        $this->assertSame(3, AuditLog::query()->where('action', 'client.card_login_trace')->count());
+    }
 
     public function test_generated_card_can_be_manually_issued_and_activated_once(): void
     {

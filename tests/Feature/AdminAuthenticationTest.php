@@ -85,6 +85,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('管理登录日志')
             ->assertSee('系统制卡日志')
             ->assertSee('系统安全防护日志')
+            ->assertSee('客户端请求日志')
             ->assertDontSee('用户反馈')
             ->assertDontSee('邮件设置')
             ->assertDontSee('在线支付');
@@ -109,6 +110,10 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('data-table-export', false)
             ->assertDontSee('<th>结果</th>', false);
         $this->get('/private-console/system-logs/protection')->assertOk()->assertSee('系统安全防护日志')->assertSee('admin.login_failed');
+        $this->get('/private-console/system-logs/client-requests')
+            ->assertOk()
+            ->assertSee('客户端请求日志')
+            ->assertSee('开启诊断开关');
 
         $this->post('/private-console/logout')
             ->assertRedirect('/private-console');

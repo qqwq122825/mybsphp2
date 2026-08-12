@@ -7,6 +7,7 @@ use App\Auth\SystemAccessSynchronizer;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
+use App\Models\ClientSecuritySubjectState;
 use App\Models\Role;
 use App\Models\SystemSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -202,6 +203,10 @@ class IpRiskControlTest extends TestCase
             ]);
             $administrator->roles()->attach(Role::query()->where('code', 'super_admin')->sole());
             $application = $this->application('VERIFY');
+            ClientSecuritySubjectState::query()->create([
+                'application_id' => $application->getKey(), 'device_hash' => hash('sha256', 'BLOCKED-DEVICE'),
+                'risk_score' => 100, 'status' => 'blocked', 'last_event_at' => now(), 'reason_code' => 'S0',
+            ]);
             $this->actingAs($administrator, 'admin');
 
             $this->get('/private-console/risk-control')
@@ -227,6 +232,8 @@ class IpRiskControlTest extends TestCase
                 ->assertOk()
                 ->assertSee('蜜罐事件与异常退出策略')
                 ->assertSee('设备黑名单')
+                ->assertSee('当前有 1 台设备处于黑名单')
+                ->assertSee('使用新卡密时也会进入蜜罐返回')
                 ->assertDontSee('风险 IP 列表');
 
             $this->put('/private-console/risk-control/applications/'.$application->public_id.'/policy', [

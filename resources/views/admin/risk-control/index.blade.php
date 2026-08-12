@@ -23,7 +23,7 @@
             <span>IP</span><strong>IP 封控</strong><small>登录请求频率与风险 IP</small>
         </a>
         <a class="{{ $activeRiskTab === 'honeypot' ? 'is-active' : '' }}" href="{{ route('admin.risk-control.index', ['adminPath'=>$adminPath, 'application'=>$selectedApplication->public_id, 'tab'=>'honeypot']) }}">
-            <span>◈</span><strong>蜜罐封控</strong><small>客户端安全事件与设备黑名单</small>
+            <span>◈</span><strong>蜜罐封控</strong><small>客户端安全事件 · {{ $securityMetrics['blocked_devices'] }} 台已拉黑</small>
         </a>
     </nav>
 
@@ -171,6 +171,12 @@
     @else
     <section id="honeypot-risk" class="risk-lane risk-lane-honeypot">
         <header class="risk-lane-heading"><b>02</b><div><p>CLIENT HONEYPOT CONTROL</p><h2>客户端安全信号</h2><span>展示已验证会话的蜜罐事件，以及统计窗口内累计至少 3 次的异常退出批次；零星退出仅在客户端短期保留。</span></div></header>
+        @if($securityMetrics['blocked_devices'] > 0)
+        <section class="system-settings-mode-note is-debug">
+            <strong>当前有 {{ $securityMetrics['blocked_devices'] }} 台设备处于黑名单</strong>
+            <p>黑名单设备使用新卡密时也会进入蜜罐返回，客户端可能显示“设备校验失败”。可在本页底部的设备黑名单中解除。</p>
+        </section>
+        @endif
         <section class="dashboard-panel honeypot-policy-panel">
             <header class="honeypot-policy-heading">
                 <div>
@@ -207,7 +213,7 @@
         <section class="metric-grid honeypot-metric-grid">
             <article class="metric-card metric-blue"><span>24 小时上报</span><strong>{{ $securityMetrics['events_24h'] }}</strong><small>客户端安全事件</small></article>
             <article class="metric-card metric-orange"><span>高置信事件</span><strong>{{ $securityMetrics['high_24h'] }}</strong><small>D0 / D1 / R0 / S0</small></article>
-            <article class="metric-card metric-red"><span>已冻结主体</span><strong>{{ $securityMetrics['frozen_subjects'] }}</strong><small>卡密或账号</small></article>
+            <article class="metric-card metric-red"><span>设备黑名单</span><strong>{{ $securityMetrics['blocked_devices'] }}</strong><small>使用新卡也会命中蜜罐</small></article>
             <article class="metric-card metric-green"><span>异常退出</span><strong>{{ $securityMetrics['abnormal_exits_24h'] }}</strong><small>{{ $securityMetrics['abnormal_exit_batches_24h'] }} 个 T1 批次</small></article>
         </section>
     <section class="dashboard-panel risk-feed-panel honeypot-event-panel">

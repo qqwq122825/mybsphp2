@@ -6222,3 +6222,19 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
     .honeypot-policy-panel form .custom-select,
     .honeypot-policy-panel form .button { width:100%; min-width:0; }
 }
+
+/* Card-login request/response diagnostic log. */
+.client-trace-table { min-width: 1180px; }
+.client-trace-table td { vertical-align: top; }
+.client-trace-table td > strong { display: block; color: #2b3f63; white-space: nowrap; }
+.client-trace-meta { display: block; margin-top: 4px; color: #8e99aa; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 9px; }
+.client-trace-device { min-width: 220px; }
+.client-trace-device > span { display: grid; grid-template-columns: 34px minmax(0,1fr); align-items: start; gap: 5px; margin-bottom: 4px; }
+.client-trace-device b { color: #8d98a9; font-size: 8px; }
+.client-trace-device code { overflow-wrap: anywhere; color: #344c72; font-size: 9px; }
+.client-trace-device em { display: inline-flex; margin-top: 3px; padding: 3px 6px; border-radius: 999px; background: #ffe6ea; color: #bd3c50; font-size: 8px; font-style: normal; font-weight: 900; }
+.client-trace-device em.is-match { background: #e7f7f1; color: #248565; }
+.client-trace-details { width: 150px; }
+.client-trace-details summary { padding: 6px 8px; border: 1px solid #dce3ee; border-radius: 7px; color: #536987; font-size: 9px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.client-trace-details[open] { position: relative; z-index: 25; }
+.client-trace-details pre { position: absolute; z-index: 30; width: min(560px,70vw); max-height: 420px; overflow: auto; margin: 6px 0 0; padding: 13px; border: 1px solid #dce3ee; border-radius: 10px; background: #17243a; box-shadow: 0 18px 44px rgba(20,34,56,.22); color: #d9e6f8; font: 9px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; white-space: pre-wrap; overflow-wrap: anywhere; }

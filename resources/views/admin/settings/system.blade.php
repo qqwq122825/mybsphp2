@@ -91,6 +91,20 @@
                 <small>客户端服务暂停时返回的提示内容</small>
             </label>
 
+            <label class="system-settings-row system-runtime-mode-row">
+                <strong>卡密登录请求日志</strong>
+                <select name="card_login_trace_enabled" required>
+                    <option value="0" @selected(old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '0')>关闭</option>
+                    <option value="1" @selected(old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1')>开启诊断记录</option>
+                </select>
+                <small>记录每次 login.ic 的解密请求、实际返回、请求设备和卡密绑定设备。卡密、密码、payload、session 与上报令牌会脱敏。</small>
+            </label>
+
+            <div class="system-settings-mode-note is-{{ old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1' ? 'debug' : 'production' }}">
+                <strong>{{ old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1' ? '卡密登录诊断正在记录' : '卡密登录诊断已关闭' }}</strong>
+                <p>排查“设备校验失败”时可临时开启，到“系统日志 → 客户端请求日志”对比请求设备、绑定设备和返回设备。</p>
+            </div>
+
             <div class="system-settings-security-note">
                 <strong>安全配置</strong>
                 <p>系统加密密钥与 Cookie 密钥继续由服务器环境配置管理，页面仅维护日常运营参数。</p>

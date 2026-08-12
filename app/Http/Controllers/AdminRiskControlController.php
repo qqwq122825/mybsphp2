@@ -63,6 +63,13 @@ final class AdminRiskControlController extends Controller
         $securityEvents24h = $selected
             ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('created_at', '>=', now()->subDay())->get(['event_code', 'evidence'])
             : collect();
+        $blockedDevices = $selected
+            ? ClientSecuritySubjectState::query()
+                ->where('application_id', $selected->getKey())
+                ->where('status', 'blocked')
+                ->where(fn ($query) => $query->whereNull('blocked_until')->orWhere('blocked_until', '>', now()))
+                ->count()
+            : 0;
 
         return view('admin.risk-control.index', [
             'appName' => $this->installation->applicationName(),
@@ -83,6 +90,7 @@ final class AdminRiskControlController extends Controller
                 'frozen_subjects' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('action', 'freeze')->get(['card_id', 'application_account_id'])->unique(fn ($event) => $event->card_id ? 'c'.$event->card_id : 'a'.$event->application_account_id)->count() : 0,
                 'abnormal_exit_batches_24h' => $securityEvents24h->where('event_code', 'T1')->count(),
                 'abnormal_exits_24h' => $securityEvents24h->where('event_code', 'T1')->sum(fn (ClientSecurityEvent $event): int => (int) ($event->evidence['count'] ?? 0)),
+                'blocked_devices' => $blockedDevices,
             ],
             'metrics' => [
                 'events_24h' => $selected ? RiskEvent::query()->where('application_id', $selected->getKey())->where('created_at', '>=', now()->subDay())->count() : 0,
