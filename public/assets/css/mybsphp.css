@@ -6229,7 +6229,7 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 }
 
 /* Card-login request/response diagnostic log. */
-.client-trace-table { min-width: 1180px; }
+.client-trace-table { min-width: 1020px; }
 .client-trace-table td { vertical-align: top; }
 .client-trace-table td > strong { display: block; color: #2b3f63; white-space: nowrap; }
 .client-trace-meta { display: block; margin-top: 4px; color: #8e99aa; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 9px; }
@@ -6239,7 +6239,41 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 .client-trace-device code { overflow-wrap: anywhere; color: #344c72; font-size: 9px; }
 .client-trace-device em { display: inline-flex; margin-top: 3px; padding: 3px 6px; border-radius: 999px; background: #ffe6ea; color: #bd3c50; font-size: 8px; font-style: normal; font-weight: 900; }
 .client-trace-device em.is-match { background: #e7f7f1; color: #248565; }
-.client-trace-details { width: 150px; }
-.client-trace-details summary { padding: 6px 8px; border: 1px solid #dce3ee; border-radius: 7px; color: #536987; font-size: 9px; font-weight: 800; cursor: pointer; white-space: nowrap; }
-.client-trace-details[open] { position: relative; z-index: 25; }
-.client-trace-details pre { position: absolute; z-index: 30; width: min(560px,70vw); max-height: 420px; overflow: auto; margin: 6px 0 0; padding: 13px; border: 1px solid #dce3ee; border-radius: 10px; background: #17243a; box-shadow: 0 18px 44px rgba(20,34,56,.22); color: #d9e6f8; font: 9px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.client-trace-response { min-width: 120px; }
+.client-trace-response strong { overflow: hidden; max-width: 160px; color: #3f5578; font-size: 10px; text-overflow: ellipsis; }
+.client-trace-response small { display: inline-flex; margin-top: 5px; padding: 3px 7px; border-radius: 999px; background: #edf2fb; color: #71809a; font-size: 8px; font-weight: 850; }
+.client-trace-detail-button { display: inline-flex; min-width: 82px; min-height: 30px; align-items: center; justify-content: center; gap: 8px; border: 1px solid #d8e1f3; border-radius: 8px; padding: 6px 10px; color: #4269d5; background: #f4f7ff; font-size: 9px; font-weight: 900; white-space: nowrap; cursor: pointer; transition: transform .16s ease, border-color .16s ease, background .16s ease; }
+.client-trace-detail-button:hover { transform: translateY(-1px); border-color: #aebfeb; background: #eaf0ff; }
+.client-trace-detail-button span { font-size: 12px; }
+
+dialog.client-trace-dialog.is-maximized { position: fixed; inset: 0; width: min(1160px, calc(100vw - 48px)); height: min(780px, calc(100vh - 48px)); margin: auto; }
+.client-trace-dialog .admin-window-dialog__content { padding: 0; background: #f5f7fb; }
+.client-trace-dialog-body { display: flex; min-height: 100%; flex-direction: column; gap: 16px; padding: 20px; }
+.client-trace-dialog-summary { display: grid; grid-template-columns: .65fr 1fr 1fr 1.2fr 1fr .8fr; overflow: hidden; border: 1px solid #e1e7f0; border-radius: 12px; background: #fff; }
+.client-trace-dialog-summary > div { min-width: 0; padding: 14px 16px; border-right: 1px solid #edf0f5; }
+.client-trace-dialog-summary > div:last-child { border-right: 0; }
+.client-trace-dialog-summary small, .client-trace-dialog-devices small, .client-trace-dialog-payloads small { display: block; margin-bottom: 5px; color: #98a3b4; font-size: 8px; font-weight: 900; letter-spacing: .08em; }
+.client-trace-dialog-summary strong { display: block; overflow: hidden; color: #2c4164; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.client-trace-dialog-summary strong i { display: block; overflow: hidden; margin-top: 3px; color: #8995a8; font-size: 8px; font-style: normal; text-overflow: ellipsis; }
+.client-trace-dialog-result { display: inline-flex !important; width: fit-content; border-radius: 999px; padding: 4px 8px; }
+.client-trace-dialog-result.is-success { color: #218266; background: #e7f7f1; }
+.client-trace-dialog-result.is-danger { color: #bc4053; background: #ffe7eb; }
+.client-trace-dialog-devices { border: 1px solid #e1e7f0; border-radius: 12px; padding: 16px; background: #fff; }
+.client-trace-dialog-devices > header, .client-trace-dialog-payloads article > header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.client-trace-dialog-devices h4, .client-trace-dialog-payloads h4 { margin: 0; color: #2d4264; font-size: 13px; }
+.client-trace-dialog-devices > header p { margin: 0; color: #8d99aa; font-size: 9px; }
+.client-trace-dialog-devices > div { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-top: 13px; }
+.client-trace-dialog-devices article { min-width: 0; border: 1px solid #e5eaf2; border-radius: 9px; padding: 11px 12px; background: #f8faff; }
+.client-trace-dialog-devices code { display: block; overflow: hidden; color: #40587e; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.client-trace-dialog-payloads { display: grid; min-height: 0; flex: 1; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.client-trace-dialog-payloads article { display: flex; min-width: 0; min-height: 300px; flex-direction: column; overflow: hidden; border: 1px solid #dce3ee; border-radius: 12px; background: #17243a; box-shadow: 0 10px 28px rgba(28,43,68,.08); }
+.client-trace-dialog-payloads article > header { flex: 0 0 auto; padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.client-trace-dialog-payloads h4 { color: #edf4ff; }
+.client-trace-dialog-payloads article > header button { border: 1px solid rgba(255,255,255,.16); border-radius: 7px; padding: 5px 9px; color: #dce8fa; background: rgba(255,255,255,.06); font-size: 8px; font-weight: 850; cursor: pointer; }
+.client-trace-dialog-payloads pre { min-height: 0; flex: 1; overflow: auto; margin: 0; padding: 15px; color: #d9e6f8; font: 10px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 820px) {
+    .client-trace-dialog-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .client-trace-dialog-summary > div { border-bottom: 1px solid #edf0f5; }
+    .client-trace-dialog-devices > header { align-items: flex-start; flex-direction: column; gap: 4px; }
+    .client-trace-dialog-devices > div, .client-trace-dialog-payloads { grid-template-columns: 1fr; }
+}

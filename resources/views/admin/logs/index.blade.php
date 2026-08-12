@@ -31,7 +31,7 @@
     </x-slot:toolbar>
         <table class="{{ $isClientRequestLog ? 'client-trace-table' : '' }}">
             @if($isClientRequestLog)
-            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>解密请求</th><th>实际返回</th><th>结果</th></tr></thead>
+            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>响应摘要</th><th>结果</th><th>详情</th></tr></thead>
             <tbody>
             @forelse($logs as $log)
                 @php
@@ -42,6 +42,10 @@
                     $returnedDevice = (string) data_get($traceResponse, 'returned_device', '');
                     $deviceMatches = data_get($traceResponse, 'request_device_matches_binding');
                     $deviceBlocked = data_get($traceResponse, 'device_security_state.actively_blocked') === true;
+                    $responseCode = (string) data_get($traceResponse, 'diagnostic_code', data_get($traceResponse, 'business_code', '未标注'));
+                    $httpStatus = (string) data_get($traceResponse, 'http_status', '—');
+                    $requestPayload = base64_encode(json_encode($traceRequest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}');
+                    $responsePayload = base64_encode(json_encode($traceResponse, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}');
                 @endphp
                 <tr>
                     <td class="admin-select-column"><input type="checkbox" name="log_ids[]" value="{{ $log->id }}" form="system-log-maintenance-form" aria-label="选择日志 {{ $log->id }}" data-card-select></td>
@@ -53,9 +57,25 @@
                         @if($returnedDevice !== '')<span><b>返回</b><code>{{ $returnedDevice }}</code></span>@endif
                         @if($deviceBlocked)<em>黑名单蜜罐 · {{ data_get($traceResponse, 'device_security_state.reason_code', '未标注') }}</em>@elseif($deviceMatches === false)<em>设备不一致</em>@elseif($deviceMatches === true)<em class="is-match">设备一致</em>@endif
                     </td>
-                    <td><details class="client-trace-details"><summary>查看请求</summary><pre>{{ json_encode($traceRequest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre></details></td>
-                    <td><details class="client-trace-details"><summary>{{ data_get($traceResponse, 'diagnostic_code', data_get($traceResponse, 'business_code', '查看返回')) }} · HTTP {{ data_get($traceResponse, 'http_status', '—') }}</summary><pre>{{ json_encode($traceResponse, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre></details></td>
+                    <td class="client-trace-response"><strong>{{ $responseCode }}</strong><small>HTTP {{ $httpStatus }}</small></td>
                     <td><span class="log-result {{ $log->result === 'success' ? 'is-success' : 'is-danger' }}">{{ $log->result === 'success' ? '成功' : '拦截/失败' }}</span></td>
+                    <td><button type="button"
+                                class="client-trace-detail-button"
+                                data-client-trace-detail
+                                data-log-id="{{ $log->id }}"
+                                data-created-at="{{ $log->created_at?->format('Y-m-d H:i:s') }}"
+                                data-ip="{{ $log->ip ?: '—' }}"
+                                data-application="{{ data_get($traceRequest, 'application.name', '—') }}"
+                                data-credential="{{ data_get($traceRequest, 'credential_masked', '—') }}"
+                                data-request-device="{{ $requestDevice ?: '—' }}"
+                                data-bound-device="{{ $boundDevice ?: '未绑定' }}"
+                                data-returned-device="{{ $returnedDevice ?: '—' }}"
+                                data-response-code="{{ $responseCode }}"
+                                data-http-status="{{ $httpStatus }}"
+                                data-result="{{ $log->result === 'success' ? '成功' : '拦截/失败' }}"
+                                data-result-tone="{{ $log->result === 'success' ? 'success' : 'danger' }}"
+                                data-request-payload="{{ $requestPayload }}"
+                                data-response-payload="{{ $responsePayload }}">查看详情 <span aria-hidden="true">→</span></button></td>
                 </tr>
             @empty<tr><td class="empty-cell" colspan="7">当前暂无{{ $title }}数据，可先在系统信息设置中开启诊断开关。</td></tr>@endforelse
             </tbody>
@@ -93,4 +113,85 @@
         <x-slot:footer><div class="pager">{{ $logs->links() }}</div></x-slot:footer>
     @endif
 </x-admin.table-shell>
+
+@if($isClientRequestLog)
+<x-admin.window-dialog title="客户端请求详情" eyebrow="LOGIN.IC DIAGNOSTIC" :workspace="false" class="client-trace-dialog" data-client-trace-dialog>
+    <div class="client-trace-dialog-body">
+        <section class="client-trace-dialog-summary">
+            <div><small>日志编号</small><strong data-trace-value="log-id">—</strong></div>
+            <div><small>请求时间</small><strong data-trace-value="created-at">—</strong></div>
+            <div><small>来源 IP</small><strong data-trace-value="ip">—</strong></div>
+            <div><small>应用 / 卡密</small><strong><span data-trace-value="application">—</span><i data-trace-value="credential">—</i></strong></div>
+            <div><small>响应</small><strong><span data-trace-value="response-code">—</span><i>HTTP <span data-trace-value="http-status">—</span></i></strong></div>
+            <div><small>处理结果</small><strong class="client-trace-dialog-result" data-trace-result>—</strong></div>
+        </section>
+
+        <section class="client-trace-dialog-devices" aria-label="设备对比">
+            <header><div><small>DEVICE COMPARISON</small><h4>设备对比</h4></div><p>一次对照请求、卡密绑定和服务器实际返回的设备值。</p></header>
+            <div>
+                <article><small>请求设备</small><code data-trace-value="request-device">—</code></article>
+                <article><small>绑定设备</small><code data-trace-value="bound-device">—</code></article>
+                <article><small>返回设备</small><code data-trace-value="returned-device">—</code></article>
+            </div>
+        </section>
+
+        <section class="client-trace-dialog-payloads">
+            <article>
+                <header><div><small>DECRYPTED REQUEST</small><h4>解密请求</h4></div><button type="button" data-trace-copy="request">复制</button></header>
+                <pre data-trace-payload="request">{}</pre>
+            </article>
+            <article>
+                <header><div><small>ACTUAL RESPONSE</small><h4>实际返回</h4></div><button type="button" data-trace-copy="response">复制</button></header>
+                <pre data-trace-payload="response">{}</pre>
+            </article>
+        </section>
+    </div>
+</x-admin.window-dialog>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const dialog = document.querySelector('[data-client-trace-dialog]');
+    if (!(dialog instanceof HTMLDialogElement)) return;
+
+    const decodePayload = (encoded) => {
+        try {
+            const bytes = Uint8Array.from(atob(encoded || ''), (character) => character.charCodeAt(0));
+            return JSON.stringify(JSON.parse(new TextDecoder().decode(bytes)), null, 2);
+        } catch (error) {
+            return '{}';
+        }
+    };
+
+    document.querySelectorAll('[data-client-trace-detail]').forEach((button) => {
+        button.addEventListener('click', () => {
+            ['logId', 'createdAt', 'ip', 'application', 'credential', 'requestDevice', 'boundDevice', 'returnedDevice', 'responseCode', 'httpStatus'].forEach((key) => {
+                const target = dialog.querySelector(`[data-trace-value="${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}"]`);
+                if (target instanceof HTMLElement) target.textContent = button.dataset[key] || '—';
+            });
+            const result = dialog.querySelector('[data-trace-result]');
+            if (result instanceof HTMLElement) {
+                result.textContent = button.dataset.result || '—';
+                result.classList.toggle('is-success', button.dataset.resultTone === 'success');
+                result.classList.toggle('is-danger', button.dataset.resultTone === 'danger');
+            }
+            const request = dialog.querySelector('[data-trace-payload="request"]');
+            const response = dialog.querySelector('[data-trace-payload="response"]');
+            if (request instanceof HTMLElement) request.textContent = decodePayload(button.dataset.requestPayload);
+            if (response instanceof HTMLElement) response.textContent = decodePayload(button.dataset.responsePayload);
+            dialog.dispatchEvent(new CustomEvent('admin-window:open', { bubbles: true }));
+        });
+    });
+
+    dialog.querySelectorAll('[data-trace-copy]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const payload = dialog.querySelector(`[data-trace-payload="${button.dataset.traceCopy}"]`);
+            if (!(payload instanceof HTMLElement)) return;
+            await navigator.clipboard.writeText(payload.textContent || '');
+            button.textContent = '已复制';
+            window.setTimeout(() => { button.textContent = '复制'; }, 1200);
+        });
+    });
+});
+</script>
+@endif
 @endsection

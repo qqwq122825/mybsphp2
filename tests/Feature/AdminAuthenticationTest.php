@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AdminAuthenticationTest extends TestCase
@@ -114,6 +115,41 @@ class AdminAuthenticationTest extends TestCase
             ->assertOk()
             ->assertSee('客户端请求日志')
             ->assertSee('开启诊断开关');
+
+        AuditLog::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'actor_role_snapshot' => 'client',
+            'action' => 'client.card_login_trace',
+            'target_type' => 'application',
+            'target_id' => 'trace-app',
+            'request_id' => (string) Str::ulid(),
+            'ip' => '203.0.113.8',
+            'before_data' => [
+                'application' => ['name' => '诊断测试软件'],
+                'credential_masked' => 'TES***ARD',
+                'credential_fingerprint' => 'trace-card',
+                'device' => 'REQUEST-DEVICE',
+            ],
+            'after_data' => [
+                'diagnostic_code' => 'DEVICE_MISMATCH',
+                'http_status' => 200,
+                'bound_device' => 'BOUND-DEVICE',
+                'returned_device' => 'RETURNED-DEVICE',
+                'request_device_matches_binding' => false,
+            ],
+            'reason' => '设备对比测试',
+            'result' => 'failed',
+        ]);
+
+        $this->get('/private-console/system-logs/client-requests')
+            ->assertOk()
+            ->assertSee('响应摘要')
+            ->assertSee('查看详情')
+            ->assertSee('客户端请求详情')
+            ->assertSee('data-client-trace-detail', false)
+            ->assertSee('DEVICE_MISMATCH')
+            ->assertSee('REQUEST-DEVICE')
+            ->assertDontSee('client-trace-details');
 
         $this->post('/private-console/logout')
             ->assertRedirect('/private-console');
