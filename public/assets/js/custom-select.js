@@ -55,6 +55,40 @@
         }
     }
 
+    function focusWithoutPageScroll(element) {
+        var left = window.pageXOffset || document.documentElement.scrollLeft || 0;
+        var top = window.pageYOffset || document.documentElement.scrollTop || 0;
+        try {
+            element.focus({ preventScroll: true });
+        } catch (error) {
+            element.focus();
+        }
+        if ((window.pageXOffset || 0) !== left || (window.pageYOffset || 0) !== top) {
+            window.scrollTo(left, top);
+        }
+    }
+
+    function keepOptionInsideMenu(instance, button) {
+        if (!button || instance.menu.clientHeight <= 0) return;
+        var optionTop = button.offsetTop;
+        var optionBottom = optionTop + button.offsetHeight;
+        var visibleTop = instance.menu.scrollTop;
+        var visibleBottom = visibleTop + instance.menu.clientHeight;
+        if (optionTop < visibleTop) instance.menu.scrollTop = optionTop;
+        else if (optionBottom > visibleBottom) instance.menu.scrollTop = optionBottom - instance.menu.clientHeight;
+    }
+
+    function placeMenu(instance) {
+        instance.wrapper.classList.remove('opens-up');
+        var rectangle = instance.trigger.getBoundingClientRect();
+        var menuHeight = Math.min(instance.menu.scrollHeight, Math.max(120, window.innerHeight * 0.52));
+        var spaceBelow = window.innerHeight - rectangle.bottom - 8;
+        var spaceAbove = rectangle.top - 8;
+        if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
+            instance.wrapper.classList.add('opens-up');
+        }
+    }
+
     function highlight(instance, index) {
         var itemIndex;
         if (!instance.options.length) return;
@@ -63,9 +97,7 @@
         for (itemIndex = 0; itemIndex < instance.options.length; itemIndex += 1) {
             instance.options[itemIndex].button.classList.toggle('is-highlighted', itemIndex === index);
         }
-        if (instance.options[index].button.scrollIntoView) {
-            instance.options[index].button.scrollIntoView(false);
-        }
+        keepOptionInsideMenu(instance, instance.options[index].button);
     }
 
     function open(instance) {
@@ -73,6 +105,7 @@
         instance.wrapper.classList.add('is-open');
         instance.trigger.setAttribute('aria-expanded', 'true');
         instance.menu.hidden = false;
+        placeMenu(instance);
         instance.highlighted = 0;
         var index;
         for (index = 0; index < instance.options.length; index += 1) {
@@ -104,11 +137,14 @@
         });
         button.addEventListener('click', function () {
             if (option.disabled) return;
+            var left = window.pageXOffset || document.documentElement.scrollLeft || 0;
+            var top = window.pageYOffset || document.documentElement.scrollTop || 0;
             instance.select.value = option.value;
             sync(instance);
             emitChange(instance.select);
             close(instance);
-            instance.trigger.focus();
+            focusWithoutPageScroll(instance.trigger);
+            window.scrollTo(left, top);
         });
         instance.menu.appendChild(button);
         instance.options.push({ button: button, option: option });

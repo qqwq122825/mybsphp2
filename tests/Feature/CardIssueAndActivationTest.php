@@ -24,6 +24,22 @@ class CardIssueAndActivationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_encrypted_card_login_reports_empty_card_explicitly(): void
+    {
+        [$application] = $this->applicationAndType();
+        $application->riskPolicy()->create(['enabled' => false]);
+        $cipher = app(HybridPacketCipher::class);
+        $request = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => '', 'key' => 'EMPTY-CARD-DEVICE',
+            'appsafecode' => 'EMPTY-CARD-SAFE', 'BSphpSeSsL' => str_repeat('q', 64),
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $this->postJson('/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token, $request['envelope'])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'EMPTY_CARD')
+            ->assertJsonPath('error.message', '卡密为空。');
+    }
+
     public function test_card_login_diagnostic_switch_records_sanitized_request_response_and_device_mismatch(): void
     {
         [$application, $cardType] = $this->applicationAndType();

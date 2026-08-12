@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', '代理控制台') - {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260727-ipad-select">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260812-select-scroll">
     <link rel="stylesheet" href="/assets/css/agent.css?v=20260725-custom-select">
-    <script src="/assets/js/custom-select.js?v=20260727-ipad-select" defer></script>
-    <script src="/assets/js/mybsphp.js?v=20260727-ipad-select" defer></script>
+    <script src="/assets/js/custom-select.js?v=20260812-select-scroll" defer></script>
+    <script src="/assets/js/mybsphp.js?v=20260812-select-scroll" defer></script>
 </head>
 <body class="agent-portal-page">
 @include('partials.toasts')

@@ -191,7 +191,10 @@ final class LegacyGatewayController extends Controller
                 if ($api !== 'login.ic') {
                     throw new CardActivationException('UNKNOWN_API', '接口名称不存在。', 404);
                 }
-                if ($code === '' || mb_strlen($code) > 64 || mb_strlen($secret) > 64) {
+                if ($code === '') {
+                    throw new CardActivationException('EMPTY_CARD', '卡密为空。', 422);
+                }
+                if (mb_strlen($code) > 64 || mb_strlen($secret) > 64) {
                     throw new CardActivationException('INVALID_PARAMETERS', '卡密参数格式错误。', 422);
                 }
                 $result = $activation->activate($code, $secret, $device, $appsafecode, $sessionHandle);

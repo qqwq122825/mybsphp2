@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1b3473">
     <title>@yield('title', '管理后台') · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260812-client-trace">
-    <script src="/assets/js/custom-select.js?v=20260727-ipad-select" defer></script>
-    <script src="/assets/js/mybsphp.js?v=20260812-workspace-form" defer></script>
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260812-select-scroll">
+    <script src="/assets/js/custom-select.js?v=20260812-select-scroll" defer></script>
+    <script src="/assets/js/mybsphp.js?v=20260812-select-scroll" defer></script>
     @stack('head')
 </head>
 <body class="dashboard-page">

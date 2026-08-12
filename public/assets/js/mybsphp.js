@@ -16,6 +16,27 @@
         });
     };
 
+    const focusWithoutPageScroll = (element) => {
+        const left = window.scrollX;
+        const top = window.scrollY;
+        try {
+            element.focus({ preventScroll: true });
+        } catch {
+            element.focus();
+        }
+        if (window.scrollX !== left || window.scrollY !== top) window.scrollTo(left, top);
+    };
+
+    const keepOptionInsideMenu = (menu, button) => {
+        if (!(button instanceof HTMLElement) || menu.clientHeight <= 0) return;
+        const optionTop = button.offsetTop;
+        const optionBottom = optionTop + button.offsetHeight;
+        const visibleTop = menu.scrollTop;
+        const visibleBottom = visibleTop + menu.clientHeight;
+        if (optionTop < visibleTop) menu.scrollTop = optionTop;
+        else if (optionBottom > visibleBottom) menu.scrollTop = optionBottom - menu.clientHeight;
+    };
+
     const initializeCustomSelects = (scope = document) => {
         if (!(scope instanceof Document || scope instanceof DocumentFragment || scope instanceof Element)) return;
         scope.querySelectorAll('select:not([multiple]):not([data-native-select])').forEach((select) => {
@@ -79,11 +100,14 @@
                     });
                     button.addEventListener('click', () => {
                         if (option.disabled) return;
+                        const left = window.scrollX;
+                        const top = window.scrollY;
                         select.value = option.value;
                         select.dispatchEvent(new Event('change', { bubbles: true }));
                         sync();
                         closeCustomSelect(instance);
-                        trigger.focus();
+                        focusWithoutPageScroll(trigger);
+                        window.scrollTo(left, top);
                     });
                     menu.append(button);
                     instance.options.push({ option, button });
@@ -99,6 +123,12 @@
                 wrapper.classList.add('is-open');
                 trigger.setAttribute('aria-expanded', 'true');
                 menu.hidden = false;
+                wrapper.classList.remove('opens-up');
+                const rectangle = trigger.getBoundingClientRect();
+                const menuHeight = Math.min(menu.scrollHeight, Math.max(120, window.innerHeight * 0.52));
+                const spaceBelow = window.innerHeight - rectangle.bottom - 8;
+                const spaceAbove = rectangle.top - 8;
+                if (spaceBelow < menuHeight && spaceAbove > spaceBelow) wrapper.classList.add('opens-up');
                 openCustomSelect = instance;
             };
             const moveHighlight = (delta) => {
@@ -110,7 +140,7 @@
                 }
                 instance.highlighted = next;
                 instance.options.forEach((item, index) => item.button.classList.toggle('is-highlighted', index === next));
-                instance.options[next]?.button.scrollIntoView({ block: 'nearest' });
+                keepOptionInsideMenu(menu, instance.options[next]?.button);
             };
             trigger.addEventListener('click', () => {
                 if (menu.hidden) open(); else closeCustomSelect(instance);
