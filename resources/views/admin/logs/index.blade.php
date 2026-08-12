@@ -14,16 +14,6 @@
         <input type="hidden" name="view" value="{{ $clientLogMode }}">
     @endif
 </form>
-@if($isClientRequestLog)
-<nav class="client-log-mode-tabs" aria-label="客户端日志模式">
-    <a class="{{ $isClientSimpleLog ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index', ['adminPath' => $adminPath, 'type' => 'client-requests', 'view' => 'simple']) }}">
-        <strong>简要诊断</strong><small>只保留冻结、删除、拉黑与安全异常</small>
-    </a>
-    <a class="{{ !$isClientSimpleLog ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index', ['adminPath' => $adminPath, 'type' => 'client-requests', 'view' => 'detailed']) }}">
-        <strong>详细请求</strong><small>诊断开关开启后记录完整请求对比</small>
-    </a>
-</nav>
-@endif
 <x-admin.table-shell :title="$title" :subtitle="$isClientRequestLog ? ($isClientSimpleLog ? '日常自动记录；普通卡密错误与授权到期不进入此列表' : '仅在系统设置开启诊断后记录 login.ic') : ($isCardMakingLog ? null : '系统审计数据查询')" panel-class="bsphp-log-panel">
     <x-slot:search><x-admin.filter-bar button-label="⌕" :icon-only="true">
         @if($isClientRequestLog)

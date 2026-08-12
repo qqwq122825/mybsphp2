@@ -115,8 +115,8 @@ class AdminAuthenticationTest extends TestCase
         $this->get('/private-console/system-logs/client-requests')
             ->assertOk()
             ->assertSee('客户端请求日志')
-            ->assertSee('简要诊断')
             ->assertSee('详细请求')
+            ->assertDontSee('客户端日志模式')
             ->assertSee('普通卡密错误与授权到期不进入此列表');
 
         AuditLog::query()->create([
