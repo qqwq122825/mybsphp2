@@ -583,6 +583,8 @@ class CardIssueAndActivationTest extends TestCase
             'application_id' => $application->getKey(), 'event_code' => 'S0',
             'severity' => 'high', 'action' => 'freeze',
         ]);
+        $securityEvent = ClientSecurityEvent::query()->where('event_code', 'S0')->firstOrFail();
+        $this->assertLessThanOrEqual(5, abs($securityEvent->created_at->diffInSeconds(now(), false)));
         $this->assertDatabaseHas('client_security_subject_states', [
             'application_id' => $application->getKey(),
             'device_hash' => hash('sha256', 'DAILY-MISMATCH-DEVICE'),
