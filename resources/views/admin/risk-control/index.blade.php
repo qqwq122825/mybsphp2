@@ -270,7 +270,7 @@
                         @if($deviceState->status === 'blocked')
                             <form class="honeypot-device-release" method="post" action="{{ route('admin.risk-control.device-states.unblock', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">
                                 @csrf
-                                <select name="release_scope" aria-label="解除范围">
+                                <select name="release_scope" aria-label="解除范围" data-native-select>
                                     <option value="all">全部恢复</option>
                                     <option value="device_only">仅解除设备</option>
                                     <option value="device_credential">设备 + 卡密/账号</option>

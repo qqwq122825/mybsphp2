@@ -6179,7 +6179,7 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 .honeypot-event-panel .risk-feed-list article .risk-feed-badge { height: 32px; min-height: 32px; max-height: 32px; padding: 0 11px; font-size: 13px; }
 .honeypot-device-panel { margin-top: 14px; }
 .honeypot-device-list { padding: 0 18px 16px; }
-.honeypot-device-list article { display: grid; grid-template-columns: minmax(210px,1.1fr) minmax(190px,.9fr) minmax(190px,1fr) auto auto; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid #edf0f5; }
+.honeypot-device-list article { display: grid; grid-template-columns: minmax(210px,1.1fr) minmax(190px,.9fr) minmax(260px,1.15fr) 58px 184px; align-items: center; gap: 16px; min-height: 118px; padding: 18px 0; border-bottom: 1px solid #edf0f5; }
 .honeypot-device-identity { display: grid; min-width: 0; gap: 3px; }
 .honeypot-device-identity small, .honeypot-device-credential small { color: #9a86aa; font-size: 8px; font-weight: 900; letter-spacing: .08em; }
 .honeypot-device-identity code, .honeypot-device-credential code { overflow-wrap: anywhere; color: #5d3d78; font-weight: 800; }
@@ -6187,12 +6187,12 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 .honeypot-device-credential { display: grid; min-width: 0; gap: 4px; }
 .honeypot-device-credential code { color: #334d76; }
 .honeypot-device-list span { color: #8490a3; font-size: 10px; }
-.honeypot-device-list b { color: #b43f52; font-size: 10px; }
+.honeypot-device-list b { justify-self: center; color: #b43f52; font-size: 10px; white-space: nowrap; }
 .honeypot-device-list button { padding: 6px 10px; border: 1px solid #d8c8e7; border-radius: 7px; background: #fff; color: #75449c; cursor: pointer; }
-.honeypot-device-release { display: grid; min-width: 168px; gap: 7px; }
-.honeypot-device-release select { width: 100%; min-height: 32px; padding: 5px 28px 5px 9px; border: 1px solid #d8c8e7; border-radius: 7px; outline: 0; background: #fff; color: #65437f; font-size: 10px; font-weight: 750; }
+.honeypot-device-release { position: relative; z-index: 1; display: grid; width: 184px; gap: 8px; }
+.honeypot-device-release select { width: 100%; min-height: 38px; padding: 6px 30px 6px 11px; border: 1px solid #d8c8e7; border-radius: 8px; outline: 0; background-color: #fff; color: #65437f; font-size: 11px; font-weight: 750; cursor: pointer; }
 .honeypot-device-release select:focus { border-color: #a98ac4; box-shadow: 0 0 0 3px rgba(117,68,156,.08); }
-.honeypot-device-release button { width: 100%; }
+.honeypot-device-release button { width: 100%; min-height: 38px; font-size: 11px; font-weight: 800; }
 
 @media (max-width: 1100px) {
     .risk-layout { grid-template-columns: 1fr; }
@@ -6201,7 +6201,7 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
     .honeypot-policy-action { align-self: end; padding-top: 0; justify-items: stretch; }
     .honeypot-policy-action .button { width: 100%; }
     .honeypot-metric-grid { grid-template-columns: repeat(2,1fr); }
-    .honeypot-device-list article { grid-template-columns: minmax(190px,1fr) minmax(180px,1fr) minmax(170px,1fr) auto; }
+    .honeypot-device-list article { grid-template-columns: minmax(190px,1fr) minmax(180px,1fr) minmax(210px,1fr) 58px; }
     .honeypot-device-list article form { grid-column: 4; }
 }
 

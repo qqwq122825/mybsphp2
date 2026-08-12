@@ -313,6 +313,7 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('设备 + 卡密/账号')
                 ->assertSee('设备 + IP')
                 ->assertSee('确认解除')
+                ->assertSee('name="release_scope" aria-label="解除范围" data-native-select', false)
                 ->assertDontSee('风险 IP 列表');
 
             $this->post('/private-console/risk-control/device-states/'.$deviceState->getKey().'/unblock', [
