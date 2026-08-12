@@ -150,11 +150,14 @@
                         @else<span class="risk-block-status">观察中</span>@endif
                     </td>
                     <td>
-                        <details class="risk-action-menu"><summary>处置 <span>⌄</span></summary><div>
+                        <div class="risk-action-menu">
+                            <button class="risk-action-trigger" type="button" data-risk-action-trigger aria-haspopup="menu" aria-expanded="false">处置 <span>⌄</span></button>
+                            <div class="risk-action-popover" data-risk-action-popover role="menu" hidden>
                             @foreach(['reset'=>'解除并清零','set_low'=>'调整为低级','block_1h'=>'封禁 1 小时','block_24h'=>'封禁 24 小时','block_permanent'=>'长期封禁'] as $action => $label)
                                 <form method="post" action="{{ route('admin.risk-control.states.action', ['adminPath'=>$adminPath,'state'=>$state]) }}">@csrf<input type="hidden" name="action" value="{{ $action }}"><button type="submit">{{ $label }}</button></form>
                             @endforeach
-                        </div></details>
+                            </div>
+                        </div>
                     </td>
                 </tr>
             @empty

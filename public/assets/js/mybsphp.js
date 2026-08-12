@@ -925,5 +925,84 @@
         if (closeButton && dialog instanceof HTMLDialogElement) dialog.close();
     });
 
+    let activeRiskActionMenu = null;
+
+    const closeRiskActionMenu = () => {
+        if (!activeRiskActionMenu) return;
+        const { owner, trigger, popover } = activeRiskActionMenu;
+        popover.hidden = true;
+        popover.style.removeProperty('top');
+        popover.style.removeProperty('left');
+        popover.style.removeProperty('max-height');
+        popover.style.removeProperty('overflow-y');
+        owner.append(popover);
+        trigger.setAttribute('aria-expanded', 'false');
+        activeRiskActionMenu = null;
+    };
+
+    const positionRiskActionMenu = (trigger, popover) => {
+        const viewportPadding = 8;
+        const gap = 6;
+        const triggerRect = trigger.getBoundingClientRect();
+        const menuWidth = popover.offsetWidth;
+        const naturalMenuHeight = popover.scrollHeight;
+        const availableBelow = window.innerHeight - triggerRect.bottom - gap - viewportPadding;
+        const availableAbove = triggerRect.top - gap - viewportPadding;
+        const openAbove = availableBelow < naturalMenuHeight && availableAbove > availableBelow;
+        const availableHeight = Math.max(120, openAbove ? availableAbove : availableBelow);
+        const menuHeight = Math.min(naturalMenuHeight, availableHeight);
+        const left = Math.min(
+            Math.max(viewportPadding, triggerRect.right - menuWidth),
+            Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding),
+        );
+        const top = openAbove
+            ? Math.max(viewportPadding, triggerRect.top - gap - menuHeight)
+            : Math.min(triggerRect.bottom + gap, window.innerHeight - menuHeight - viewportPadding);
+
+        popover.style.left = `${Math.round(left)}px`;
+        popover.style.top = `${Math.round(top)}px`;
+        popover.style.maxHeight = `${Math.floor(availableHeight)}px`;
+        popover.style.overflowY = naturalMenuHeight > availableHeight ? 'auto' : 'hidden';
+    };
+
+    document.addEventListener('click', (event) => {
+        if (!(event.target instanceof Element)) return;
+        const trigger = event.target.closest('[data-risk-action-trigger]');
+        if (trigger instanceof HTMLButtonElement) {
+            if (activeRiskActionMenu?.trigger === trigger) {
+                closeRiskActionMenu();
+                return;
+            }
+
+            closeRiskActionMenu();
+            const owner = trigger.closest('.risk-action-menu');
+            const popover = owner?.querySelector('[data-risk-action-popover]');
+            if (!(owner instanceof HTMLElement) || !(popover instanceof HTMLElement)) return;
+
+            document.body.append(popover);
+            popover.hidden = false;
+            trigger.setAttribute('aria-expanded', 'true');
+            activeRiskActionMenu = { owner, trigger, popover };
+            positionRiskActionMenu(trigger, popover);
+            return;
+        }
+
+        if (activeRiskActionMenu && !activeRiskActionMenu.popover.contains(event.target)) {
+            closeRiskActionMenu();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || !activeRiskActionMenu) return;
+        const trigger = activeRiskActionMenu.trigger;
+        closeRiskActionMenu();
+        trigger.focus();
+    });
+
+    window.addEventListener('resize', closeRiskActionMenu);
+    document.addEventListener('scroll', (event) => {
+        if (activeRiskActionMenu && !activeRiskActionMenu.popover.contains(event.target)) closeRiskActionMenu();
+    }, true);
+
     initializeCustomSelects(document);
 })();

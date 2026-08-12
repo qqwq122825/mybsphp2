@@ -14,6 +14,7 @@ use App\Models\CardBatch;
 use App\Models\CardType;
 use App\Models\ClientSecurityEvent;
 use App\Models\ClientSecuritySubjectState;
+use App\Models\IpRiskState;
 use App\Models\Role;
 use App\Models\SystemSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -209,6 +210,13 @@ class IpRiskControlTest extends TestCase
             ]);
             $administrator->roles()->attach(Role::query()->where('code', 'super_admin')->sole());
             $application = $this->application('VERIFY');
+            IpRiskState::query()->create([
+                'public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(),
+                'ip' => '2409:8a55:d336:d350:c5ac:6a09:45d4:572a',
+                'ip_hash' => hash('sha256', '2409:8a55:d336:d350:c5ac:6a09:45d4:572a'),
+                'level' => 'high', 'window_attempts' => 3, 'total_attempts' => 3,
+                'last_seen_at' => now(), 'last_endpoint' => 'client.security-event',
+            ]);
             ClientSecuritySubjectState::query()->create([
                 'application_id' => $application->getKey(), 'device_hash' => hash('sha256', 'BLOCKED-DEVICE'),
                 'risk_score' => 100, 'status' => 'blocked', 'last_event_at' => now(), 'reason_code' => 'S0',
@@ -269,7 +277,10 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('IP 封控')
                 ->assertSee('蜜罐封控')
                 ->assertDontSee('蜜罐事件与异常退出策略')
-                ->assertSee('风险 IP 列表');
+                ->assertSee('风险 IP 列表')
+                ->assertSee('data-risk-action-trigger', false)
+                ->assertSee('data-risk-action-popover', false)
+                ->assertDontSee('<details class="risk-action-menu"', false);
 
             $this->get('/private-console/risk-control?application='.$application->public_id.'&tab=honeypot')
                 ->assertOk()

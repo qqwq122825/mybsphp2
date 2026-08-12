@@ -6113,13 +6113,17 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 .risk-block-status { padding: 4px 7px; border-radius: 5px; background: #edf2f7; color: #69788f; font-size: 9px; font-weight: 800; white-space: nowrap; }
 .risk-block-status.is-blocked { background: #ffe9ec; color: #bd4253; }
 .risk-actions-column { width: 82px; }
-.risk-action-menu { position: relative; }
-.risk-action-menu summary { display: inline-flex; align-items: center; gap: 4px; padding: 6px 9px; border: 1px solid #d9e1ec; border-radius: 7px; color: #4b6082; font-size: 10px; font-weight: 800; cursor: pointer; list-style: none; }
-.risk-action-menu summary::-webkit-details-marker { display: none; }
-.risk-action-menu > div { position: absolute; z-index: 20; top: calc(100% + 5px); right: 0; width: 138px; overflow: hidden; border: 1px solid #dce3ed; border-radius: 9px; background: #fff; box-shadow: 0 12px 30px rgba(26,44,78,.16); }
-.risk-action-menu form { margin: 0; }
-.risk-action-menu button { width: 100%; padding: 9px 11px; border: 0; border-bottom: 1px solid #eef1f5; background: #fff; color: #4c5d78; font-size: 10px; text-align: left; cursor: pointer; }
-.risk-action-menu button:hover { background: #f4f7fb; color: #244b9a; }
+.risk-action-menu { display: inline-block; }
+.risk-action-trigger { display: inline-flex; align-items: center; gap: 5px; padding: 7px 10px; border: 1px solid #d9e1ec; border-radius: 7px; background: #fff; color: #4b6082; font-size: 10px; font-weight: 800; line-height: 1; cursor: pointer; white-space: nowrap; }
+.risk-action-trigger:hover, .risk-action-trigger[aria-expanded="true"] { border-color: #aebfe0; background: #f4f7fd; color: #3159ac; }
+.risk-action-trigger span { transition: transform .16s ease; }
+.risk-action-trigger[aria-expanded="true"] span { transform: rotate(180deg); }
+.risk-action-popover { position: fixed; z-index: 10000; width: 148px; overflow: hidden; border: 1px solid #dce3ed; border-radius: 9px; background: #fff; box-shadow: 0 14px 34px rgba(26,44,78,.2); }
+.risk-action-popover[hidden] { display: none; }
+.risk-action-popover form { margin: 0; }
+.risk-action-popover button { width: 100%; padding: 10px 12px; border: 0; border-bottom: 1px solid #eef1f5; background: #fff; color: #4c5d78; font-size: 10px; text-align: left; cursor: pointer; }
+.risk-action-popover form:last-child button { border-bottom: 0; }
+.risk-action-popover button:hover { background: #f4f7fb; color: #244b9a; }
 .risk-empty { display: grid; min-height: 360px; place-content: center; justify-items: center; text-align: center; }
 .risk-empty > span { font-size: 36px; color: #86a3dd; }
 .risk-empty h2 { margin: 12px 0 5px; color: #263a5e; }
