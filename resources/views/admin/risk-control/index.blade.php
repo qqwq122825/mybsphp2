@@ -182,7 +182,7 @@
         </section>
         <section class="metric-grid honeypot-metric-grid">
             <article class="metric-card metric-blue"><span>24 小时上报</span><strong>{{ $securityMetrics['events_24h'] }}</strong><small>客户端安全事件</small></article>
-            <article class="metric-card metric-orange"><span>高置信事件</span><strong>{{ $securityMetrics['high_24h'] }}</strong><small>D0 / D1 / R0</small></article>
+            <article class="metric-card metric-orange"><span>高置信事件</span><strong>{{ $securityMetrics['high_24h'] }}</strong><small>D0 / D1 / R0 / S0</small></article>
             <article class="metric-card metric-red"><span>已冻结主体</span><strong>{{ $securityMetrics['frozen_subjects'] }}</strong><small>卡密或账号</small></article>
             <article class="metric-card metric-green"><span>异常退出</span><strong>{{ $securityMetrics['abnormal_exits_24h'] }}</strong><small>{{ $securityMetrics['abnormal_exit_batches_24h'] }} 个 T1 批次</small></article>
         </section>
@@ -190,7 +190,7 @@
         <header><div><p class="eyebrow">CLIENT SECURITY</p><h2>客户端安全事件</h2></div><span>24 小时 {{ $securityMetrics['events_24h'] }} 条 · 高置信 {{ $securityMetrics['high_24h'] }} 条 · 冻结主体 {{ $securityMetrics['frozen_subjects'] }} 个</span></header>
         <div class="risk-feed-list">
             @forelse($securityEvents as $event)
-                <article><span class="risk-feed-dot is-{{ $event->severity === 'high' ? 'high' : 'low' }}"></span><div><strong>{{ $event->event_code }} · {{ $event->event_id }}</strong><p>{{ strtoupper($event->severity) }} / {{ $event->action }}@if($event->event_code === 'T1') · {{ (int)($event->evidence['count'] ?? 0) }} 次异常退出@endif</p><small>{{ $event->created_at?->diffForHumans() }}</small></div><em>{{ $event->severity === 'high' ? '高置信' : '观察' }}</em></article>
+                <article><span class="risk-feed-dot is-{{ $event->severity === 'high' ? 'high' : 'low' }}"></span><div><strong>{{ $event->event_code }} · {{ $event->event_id }}</strong><p>{{ strtoupper($event->severity) }} / {{ $event->action }}@if($event->event_code === 'T1') · {{ (int)($event->evidence['count'] ?? 0) }} 次异常退出@elseif($event->event_code === 'S0') · 每日签名失配@endif</p><small>{{ $event->created_at?->diffForHumans() }}</small></div><em>{{ $event->severity === 'high' ? '高置信' : '观察' }}</em></article>
             @empty
                 <div class="risk-feed-empty"><span>✓</span><strong>暂无客户端安全事件</strong></div>
             @endforelse

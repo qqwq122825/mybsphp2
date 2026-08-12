@@ -363,6 +363,7 @@ class CardIssueAndActivationTest extends TestCase
         $fields = explode('|', $cipher->openResponse($heartbeatResponse, $heartbeat['session_key'], $heartbeat['request_nonce']));
         $this->assertSame(['5031', $handle, 'HEART-SAFE'], array_slice($fields, 0, 3));
         $this->assertMatchesRegularExpression('/^[A-Za-z0-9_-]{43}$/', $fields[4] ?? '');
+        $this->assertSame(app(DailyVerificationCodec::class)->dailySignature(), $fields[5] ?? '');
         $this->assertNotSame($loginFields[10], $fields[4]);
 
         $card = $application->cards()->sole();
@@ -437,6 +438,49 @@ class CardIssueAndActivationTest extends TestCase
             'code' => $credential['code'], 'device_id' => 'SECURITY-DEVICE', 'BSphpSeSsL' => $blockedHandle,
         ])->assertOk()->assertJsonPath('data.payload', '')->assertJsonPath('data.BSphpSeSsL', '');
         $this->assertDatabaseMissing('application_client_sessions', ['token_hash' => hash('sha256', $blockedHandle)]);
+    }
+
+    public function test_daily_signature_mismatch_signal_freezes_subject_in_enforce_mode(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->updateOrCreate([], [
+            ...app(IpRiskControlService::class)->defaults(),
+            'security_report_mode' => 'enforce',
+        ]);
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $handle = str_repeat('m', 64);
+        $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
+
+        $login = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $credential['code'], 'key' => 'DAILY-MISMATCH-DEVICE',
+            'BSphpSeSsL' => $handle, 'appsafecode' => 'LOGIN-SAFE',
+        ], '', '&', PHP_QUERY_RFC3986));
+        $response = $this->postJson($gateway, $login['envelope'])->assertOk()->json();
+        $fields = explode('|', $cipher->openResponse($response, $login['session_key'], $login['request_nonce']));
+
+        $report = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'security.report', 'BSphpSeSsL' => $handle, 'key' => 'DAILY-MISMATCH-DEVICE',
+            'appsafecode' => 'DAILY-REPORT-SAFE', 'event_id' => '01DAILYMISMATCH000000000001',
+            'event_code' => 'S0', 'report_token' => $fields[10],
+            'evidence' => json_encode(['source' => 'daily-v2', 'clock_delta' => 0]),
+        ], '', '&', PHP_QUERY_RFC3986));
+        $reportResponse = $this->postJson($gateway, $report['envelope'])->assertOk()->json();
+        $plain = $cipher->openResponse($reportResponse, $report['session_key'], $report['request_nonce']);
+
+        $this->assertSame(['01', 'accepted', 'DAILY-REPORT-SAFE'], array_slice(explode('|', $plain), 0, 3));
+        $this->assertDatabaseHas('client_security_events', [
+            'application_id' => $application->getKey(), 'event_code' => 'S0',
+            'severity' => 'high', 'action' => 'freeze',
+        ]);
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'application_id' => $application->getKey(),
+            'device_hash' => hash('sha256', 'DAILY-MISMATCH-DEVICE'),
+            'status' => 'blocked', 'reason_code' => 'S0',
+        ]);
+        $this->assertDatabaseHas('application_client_sessions', [
+            'token_hash' => hash('sha256', $handle), 'status' => 'security_blocked',
+        ]);
     }
 
     public function test_successful_login_records_idempotent_abnormal_exit_telemetry_as_observation(): void

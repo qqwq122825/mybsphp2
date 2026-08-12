@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Accounts\AccountAuthException;
 use App\Accounts\AccountAuthService;
+use App\Applications\DailyVerificationCodec;
 use App\Applications\HybridPacketCipher;
 use App\Applications\PacketCipherException;
 use App\Cards\CardActivationException;
@@ -24,6 +25,7 @@ final class LegacyGatewayController extends Controller
     public function __invoke(
         Request $request,
         HybridPacketCipher $cipher,
+        DailyVerificationCodec $dailyCodec,
         CardActivationService $activation,
         AccountAuthService $accountAuth,
         ClientSessionService $clientSessions,
@@ -133,10 +135,12 @@ final class LegacyGatewayController extends Controller
                 $heartbeatToken = $heartbeat['code'] === '5031'
                     ? $securityReports->rotateToken($application, $heartbeat['handle'])
                     : '';
-                $heartbeatFields = [$heartbeat['code'], $heartbeat['handle'], $appsafecode, $heartbeat['server_time']];
-                if ($heartbeatToken !== '') {
-                    $heartbeatFields[] = $heartbeatToken;
-                }
+                // 固定位置保持向后兼容：旧客户端只读前 4 项；新客户端
+                // 使用 fields[4] 旋转上报令牌，fields[5] 执行日级动态校验。
+                $heartbeatFields = [
+                    $heartbeat['code'], $heartbeat['handle'], $appsafecode, $heartbeat['server_time'],
+                    $heartbeatToken, $dailyCodec->dailySignature(),
+                ];
                 $result = ['legacy_response' => implode('|', $heartbeatFields)];
             } elseif ($application->mode === 'account_recharge') {
                 $result = match ($api) {
