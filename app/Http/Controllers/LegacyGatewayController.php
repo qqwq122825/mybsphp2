@@ -11,6 +11,7 @@ use App\Cards\CardActivationService;
 use App\Http\ApiResponse;
 use App\Models\Application;
 use App\Risk\IpRiskControlService;
+use App\Security\ClientLaunchTelemetryService;
 use App\Security\ClientSecurityReportService;
 use App\Sessions\ClientSessionService;
 use Illuminate\Http\JsonResponse;
@@ -27,6 +28,7 @@ final class LegacyGatewayController extends Controller
         AccountAuthService $accountAuth,
         ClientSessionService $clientSessions,
         IpRiskControlService $risk,
+        ClientLaunchTelemetryService $launchTelemetry,
         ClientSecurityReportService $securityReports,
     ): JsonResponse {
         $appCode = (string) $request->query('appid', '');
@@ -194,6 +196,23 @@ final class LegacyGatewayController extends Controller
         if ($riskDecision !== null) {
             $risk->complete($riskDecision, true);
             $handle = (string) ($result['BSphpSeSsL'] ?? '');
+            try {
+                $launchBlocked = $launchTelemetry->record(
+                    $application,
+                    $handle,
+                    $device,
+                    $this->firstParameter($parameters, ['launch_telemetry']),
+                    (string) ($request->ip() ?: '0.0.0.0'),
+                );
+                if ($launchBlocked) {
+                    // 对外保持与普通凭据错误一致；真实 T1 处置只在后台安全事件中可见。
+                    return $application->mode === 'account_recharge'
+                        ? ApiResponse::error('INVALID_CREDENTIALS', '账号或密码错误。', 401, request: $request)
+                        : ApiResponse::error('INVALID_CARD', '卡密不存在。', 200, request: $request);
+                }
+            } catch (InvalidArgumentException) {
+                // 遥测是可选信号；格式异常不改变已经完成的登录业务结果。
+            }
             $reportToken = $securityReports->rotateToken($application, $handle);
             if ($reportToken !== '' && isset($result['legacy_response'])) {
                 $parts = explode('|', (string) $result['legacy_response']);

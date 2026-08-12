@@ -210,6 +210,8 @@ final class IpRiskControlService
             'block_message' => '当前请求过于频繁，请稍后再试。',
             'restart_grace_seconds' => 8,
             'security_report_mode' => 'observe',
+            'abnormal_exit_window_minutes' => 60,
+            'abnormal_exit_high_threshold' => 8,
         ];
     }
 

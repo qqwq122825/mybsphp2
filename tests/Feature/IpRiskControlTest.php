@@ -243,9 +243,12 @@ class IpRiskControlTest extends TestCase
             ]);
             $this->put('/private-console/risk-control/applications/'.$application->public_id.'/security-policy', [
                 'security_report_mode' => 'enforce',
+                'abnormal_exit_window_minutes' => 60,
+                'abnormal_exit_high_threshold' => 8,
             ])->assertRedirect()->assertSessionHas('success');
             $this->assertDatabaseHas('risk_policies', [
                 'application_id' => $application->getKey(), 'security_report_mode' => 'enforce',
+                'abnormal_exit_window_minutes' => 60, 'abnormal_exit_high_threshold' => 8,
             ]);
         } finally {
             @unlink($lockPath);

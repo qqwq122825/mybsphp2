@@ -60,6 +60,9 @@ final class AdminRiskControlController extends Controller
         $activeBlocks = (clone $base)->where(function ($query): void {
             $query->where('permanently_blocked', true)->orWhere('blocked_until', '>', now());
         })->count();
+        $securityEvents24h = $selected
+            ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('created_at', '>=', now()->subDay())->get(['event_code', 'evidence'])
+            : collect();
 
         return view('admin.risk-control.index', [
             'appName' => $this->installation->applicationName(),
@@ -78,6 +81,8 @@ final class AdminRiskControlController extends Controller
                 'events_24h' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('created_at', '>=', now()->subDay())->count() : 0,
                 'high_24h' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('severity', 'high')->where('created_at', '>=', now()->subDay())->count() : 0,
                 'frozen_subjects' => $selected ? ClientSecurityEvent::query()->where('application_id', $selected->getKey())->where('action', 'freeze')->get(['card_id', 'application_account_id'])->unique(fn ($event) => $event->card_id ? 'c'.$event->card_id : 'a'.$event->application_account_id)->count() : 0,
+                'abnormal_exit_batches_24h' => $securityEvents24h->where('event_code', 'T1')->count(),
+                'abnormal_exits_24h' => $securityEvents24h->where('event_code', 'T1')->sum(fn (ClientSecurityEvent $event): int => (int) ($event->evidence['count'] ?? 0)),
             ],
             'metrics' => [
                 'events_24h' => $selected ? RiskEvent::query()->where('application_id', $selected->getKey())->where('created_at', '>=', now()->subDay())->count() : 0,
@@ -118,6 +123,8 @@ final class AdminRiskControlController extends Controller
     {
         $validated = $request->validate([
             'security_report_mode' => ['required', Rule::in(['disabled', 'observe', 'enforce'])],
+            'abnormal_exit_window_minutes' => ['required', 'integer', 'min:15', 'max:60'],
+            'abnormal_exit_high_threshold' => ['required', 'integer', 'min:3', 'max:20'],
         ]);
         $application->riskPolicy()->updateOrCreate([], $validated);
         $this->recordAdminAction($request, 'risk.security_policy_updated', 'risk_policy', $application->public_id, $application->getKey(), $validated, '更新客户端蜜罐封控策略');

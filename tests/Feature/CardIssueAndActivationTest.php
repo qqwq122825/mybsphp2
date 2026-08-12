@@ -442,6 +442,159 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertDatabaseMissing('application_client_sessions', ['token_hash' => hash('sha256', $blockedHandle)]);
     }
 
+    public function test_successful_login_records_idempotent_abnormal_exit_telemetry_as_observation(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->updateOrCreate([], [
+            ...app(IpRiskControlService::class)->defaults(),
+            'security_report_mode' => 'observe',
+        ]);
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $handle = str_repeat('l', 64);
+        $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
+        $now = now()->timestamp;
+        $times = [$now - 100, $now - 75, $now - 50, $now - 25, $now - 5];
+        $telemetry = json_encode([
+            'v' => 1,
+            'id' => str_repeat('a', 32),
+            'count' => 5,
+            'times' => $times,
+            'intervals' => [25, 25, 25, 20],
+            'uptimes' => [4, 6, 3, 8, 5],
+            'window' => 3600,
+        ], JSON_THROW_ON_ERROR);
+
+        $login = function (string $payload) use ($cipher, $application, $gateway, $credential, $handle): void {
+            $request = $cipher->sealRequestWithContext($application, http_build_query([
+                'api' => 'login.ic',
+                'icid' => $credential['code'],
+                'key' => 'LAUNCH-TELEMETRY-DEVICE',
+                'BSphpSeSsL' => $handle,
+                'appsafecode' => 'LOGIN-SAFE',
+                'launch_telemetry' => $payload,
+            ], '', '&', PHP_QUERY_RFC3986));
+            $this->postJson($gateway, $request['envelope'])->assertOk();
+        };
+
+        $login($telemetry);
+        $login($telemetry);
+
+        $this->assertDatabaseCount('client_security_events', 1);
+        $this->assertDatabaseHas('client_security_events', [
+            'application_id' => $application->getKey(),
+            'event_id' => str_repeat('a', 32),
+            'event_code' => 'T1',
+            'severity' => 'medium',
+            'action' => 'observe',
+        ]);
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'application_id' => $application->getKey(),
+            'device_hash' => hash('sha256', 'LAUNCH-TELEMETRY-DEVICE'),
+            'risk_score' => 23,
+            'status' => 'observe',
+            'reason_code' => 'T1',
+        ]);
+
+        // 可选参数损坏时保留正常登录结果，也不产生第二条事件。
+        $login('{broken');
+        $this->assertDatabaseCount('client_security_events', 1);
+    }
+
+    public function test_login_ignores_abnormal_exit_telemetry_below_three_events(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->updateOrCreate([], [
+            ...app(IpRiskControlService::class)->defaults(),
+            'security_report_mode' => 'observe',
+        ]);
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $now = now()->timestamp;
+        $request = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic',
+            'icid' => $credential['code'],
+            'key' => 'LOW-COUNT-LAUNCH-DEVICE',
+            'BSphpSeSsL' => str_repeat('r', 64),
+            'appsafecode' => 'LOGIN-SAFE',
+            'launch_telemetry' => json_encode([
+                'v' => 1,
+                'id' => str_repeat('c', 32),
+                'count' => 2,
+                'times' => [$now - 30, $now - 10],
+                'intervals' => [20],
+                'uptimes' => [5, 6],
+                'window' => 3600,
+            ], JSON_THROW_ON_ERROR),
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $this->postJson('/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token, $request['envelope'])
+            ->assertOk();
+        $this->assertDatabaseCount('client_security_events', 0);
+        $this->assertDatabaseCount('client_security_subject_states', 0);
+    }
+
+    public function test_eight_abnormal_exits_within_one_hour_freeze_subject_in_enforce_mode(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->updateOrCreate([], [
+            ...app(IpRiskControlService::class)->defaults(),
+            'security_report_mode' => 'enforce',
+            'abnormal_exit_window_minutes' => 60,
+            'abnormal_exit_high_threshold' => 8,
+        ]);
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $handle = str_repeat('q', 64);
+        $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
+        $first = now()->timestamp - 3360;
+        $times = array_map(fn (int $index): int => $first + ($index * 480), range(0, 7));
+        $request = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic',
+            'icid' => $credential['code'],
+            'key' => 'SEVERE-LAUNCH-DEVICE',
+            'BSphpSeSsL' => $handle,
+            'appsafecode' => 'LOGIN-SAFE',
+            'launch_telemetry' => json_encode([
+                'v' => 1,
+                'id' => str_repeat('b', 32),
+                'count' => 8,
+                'times' => $times,
+                'intervals' => array_fill(0, 7, 480),
+                'uptimes' => array_fill(0, 8, 5),
+                'window' => 3600,
+            ], JSON_THROW_ON_ERROR),
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $this->postJson($gateway, $request['envelope'])
+            ->assertOk()
+            ->assertJsonPath('error.code', 'INVALID_CARD')
+            ->assertJsonPath('error.message', '卡密不存在。');
+
+        $this->assertDatabaseHas('client_security_events', [
+            'application_id' => $application->getKey(),
+            'event_id' => str_repeat('b', 32),
+            'event_code' => 'T1',
+            'severity' => 'high',
+            'action' => 'freeze',
+        ]);
+        $this->assertDatabaseHas('application_client_sessions', [
+            'token_hash' => hash('sha256', $handle),
+            'status' => 'security_blocked',
+        ]);
+        $this->assertDatabaseHas('cards', [
+            'application_id' => $application->getKey(),
+            'user_status' => 'frozen',
+        ]);
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'application_id' => $application->getKey(),
+            'device_hash' => hash('sha256', 'SEVERE-LAUNCH-DEVICE'),
+            'risk_score' => 100,
+            'status' => 'blocked',
+            'reason_code' => 'T1',
+        ]);
+    }
+
     public function test_unlimited_application_and_card_limits_allow_multiple_sessions(): void
     {
         [$application, $cardType] = $this->applicationAndType();

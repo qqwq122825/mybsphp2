@@ -5,6 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $event_code
+ * @property array<string, mixed>|null $evidence
+ */
 class ClientSecurityEvent extends Model
 {
     public $timestamps = false;
@@ -16,11 +20,13 @@ class ClientSecurityEvent extends Model
         return ['evidence' => 'array', 'created_at' => 'immutable_datetime'];
     }
 
+    /** @return BelongsTo<Application, $this> */
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);
     }
 
+    /** @return BelongsTo<ApplicationClientSession, $this> */
     public function session(): BelongsTo
     {
         return $this->belongsTo(ApplicationClientSession::class, 'application_client_session_id');

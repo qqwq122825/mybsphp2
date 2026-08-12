@@ -170,23 +170,27 @@
     </x-admin.table-shell>
     @else
     <section id="honeypot-risk" class="risk-lane risk-lane-honeypot">
-        <header class="risk-lane-heading"><b>02</b><div><p>CLIENT HONEYPOT CONTROL</p><h2>客户端蜜罐封控</h2><span>仅处理已验证会话上报的高置信安全事件，与登录频率完全分离。</span></div></header>
+        <header class="risk-lane-heading"><b>02</b><div><p>CLIENT HONEYPOT CONTROL</p><h2>客户端安全信号</h2><span>展示已验证会话的蜜罐事件，以及统计窗口内累计至少 3 次的异常退出批次；零星退出仅在客户端短期保留。</span></div></header>
         <section class="dashboard-panel honeypot-policy-panel">
-            <div><strong>蜜罐事件处置模式</strong><small>建议新客户端先使用“观察”，确认没有正常误报后再开启自动冻结。</small></div>
+            <div><strong>蜜罐事件处置模式与异常退出策略</strong><small>异常退出达到高级阈值后，在处置模式下冻结当前授权并拉黑设备；默认统计最近 60 分钟内 8 次。</small></div>
             <form method="post" action="{{ route('admin.risk-control.security-policy.update', ['adminPath'=>$adminPath, 'application'=>$selectedApplication]) }}">@csrf @method('PUT')
-                <select name="security_report_mode"><option value="disabled" @selected($policy->security_report_mode==='disabled')>关闭上报</option><option value="observe" @selected($policy->security_report_mode==='observe')>观察·只记录</option><option value="enforce" @selected($policy->security_report_mode==='enforce')>处置·高置信自动冻结</option></select><button class="button button-primary" type="submit">保存蜜罐策略</button>
+                <select name="security_report_mode"><option value="disabled" @selected($policy->security_report_mode==='disabled')>关闭上报</option><option value="observe" @selected($policy->security_report_mode==='observe')>观察·只记录</option><option value="enforce" @selected($policy->security_report_mode==='enforce')>处置·高置信自动冻结</option></select>
+                <label><span>异常退出窗口</span><div><input type="number" name="abnormal_exit_window_minutes" min="15" max="60" value="{{ old('abnormal_exit_window_minutes', $policy->abnormal_exit_window_minutes) }}"><em>分钟</em></div></label>
+                <label><span>异常退出高级阈值</span><div><input type="number" name="abnormal_exit_high_threshold" min="3" max="20" value="{{ old('abnormal_exit_high_threshold', $policy->abnormal_exit_high_threshold) }}"><em>次</em></div></label>
+                <button class="button button-primary" type="submit">保存安全策略</button>
             </form>
         </section>
         <section class="metric-grid honeypot-metric-grid">
             <article class="metric-card metric-blue"><span>24 小时上报</span><strong>{{ $securityMetrics['events_24h'] }}</strong><small>客户端安全事件</small></article>
             <article class="metric-card metric-orange"><span>高置信事件</span><strong>{{ $securityMetrics['high_24h'] }}</strong><small>D0 / D1 / R0</small></article>
             <article class="metric-card metric-red"><span>已冻结主体</span><strong>{{ $securityMetrics['frozen_subjects'] }}</strong><small>卡密或账号</small></article>
+            <article class="metric-card metric-green"><span>异常退出</span><strong>{{ $securityMetrics['abnormal_exits_24h'] }}</strong><small>{{ $securityMetrics['abnormal_exit_batches_24h'] }} 个 T1 批次</small></article>
         </section>
     <section class="dashboard-panel risk-feed-panel honeypot-event-panel">
         <header><div><p class="eyebrow">CLIENT SECURITY</p><h2>客户端安全事件</h2></div><span>24 小时 {{ $securityMetrics['events_24h'] }} 条 · 高置信 {{ $securityMetrics['high_24h'] }} 条 · 冻结主体 {{ $securityMetrics['frozen_subjects'] }} 个</span></header>
         <div class="risk-feed-list">
             @forelse($securityEvents as $event)
-                <article><span class="risk-feed-dot is-{{ $event->severity === 'high' ? 'high' : 'low' }}"></span><div><strong>{{ $event->event_code }} · {{ $event->event_id }}</strong><p>{{ strtoupper($event->severity) }} / {{ $event->action }}</p><small>{{ $event->created_at?->diffForHumans() }}</small></div><em>{{ $event->severity === 'high' ? '高置信' : '观察' }}</em></article>
+                <article><span class="risk-feed-dot is-{{ $event->severity === 'high' ? 'high' : 'low' }}"></span><div><strong>{{ $event->event_code }} · {{ $event->event_id }}</strong><p>{{ strtoupper($event->severity) }} / {{ $event->action }}@if($event->event_code === 'T1') · {{ (int)($event->evidence['count'] ?? 0) }} 次异常退出@endif</p><small>{{ $event->created_at?->diffForHumans() }}</small></div><em>{{ $event->severity === 'high' ? '高置信' : '观察' }}</em></article>
             @empty
                 <div class="risk-feed-empty"><span>✓</span><strong>暂无客户端安全事件</strong></div>
             @endforelse
@@ -196,7 +200,7 @@
             <header><div><p class="eyebrow">DEVICE BLOCKLIST</p><h2>设备黑名单</h2></div><span>最近 20 条</span></header>
             <div class="honeypot-device-list">
                 @forelse($securityDeviceStates as $deviceState)
-                    <article><code>{{ substr($deviceState->device_hash, 0, 12) }}…{{ substr($deviceState->device_hash, -8) }}</code><span>{{ $deviceState->reason_code ?: '—' }} · {{ $deviceState->last_event_at?->diffForHumans() }}</span><b>{{ $deviceState->status === 'blocked' ? '已拉黑' : '观察' }}</b>@if($deviceState->status === 'blocked')<form method="post" action="{{ route('admin.risk-control.device-states.unblock', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">@csrf<button type="submit">解除拉黑</button></form>@endif</article>
+                    <article><code>{{ substr($deviceState->device_hash, 0, 12) }}…{{ substr($deviceState->device_hash, -8) }}</code><span>{{ $deviceState->reason_code ?: '—' }} · 风险分 {{ $deviceState->risk_score }} · {{ $deviceState->last_event_at?->diffForHumans() }}</span><b>{{ $deviceState->status === 'blocked' ? '已拉黑' : ($deviceState->status === 'quarantined' ? '重点观察' : '观察') }}</b>@if($deviceState->status === 'blocked')<form method="post" action="{{ route('admin.risk-control.device-states.unblock', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">@csrf<button type="submit">解除拉黑</button></form>@endif</article>
                 @empty
                     <p class="risk-feed-empty">暂无设备黑名单</p>
                 @endforelse
