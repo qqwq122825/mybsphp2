@@ -176,7 +176,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/agent/index.php', false)
             ->assertSee('激活码查询')
             ->assertSee('/activation-query', false)
-            ->assertSee('mybsphp.css?v=20260812-risk-action-popover-v5', false)
+            ->assertSee('mybsphp.css?v=20260812-client-log-modes-v6', false)
             ->assertSee('custom-select.js?v=20260812-select-scroll', false)
             ->assertSee('mybsphp.js?v=20260812-risk-action-popover', false)
             ->assertDontSee('后台入口')

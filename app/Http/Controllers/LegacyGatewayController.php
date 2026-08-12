@@ -208,7 +208,7 @@ final class LegacyGatewayController extends Controller
                 $risk->complete($riskDecision, false);
             }
             $failure = $exception instanceof CardActivationException
-                ? $failureMasker->cardException($exception, $request, $application)
+                ? $failureMasker->cardException($exception, $request, $application, $code, $device)
                 : [
                     'code' => $exception->errorCode,
                     'message' => $exception->getMessage(),
@@ -257,6 +257,8 @@ final class LegacyGatewayController extends Controller
                             '启动遥测命中高置信处置。',
                             $request,
                             $application,
+                            $code,
+                            $device,
                         );
                         $launchBlockedResponse = ApiResponse::error(
                             $failure['code'],

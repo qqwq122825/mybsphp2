@@ -115,7 +115,9 @@ class AdminAuthenticationTest extends TestCase
         $this->get('/private-console/system-logs/client-requests')
             ->assertOk()
             ->assertSee('客户端请求日志')
-            ->assertSee('开启诊断开关');
+            ->assertSee('简要诊断')
+            ->assertSee('详细请求')
+            ->assertSee('普通卡密错误与授权到期不进入此列表');
 
         AuditLog::query()->create([
             'public_id' => (string) Str::ulid(),
@@ -142,7 +144,7 @@ class AdminAuthenticationTest extends TestCase
             'result' => 'failed',
         ]);
 
-        $this->get('/private-console/system-logs/client-requests')
+        $this->get('/private-console/system-logs/client-requests?view=detailed')
             ->assertOk()
             ->assertSee('响应摘要')
             ->assertSee('查看详情')
@@ -162,6 +164,9 @@ class AdminAuthenticationTest extends TestCase
             'ip' => '203.0.113.24',
             'before_data' => [
                 'application' => ['public_id' => 'diagnostic-app', 'name' => '编号查询软件'],
+                'credential_masked' => '•••••••••-001',
+                'credential_fingerprint' => substr(hash('sha256', 'FULL-CARD-LOOKUP-001'), 0, 16),
+                'device' => 'DIAGNOSTIC-DEVICE',
             ],
             'after_data' => [
                 'diagnostic_reference' => 241,
@@ -174,6 +179,19 @@ class AdminAuthenticationTest extends TestCase
             'reason' => '诊断编号 241 · DEVICE_BLOCKED',
             'result' => 'failed',
         ]);
+
+        $this->get('/private-console/system-logs/client-requests?view=simple')
+            ->assertOk()
+            ->assertSee('编号查询软件')
+            ->assertSee('DEVICE_BLOCKED')
+            ->assertSee('卡密不存在241');
+        $this->get('/private-console/system-logs/client-requests?view=simple&keyword=241')
+            ->assertOk()
+            ->assertSee('DEVICE_BLOCKED');
+        $this->get('/private-console/system-logs/client-requests?view=simple&keyword=FULL-CARD-LOOKUP-001')
+            ->assertOk()
+            ->assertSee('DEVICE_BLOCKED')
+            ->assertSee('DIAGNOSTIC-DEVICE');
 
         $this->get('/private-console/system-logs/diagnostics/lookup')
             ->assertOk()

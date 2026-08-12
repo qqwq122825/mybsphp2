@@ -6,14 +6,33 @@
 @php
     $isCardMakingLog = $logType === 'card-making';
     $isClientRequestLog = $logType === 'client-requests';
+    $isClientSimpleLog = $isClientRequestLog && $clientLogMode === 'simple';
 @endphp
 <form id="system-log-maintenance-form" method="post" action="{{ route('admin.system-logs.maintenance', ['adminPath' => $adminPath, 'type' => $logType]) }}">
     @csrf
+    @if($isClientRequestLog)
+        <input type="hidden" name="view" value="{{ $clientLogMode }}">
+    @endif
 </form>
-<x-admin.table-shell :title="$title" :subtitle="$isClientRequestLog ? '仅在系统设置开启诊断后记录 login.ic' : ($isCardMakingLog ? null : '系统审计数据查询')" panel-class="bsphp-log-panel">
+@if($isClientRequestLog)
+<nav class="client-log-mode-tabs" aria-label="客户端日志模式">
+    <a class="{{ $isClientSimpleLog ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index', ['adminPath' => $adminPath, 'type' => 'client-requests', 'view' => 'simple']) }}">
+        <strong>简要诊断</strong><small>只保留冻结、删除、拉黑与安全异常</small>
+    </a>
+    <a class="{{ !$isClientSimpleLog ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index', ['adminPath' => $adminPath, 'type' => 'client-requests', 'view' => 'detailed']) }}">
+        <strong>详细请求</strong><small>诊断开关开启后记录完整请求对比</small>
+    </a>
+</nav>
+@endif
+<x-admin.table-shell :title="$title" :subtitle="$isClientRequestLog ? ($isClientSimpleLog ? '日常自动记录；普通卡密错误与授权到期不进入此列表' : '仅在系统设置开启诊断后记录 login.ic') : ($isCardMakingLog ? null : '系统审计数据查询')" panel-class="bsphp-log-panel">
     <x-slot:search><x-admin.filter-bar button-label="⌕" :icon-only="true">
-        <x-slot:field><select aria-label="搜索字段"><option>{{ $isClientRequestLog ? '设备 / 卡密指纹 / 错误码 / IP' : ($isCardMakingLog ? '用户' : '用户 / IP / 信息') }}</option></select></x-slot:field>
-        <x-slot:keyword><input name="keyword" value="{{ request('keyword') }}" placeholder="{{ $isClientRequestLog ? '输入设备或错误码' : '请输入' }}"></x-slot:keyword>
+        @if($isClientRequestLog)
+            <x-slot:hidden>
+                <input type="hidden" name="view" value="{{ $clientLogMode }}">
+            </x-slot:hidden>
+        @endif
+        <x-slot:field><select aria-label="搜索字段"><option>{{ $isClientRequestLog ? ($isClientSimpleLog ? '卡密 / 诊断编号 / 设备 / IP' : '卡密 / 设备 / 错误码 / IP') : ($isCardMakingLog ? '用户' : '用户 / IP / 信息') }}</option></select></x-slot:field>
+        <x-slot:keyword><input name="keyword" value="{{ request('keyword') }}" placeholder="{{ $isClientRequestLog ? ($isClientSimpleLog ? '输入完整卡密或三位编号' : '输入卡密、设备或错误码') : '请输入' }}"></x-slot:keyword>
         <x-slot:sort><select name="sort"><option value="latest" @selected(request('sort','latest')==='latest')>正序</option><option value="oldest" @selected(request('sort')==='oldest')>倒序</option></select></x-slot:sort>
     </x-admin.filter-bar></x-slot:search>
     <x-slot:toolbar>
@@ -30,7 +49,26 @@
         </div>
     </x-slot:toolbar>
         <table class="{{ $isClientRequestLog ? 'client-trace-table' : '' }}">
-            @if($isClientRequestLog)
+            @if($isClientSimpleLog)
+            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>诊断编号</th><th>真实原因</th><th>客户端提示</th><th>设备</th></tr></thead>
+            <tbody>
+            @forelse($logs as $log)
+                @php
+                    $simpleRequest = is_array($log->before_data) ? $log->before_data : [];
+                    $simpleResult = is_array($log->after_data) ? $log->after_data : [];
+                @endphp
+                <tr>
+                    <td class="admin-select-column"><input type="checkbox" name="log_ids[]" value="{{ $log->id }}" form="system-log-maintenance-form" aria-label="选择日志 {{ $log->id }}" data-card-select></td>
+                    <td><strong>{{ $log->created_at?->format('m-d H:i:s') }}</strong><small class="client-trace-meta">{{ $log->ip ?: '—' }} · #{{ $log->id }}</small></td>
+                    <td><strong>{{ data_get($simpleRequest, 'application.name', '—') }}</strong><small class="client-trace-meta">{{ data_get($simpleRequest, 'credential_masked', '—') }}</small></td>
+                    <td><strong>{{ data_get($simpleResult, 'diagnostic_reference', '—') }}</strong><small class="client-trace-meta">{{ $log->request_id }}</small></td>
+                    <td><strong>{{ data_get($simpleResult, 'internal_code', '未标注') }}</strong><small class="client-trace-meta">{{ data_get($simpleResult, 'internal_message', '未记录') }}</small></td>
+                    <td><span class="log-result is-danger">{{ data_get($simpleResult, 'public_message', '卡密不存在') }}</span></td>
+                    <td><code>{{ data_get($simpleRequest, 'device', '—') ?: '—' }}</code></td>
+                </tr>
+            @empty<tr><td class="empty-cell" colspan="7">当前没有需要客服介入的简要诊断记录。</td></tr>@endforelse
+            </tbody>
+            @elseif($isClientRequestLog)
             <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>响应摘要</th><th>结果</th><th>详情</th></tr></thead>
             <tbody>
             @forelse($logs as $log)
@@ -114,7 +152,7 @@
     @endif
 </x-admin.table-shell>
 
-@if($isClientRequestLog)
+@if($isClientRequestLog && !$isClientSimpleLog)
 <x-admin.window-dialog title="客户端请求详情" eyebrow="LOGIN.IC DIAGNOSTIC" :workspace="false" class="client-trace-dialog" data-client-trace-dialog>
     <div class="client-trace-dialog-body">
         <section class="client-trace-dialog-summary">

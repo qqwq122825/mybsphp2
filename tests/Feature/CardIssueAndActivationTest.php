@@ -285,6 +285,8 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertSame('USER_FROZEN', data_get($maskedLog->after_data, 'internal_code'));
         $this->assertSame('INVALID_CARD', data_get($maskedLog->after_data, 'public_code'));
         $this->assertSame(200, data_get($maskedLog->after_data, 'http_status'));
+        $this->assertSame($card->public_id, data_get($maskedLog->before_data, 'card_public_id'));
+        $this->assertSame('IOS-DEVICE-001', data_get($maskedLog->before_data, 'device'));
         $this->assertTrue($expiresAt->equalTo($card->fresh()->expires_at));
         $card->forceFill(['user_status' => 'active', 'user_frozen_at' => null])->save();
 
@@ -388,6 +390,7 @@ class CardIssueAndActivationTest extends TestCase
             'secret' => 'WRONG-SECRET',
             'device_id' => 'IOS-DEVICE-001',
         ]));
+        $this->assertDatabaseMissing('audit_logs', ['action' => 'client.auth_failure_masked']);
 
         $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],

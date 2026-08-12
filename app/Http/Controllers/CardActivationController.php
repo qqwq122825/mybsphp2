@@ -49,7 +49,13 @@ final class CardActivationController extends Controller
             if ($decision !== null) {
                 $risk->complete($decision, false);
             }
-            $failure = $failureMasker->cardException($exception, $request, $card?->application);
+            $failure = $failureMasker->cardException(
+                $exception,
+                $request,
+                $card?->application,
+                $validated['code'],
+                $validated['device_id'] ?? '',
+            );
 
             return ApiResponse::error(
                 $failure['code'],

@@ -5,7 +5,9 @@ namespace App\Security;
 use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
 use App\Cards\CardActivationException;
+use App\Cards\CardCredentialHasher;
 use App\Models\Application;
+use App\Models\Card;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -13,6 +15,7 @@ final class ClientAuthFailureMasker
 {
     public function __construct(
         private readonly AuditLogger $audit,
+        private readonly CardCredentialHasher $cardHasher,
     ) {}
 
     /** @var list<string> */
@@ -27,8 +30,13 @@ final class ClientAuthFailureMasker
     /**
      * @return array{code: string, message: string, status: int, details: array<string, mixed>|null, masked: bool, reference: int|null}
      */
-    public function cardException(CardActivationException $exception, Request $request, ?Application $application = null): array
-    {
+    public function cardException(
+        CardActivationException $exception,
+        Request $request,
+        ?Application $application = null,
+        string $credential = '',
+        string $device = '',
+    ): array {
         if (in_array($exception->errorCode, self::CARD_INPUT_ERRORS, true)) {
             return [
                 'code' => $exception->errorCode,
@@ -45,6 +53,8 @@ final class ClientAuthFailureMasker
             $exception->getMessage(),
             $request,
             $application,
+            $credential,
+            $device,
         );
     }
 
@@ -56,8 +66,11 @@ final class ClientAuthFailureMasker
         string $internalMessage,
         Request $request,
         ?Application $application = null,
+        string $credential = '',
+        string $device = '',
     ): array {
         $reference = random_int(201, 999);
+        $credentialContext = $this->credentialContext($application, $credential);
 
         Log::notice('client.card_auth_failure_masked', [
             'diagnostic_reference' => $reference,
@@ -68,33 +81,37 @@ final class ClientAuthFailureMasker
             'ip_hash' => hash('sha256', (string) ($request->ip() ?: '0.0.0.0')),
         ]);
 
-        try {
-            $this->audit->record(new AuditEvent(
-                action: 'client.auth_failure_masked',
-                targetType: 'application',
-                targetId: $application?->public_id,
-                applicationId: $application?->getKey(),
-                before: [
-                    'application' => [
-                        'public_id' => $application?->public_id,
-                        'name' => $application?->name,
+        if (! in_array($internalCode, ['INVALID_CARD', 'CARD_EXPIRED'], true)) {
+            try {
+                $this->audit->record(new AuditEvent(
+                    action: 'client.auth_failure_masked',
+                    targetType: 'application',
+                    targetId: $application?->public_id,
+                    applicationId: $application?->getKey(),
+                    before: [
+                        'application' => [
+                            'public_id' => $application?->public_id,
+                            'name' => $application?->name,
+                        ],
+                        ...$credentialContext,
+                        'device' => trim($device),
                     ],
-                ],
-                after: [
-                    'diagnostic_reference' => $reference,
-                    'diagnostic_code' => $internalCode,
-                    'internal_code' => $internalCode,
-                    'internal_message' => $internalMessage,
-                    'public_code' => 'INVALID_CARD',
-                    'public_message' => '卡密不存在'.$reference,
-                    'http_status' => 200,
-                ],
-                reason: "诊断编号 {$reference} · {$internalCode}",
-                result: 'failed',
-                actorRole: 'client',
-            ), $request);
-        } catch (\Throwable) {
-            // 审计存储旁路认证响应；文件日志仍保留同一诊断编号。
+                    after: [
+                        'diagnostic_reference' => $reference,
+                        'diagnostic_code' => $internalCode,
+                        'internal_code' => $internalCode,
+                        'internal_message' => $internalMessage,
+                        'public_code' => 'INVALID_CARD',
+                        'public_message' => '卡密不存在'.$reference,
+                        'http_status' => 200,
+                    ],
+                    reason: "诊断编号 {$reference} · {$internalCode}",
+                    result: 'failed',
+                    actorRole: 'client',
+                ), $request);
+            } catch (\Throwable) {
+                // 审计存储旁路认证响应；文件日志仍保留同一诊断编号。
+            }
         }
 
         return [
@@ -104,6 +121,27 @@ final class ClientAuthFailureMasker
             'details' => null,
             'masked' => true,
             'reference' => $reference,
+        ];
+    }
+
+    /** @return array<string, string> */
+    private function credentialContext(?Application $application, string $credential): array
+    {
+        $credential = trim($credential);
+        if (! $application instanceof Application || $credential === '') {
+            return [];
+        }
+        $card = $application->cards()
+            ->where('code_lookup_hash', $this->cardHasher->lookupHash($credential))
+            ->first(['public_id']);
+        $length = mb_strlen($credential);
+
+        return [
+            'card_public_id' => $card instanceof Card ? $card->public_id : '',
+            'credential_masked' => $length <= 4
+                ? str_repeat('•', $length)
+                : str_repeat('•', min(12, $length - 4)).mb_substr($credential, -4),
+            'credential_fingerprint' => substr(hash('sha256', $credential), 0, 16),
         ];
     }
 }
