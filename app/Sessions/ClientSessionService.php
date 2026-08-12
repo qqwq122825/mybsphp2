@@ -53,12 +53,12 @@ final class ClientSessionService
 
         if ($session->auth_mode === 'card') {
             $card = $session->card;
-            if (! $card instanceof Card || $card->user_status === 'frozen') return $this->heartbeatResult('5033', '软件用户已冻结', $handle);
+            if (! $card instanceof Card || $card->user_status === 'frozen') return $this->heartbeatResult('5026', '网络连接异常', $handle);
             if ($card->status !== 'active' || ! $card->expires_at || $card->expires_at->isPast()) return $this->heartbeatResult('5030', '授权时间已到期', $handle);
             $card->forceFill(['last_online_at' => now()])->save();
         } else {
             $account = $session->account;
-            if (! $account instanceof ApplicationAccount || $account->status === 'frozen') return $this->heartbeatResult('5033', '软件用户已冻结', $handle);
+            if (! $account instanceof ApplicationAccount || $account->status === 'frozen') return $this->heartbeatResult('5026', '网络连接异常', $handle);
             if ($account->status !== 'active' || ! $account->expires_at || $account->expires_at->isPast()) return $this->heartbeatResult('5030', '授权时间已到期', $handle);
         }
 

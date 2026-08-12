@@ -295,7 +295,8 @@ class IpRiskControlTest extends TestCase
                 ->assertSee($securityCardCode)
                 ->assertSee('登录 IP')
                 ->assertSee(substr(hash('sha256', 'BLOCKED-DEVICE'), 0, 12).'…'.substr(hash('sha256', 'BLOCKED-DEVICE'), -8))
-                ->assertSee('使用新卡密时也会进入蜜罐返回')
+                ->assertSee('使用新卡密时也会进入隐藏响应')
+                ->assertSee('卡密不存在 + 诊断编号')
                 ->assertDontSee('风险 IP 列表');
 
             $this->put('/private-console/risk-control/applications/'.$application->public_id.'/policy', [

@@ -18,6 +18,7 @@ use App\Models\SystemSetting;
 use App\Risk\IpRiskControlService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class CardIssueAndActivationTest extends TestCase
@@ -76,9 +77,7 @@ class CardIssueAndActivationTest extends TestCase
             'api' => 'login.ic', 'icid' => $credential['code'], 'icpwd' => $credential['secret'],
             'key' => 'TRACE-DEVICE-B', 'appsafecode' => 'TRACE-SAFE-B', 'BSphpSeSsL' => str_repeat('u', 64),
         ], '', '&', PHP_QUERY_RFC3986));
-        $this->postJson($gateway, $second['envelope'])
-            ->assertConflict()
-            ->assertJsonPath('error.code', 'DEVICE_MISMATCH');
+        $this->assertMaskedCardFailure($this->postJson($gateway, $second['envelope']));
 
         $mismatchLog = AuditLog::query()->where('action', 'client.card_login_trace')->latest('id')->firstOrFail();
         $this->assertSame('failed', $mismatchLog->result);
@@ -101,8 +100,9 @@ class CardIssueAndActivationTest extends TestCase
             'key' => 'TRACE-BLOCKED-DEVICE', 'appsafecode' => 'TRACE-SAFE-BLOCKED',
             'BSphpSeSsL' => str_repeat('v', 64),
         ], '', '&', PHP_QUERY_RFC3986));
-        $this->postJson($gateway, $blocked['envelope'])->assertOk();
+        $this->assertMaskedCardFailure($this->postJson($gateway, $blocked['envelope']));
         $blockedLog = AuditLog::query()->where('action', 'client.card_login_trace')->latest('id')->firstOrFail();
+        $this->assertSame('DEVICE_BLOCKED', data_get($blockedLog->after_data, 'business_code'));
         $this->assertSame('DEVICE_BLOCKLIST_HONEYPOT', data_get($blockedLog->after_data, 'diagnostic_code'));
         $this->assertTrue(data_get($blockedLog->after_data, 'device_security_state.actively_blocked'));
         $this->assertSame('S0', data_get($blockedLog->after_data, 'device_security_state.reason_code'));
@@ -276,21 +276,19 @@ class CardIssueAndActivationTest extends TestCase
         // Freezing the software user blocks subsequent logins without changing expiry.
         $expiresAt = $card->fresh()->expires_at;
         $card->forceFill(['user_status' => 'frozen', 'user_frozen_at' => now()])->save();
-        $this->postJson('/__testing/card-activate', [
+        $this->assertMaskedCardFailure($this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
             'device_id' => 'IOS-DEVICE-001',
-        ])->assertForbidden()->assertJsonPath('error.code', 'USER_FROZEN');
+        ]));
         $this->assertTrue($expiresAt->equalTo($card->fresh()->expires_at));
         $card->forceFill(['user_status' => 'active', 'user_frozen_at' => null])->save();
 
-        $this->postJson('/__testing/card-activate', [
+        $this->assertMaskedCardFailure($this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
             'device_id' => 'OTHER-DEVICE',
-        ])
-            ->assertConflict()
-            ->assertJsonPath('error.code', 'DEVICE_MISMATCH');
+        ]));
 
         $this->postJson('/api/v2/demo/activate', [])->assertNotFound();
         $this->get('/demo/activate')->assertNotFound();
@@ -336,12 +334,10 @@ class CardIssueAndActivationTest extends TestCase
 
         $this->assertSame('REBOUND-DEVICE', $card->fresh()->bound_device_ciphertext);
 
-        $this->postJson('/__testing/card-activate', [
+        $this->assertMaskedCardFailure($this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'device_id' => 'OTHER-DEVICE',
-        ])->assertConflict()
-            ->assertJsonPath('error.code', 'DEVICE_MISMATCH')
-            ->assertJsonPath('error.message', '该卡密已被绑定，当前设备特征不匹配。');
+        ]));
     }
 
     public function test_frozen_unused_card_cannot_be_activated(): void
@@ -352,13 +348,11 @@ class CardIssueAndActivationTest extends TestCase
         Card::query()->where('code_lookup_hash', app(CardCredentialHasher::class)->lookupHash($credential['code']))
             ->update(['card_is_frozen' => true, 'frozen_at' => now()]);
 
-        $this->postJson('/__testing/card-activate', [
+        $this->assertMaskedCardFailure($this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => $credential['secret'],
             'device_id' => 'IOS-DEVICE-001',
-        ])->assertUnprocessable()
-            ->assertJsonPath('error.code', 'CARD_FROZEN')
-            ->assertJsonPath('error.message', '你选择卡串已冻结！');
+        ]));
     }
 
     public function test_card_password_is_ignored_because_all_cards_are_code_only(): void
@@ -385,14 +379,11 @@ class CardIssueAndActivationTest extends TestCase
 
         $this->assertSame(8, strlen($credential['secret']));
 
-        $this->postJson('/__testing/card-activate', [
+        $this->assertMaskedCardFailure($this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
             'secret' => 'WRONG-SECRET',
             'device_id' => 'IOS-DEVICE-001',
-        ])
-            ->assertNotFound()
-            ->assertJsonPath('error.code', 'INVALID_CARD')
-            ->assertJsonPath('error.message', '卡密不存在。');
+        ]));
 
         $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],
@@ -470,7 +461,9 @@ class CardIssueAndActivationTest extends TestCase
         $card->forceFill(['user_status' => 'frozen'])->save();
         $this->postJson('/api/v2/apps/'.$application->public_id.'/sessions/heartbeat', [
             'BSphpSeSsL' => $handle, 'device_id' => 'HEARTBEAT-DEVICE',
-        ])->assertOk()->assertJsonPath('data.code', '5033');
+        ])->assertOk()
+            ->assertJsonPath('data.code', '5026')
+            ->assertJsonPath('data.message', '网络连接异常');
 
         $card->forceFill(['user_status' => 'active', 'expires_at' => now()->subSecond()])->save();
         $this->postJson('/api/v2/apps/'.$application->public_id.'/sessions/heartbeat', [
@@ -483,9 +476,7 @@ class CardIssueAndActivationTest extends TestCase
                 'api' => 'login.ic', 'icid' => $credential['code'], 'icpwd' => '', 'key' => 'HEARTBEAT-DEVICE',
                 'BSphpSeSsL' => $expiredHandle, 'appsafecode' => 'EXPIRED-SAFE',
             ], '', '&', PHP_QUERY_RFC3986));
-            $this->postJson($gateway, $expiredLogin['envelope'])
-                ->assertForbidden()
-                ->assertJsonPath('error.code', 'CARD_EXPIRED');
+            $this->assertMaskedCardFailure($this->postJson($gateway, $expiredLogin['envelope']));
         }
     }
 
@@ -716,10 +707,7 @@ class CardIssueAndActivationTest extends TestCase
             ], JSON_THROW_ON_ERROR),
         ], '', '&', PHP_QUERY_RFC3986));
 
-        $this->postJson($gateway, $request['envelope'])
-            ->assertOk()
-            ->assertJsonPath('error.code', 'INVALID_CARD')
-            ->assertJsonPath('error.message', '卡密不存在。');
+        $this->assertMaskedCardFailure($this->postJson($gateway, $request['envelope']));
 
         $this->assertDatabaseHas('client_security_events', [
             'application_id' => $application->getKey(),
@@ -831,5 +819,15 @@ class CardIssueAndActivationTest extends TestCase
             'role' => 'super_admin',
             'status' => 'active',
         ]);
+    }
+
+    private function assertMaskedCardFailure(TestResponse $response): void
+    {
+        $response->assertOk()->assertJsonPath('error.code', 'INVALID_CARD');
+        $message = (string) $response->json('error.message');
+        $this->assertMatchesRegularExpression('/^卡密不存在\d{3}$/u', $message);
+        $reference = (int) mb_substr($message, -3);
+        $this->assertGreaterThanOrEqual(201, $reference);
+        $this->assertLessThanOrEqual(999, $reference);
     }
 }

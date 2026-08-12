@@ -177,7 +177,7 @@
         @if($securityMetrics['blocked_devices'] > 0)
         <section class="system-settings-mode-note is-debug">
             <strong>当前有 {{ $securityMetrics['blocked_devices'] }} 台设备处于黑名单</strong>
-            <p>黑名单设备使用新卡密时也会进入蜜罐返回，客户端可能显示“设备校验失败”。可在本页底部的设备黑名单中解除。</p>
+            <p>黑名单设备使用新卡密时也会进入隐藏响应，客户端统一显示“卡密不存在 + 诊断编号”；真实原因仅保留在后台诊断记录中。</p>
         </section>
         @endif
         <section class="dashboard-panel honeypot-policy-panel">

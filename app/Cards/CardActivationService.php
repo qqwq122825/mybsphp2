@@ -54,6 +54,14 @@ final class CardActivationService
             if ($application->status !== 'active') {
                 throw new CardActivationException('APP_DISABLED', $application->closedMessage(), 403);
             }
+            $normalizedDevice = trim($deviceId);
+            if ($normalizedDevice === '') {
+                throw new CardActivationException('DEVICE_REQUIRED', '当前应用要求提供设备标识。');
+            }
+            if ($this->deviceStates->isBlocked($application, $normalizedDevice)) {
+                // 安全封控优先于卡密状态判断，后台始终记录真实命中原因。
+                throw new CardActivationException('DEVICE_BLOCKED', '设备已进入安全封控。', 403);
+            }
             if ($cardType->status !== 'active') {
                 throw new CardActivationException('CARD_TYPE_DISABLED', '该卡种当前未启用。');
             }
@@ -65,15 +73,6 @@ final class CardActivationService
             }
             if (in_array($card->status, ['revoked', 'consumed'], true)) {
                 throw new CardActivationException('CARD_UNAVAILABLE', '该卡密当前状态不可激活。');
-            }
-            $normalizedDevice = trim($deviceId);
-            if ($normalizedDevice === '') {
-                throw new CardActivationException('DEVICE_REQUIRED', '当前应用要求提供设备标识。');
-            }
-            if ($this->deviceStates->isBlocked($application, $normalizedDevice)) {
-                // 黑名单设备使用与普通无效卡密相同的对外结果，
-                // 避免客户端因蜜罐空设备字段落入“状态异常”分支。
-                throw new CardActivationException('INVALID_CARD', '卡密不存在。', 200);
             }
 
             if ($card->status === 'active') {

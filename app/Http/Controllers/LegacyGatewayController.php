@@ -13,6 +13,7 @@ use App\Diagnostics\CardLoginTraceService;
 use App\Http\ApiResponse;
 use App\Models\Application;
 use App\Risk\IpRiskControlService;
+use App\Security\ClientAuthFailureMasker;
 use App\Security\ClientLaunchTelemetryService;
 use App\Security\ClientSecurityReportService;
 use App\Sessions\ClientSessionService;
@@ -37,6 +38,7 @@ final class LegacyGatewayController extends Controller
         ClientLaunchTelemetryService $launchTelemetry,
         ClientSecurityReportService $securityReports,
         CardLoginTraceService $cardLoginTrace,
+        ClientAuthFailureMasker $failureMasker,
     ): JsonResponse {
         $appCode = (string) $request->query('appid', '');
         $gatewayToken = (string) $request->query('md5', '');
@@ -205,27 +207,29 @@ final class LegacyGatewayController extends Controller
             if ($riskDecision !== null) {
                 $risk->complete($riskDecision, false);
             }
-            // Some Nginx installations internally rewrite upstream 404 responses
-            // to a GET error page, which turns the useful JSON into HTTP_405.
-            // Keep legacy business errors on a successful transport response.
-            $transportStatus = $exception->status === 404 ? 200 : $exception->status;
-            $details = $exception instanceof AccountAuthException ? $exception->details : null;
-            if ($exception->status === 404) {
-                $details = array_replace(['business_status' => 404], $details ?? []);
-            }
+            $failure = $exception instanceof CardActivationException
+                ? $failureMasker->cardException($exception, $request, $application)
+                : [
+                    'code' => $exception->errorCode,
+                    'message' => $exception->getMessage(),
+                    'status' => $exception->status === 404 ? 200 : $exception->status,
+                    'details' => $exception->status === 404
+                        ? array_replace(['business_status' => 404], $exception->details ?? [])
+                        : $exception->details,
+                ];
 
             $errorResponse = ApiResponse::error(
-                $exception->errorCode,
-                $exception->getMessage(),
-                $transportStatus,
-                $details,
+                $failure['code'],
+                $failure['message'],
+                $failure['status'],
+                $failure['details'],
                 request: $request,
             );
             if ($traceCardLogin && $exception instanceof CardActivationException) {
                 $cardLoginTrace->recordJson(
                     $application, $request, $parameters, $traceParameterNames,
                     $code, $device, $sessionHandle, $opened['request_nonce'], $compactWire,
-                    $errorResponse,
+                    $errorResponse, $exception->errorCode,
                 );
             }
 
@@ -245,9 +249,22 @@ final class LegacyGatewayController extends Controller
                 );
                 if ($launchBlocked) {
                     // 对外保持与普通凭据错误一致；真实 T1 处置只在后台安全事件中可见。
-                    $launchBlockedResponse = $application->mode === 'account_recharge'
-                        ? ApiResponse::error('INVALID_CREDENTIALS', '账号或密码错误。', 401, request: $request)
-                        : ApiResponse::error('INVALID_CARD', '卡密不存在。', 200, request: $request);
+                    if ($application->mode === 'account_recharge') {
+                        $launchBlockedResponse = ApiResponse::error('INVALID_CREDENTIALS', '账号或密码错误。', 401, request: $request);
+                    } else {
+                        $failure = $failureMasker->maskedCardFailure(
+                            'T1_BLOCKED',
+                            '启动遥测命中高置信处置。',
+                            $request,
+                            $application,
+                        );
+                        $launchBlockedResponse = ApiResponse::error(
+                            $failure['code'],
+                            $failure['message'],
+                            $failure['status'],
+                            request: $request,
+                        );
+                    }
                     if ($traceCardLogin) {
                         $cardLoginTrace->recordJson(
                             $application, $request, $parameters, $traceParameterNames,

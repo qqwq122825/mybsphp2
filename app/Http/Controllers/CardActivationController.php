@@ -8,13 +8,19 @@ use App\Cards\CardCredentialHasher;
 use App\Http\ApiResponse;
 use App\Models\Card;
 use App\Risk\IpRiskControlService;
+use App\Security\ClientAuthFailureMasker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 final class CardActivationController extends Controller
 {
-    public function activate(Request $request, CardActivationService $activation, CardCredentialHasher $hasher, IpRiskControlService $risk): JsonResponse
-    {
+    public function activate(
+        Request $request,
+        CardActivationService $activation,
+        CardCredentialHasher $hasher,
+        IpRiskControlService $risk,
+        ClientAuthFailureMasker $failureMasker,
+    ): JsonResponse {
         $validated = $request->validate([
             'code' => ['required', 'string', 'min:8', 'max:64'],
             'secret' => ['nullable', 'string', 'max:64'],
@@ -43,11 +49,13 @@ final class CardActivationController extends Controller
             if ($decision !== null) {
                 $risk->complete($decision, false);
             }
+            $failure = $failureMasker->cardException($exception, $request, $card?->application);
 
             return ApiResponse::error(
-                $exception->errorCode,
-                $exception->getMessage(),
-                $exception->status,
+                $failure['code'],
+                $failure['message'],
+                $failure['status'],
+                $failure['details'],
                 request: $request,
             );
         }
