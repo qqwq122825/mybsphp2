@@ -530,13 +530,22 @@ class CardIssueAndActivationTest extends TestCase
             'application_id' => $application->getKey(), 'device_hash' => hash('sha256', 'SECURITY-DEVICE'),
             'status' => 'blocked', 'reason_code' => 'D0',
         ]);
+        $this->assertDatabaseHas('ip_risk_states', [
+            'application_id' => $application->getKey(),
+            'ip_hash' => hash('sha256', '127.0.0.1'),
+            'level' => 'high', 'permanently_blocked' => true,
+            'last_device_hash' => hash('sha256', 'SECURITY-DEVICE'),
+            'last_endpoint' => 'security.report',
+        ]);
         $this->postJson('/api/v2/apps/'.$application->public_id.'/sessions/heartbeat', [
             'BSphpSeSsL' => $handle, 'device_id' => 'SECURITY-DEVICE',
         ])->assertOk()->assertJsonPath('data.code', '5026');
         $blockedHandle = str_repeat('z', 64);
         $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'], 'device_id' => 'SECURITY-DEVICE', 'BSphpSeSsL' => $blockedHandle,
-        ])->assertOk()->assertJsonPath('ok', false)->assertJsonPath('error.code', 'INVALID_CARD');
+        ])->assertStatus(503)
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('error.code', 'SERVER_UNAVAILABLE');
         $this->assertDatabaseMissing('application_client_sessions', ['token_hash' => hash('sha256', $blockedHandle)]);
     }
 
@@ -733,6 +742,13 @@ class CardIssueAndActivationTest extends TestCase
             'risk_score' => 100,
             'status' => 'blocked',
             'reason_code' => 'T1',
+        ]);
+        $this->assertDatabaseHas('ip_risk_states', [
+            'application_id' => $application->getKey(),
+            'ip_hash' => hash('sha256', '127.0.0.1'),
+            'level' => 'high', 'permanently_blocked' => true,
+            'last_device_hash' => hash('sha256', 'SEVERE-LAUNCH-DEVICE'),
+            'last_endpoint' => 'client.launch.telemetry',
         ]);
     }
 

@@ -132,6 +132,68 @@ final class IpRiskControlService
         $decision->state->forceFill(['last_attempt_succeeded' => $succeeded])->save();
     }
 
+    public function blockForClientSecurityEvent(
+        Application $application,
+        string $ip,
+        string $deviceId,
+        string $endpoint,
+        string $reasonCode,
+    ): IpRiskState {
+        $ip = trim($ip) !== '' ? trim($ip) : '0.0.0.0';
+        $ipHash = hash('sha256', $ip);
+        $deviceHash = trim($deviceId) !== '' ? hash('sha256', trim($deviceId)) : null;
+        $policy = $application->riskPolicy()->firstOrCreate([], $this->defaults());
+
+        return DB::transaction(function () use ($application, $ip, $ipHash, $deviceHash, $endpoint, $reasonCode, $policy): IpRiskState {
+            $state = IpRiskState::query()
+                ->where('application_id', $application->getKey())
+                ->where('ip_hash', $ipHash)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $state instanceof IpRiskState) {
+                $state = IpRiskState::query()->create([
+                    'public_id' => (string) Str::ulid(),
+                    'application_id' => $application->getKey(),
+                    'ip' => $ip,
+                    'ip_hash' => $ipHash,
+                    'window_started_at' => now(),
+                ]);
+            }
+
+            $alreadyBlocked = $state->permanently_blocked === true;
+            $state->forceFill([
+                'ip' => $ip,
+                'level' => 'high',
+                'blocked_until' => null,
+                'permanently_blocked' => true,
+                'last_device_hash' => $deviceHash,
+                'last_endpoint' => $endpoint,
+                'last_attempt_succeeded' => false,
+                'last_seen_at' => now(),
+                'note' => '客户端安全事件 '.$reasonCode.' 同步拉黑 IP',
+            ])->save();
+
+            if (! $alreadyBlocked) {
+                RiskEvent::query()->create([
+                    'public_id' => (string) Str::ulid(),
+                    'application_id' => $application->getKey(),
+                    'ip_risk_state_id' => $state->getKey(),
+                    'ip' => $ip,
+                    'level' => 'high',
+                    'action' => 'block',
+                    'endpoint' => $endpoint,
+                    'window_attempts' => (int) $state->window_attempts,
+                    'threshold' => (int) $policy->high_threshold,
+                    'device_hash' => $deviceHash,
+                    'reason' => '客户端安全事件 '.$reasonCode.' 同步拉黑设备与 IP',
+                ]);
+            }
+
+            return $state;
+        }, 3);
+    }
+
     /** @param array<string, mixed> $result @return array<string, mixed> */
     public function applyDecoy(array $result, Application $application, RiskDecision $decision): array
     {

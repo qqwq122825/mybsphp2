@@ -5,13 +5,17 @@ namespace App\Security;
 use App\Models\Application;
 use App\Models\ApplicationClientSession;
 use App\Models\ClientSecurityEvent;
+use App\Risk\IpRiskControlService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 final class ClientLaunchTelemetryService
 {
-    public function __construct(private readonly DeviceSecurityStateService $deviceStates) {}
+    public function __construct(
+        private readonly DeviceSecurityStateService $deviceStates,
+        private readonly IpRiskControlService $ipRisk,
+    ) {}
 
     public function record(
         Application $application,
@@ -73,6 +77,13 @@ final class ClientLaunchTelemetryService
 
             if ($enforce) {
                 $this->deviceStates->block($application, $device, 'T1');
+                $this->ipRisk->blockForClientSecurityEvent(
+                    $application,
+                    $ip,
+                    $device,
+                    'client.launch.telemetry',
+                    'T1',
+                );
                 $session->forceFill(['status' => 'security_blocked'])->save();
                 if ($session->card_id) {
                     DB::table('cards')->where('id', $session->card_id)->update([

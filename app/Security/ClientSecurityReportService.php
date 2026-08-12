@@ -5,13 +5,17 @@ namespace App\Security;
 use App\Models\Application;
 use App\Models\ApplicationClientSession;
 use App\Models\ClientSecurityEvent;
+use App\Risk\IpRiskControlService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 final class ClientSecurityReportService
 {
-    public function __construct(private readonly DeviceSecurityStateService $deviceStates) {}
+    public function __construct(
+        private readonly DeviceSecurityStateService $deviceStates,
+        private readonly IpRiskControlService $ipRisk,
+    ) {}
 
     private const EVENTS = [
         'D0' => ['high', 'freeze'], 'D1' => ['high', 'freeze'], 'R0' => ['high', 'freeze'],
@@ -68,6 +72,13 @@ final class ClientSecurityReportService
             ClientSecurityEvent::query()->create(['public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(), 'application_client_session_id' => $session->getKey(), 'card_id' => $session->card_id, 'application_account_id' => $session->application_account_id, 'event_id' => $eventId, 'event_code' => $eventCode, 'severity' => $severity, 'ip_hash' => hash('sha256', $ip), 'device_hash' => hash('sha256', trim($device)), 'evidence' => $evidence, 'action' => $action]);
             if ($action === 'freeze') {
                 $this->deviceStates->block($application, $device, $eventCode);
+                $this->ipRisk->blockForClientSecurityEvent(
+                    $application,
+                    $ip,
+                    $device,
+                    'security.report',
+                    $eventCode,
+                );
                 $session->forceFill(['status' => 'security_blocked'])->save();
                 if ($session->card_id) {
                     DB::table('cards')->where('id', $session->card_id)->update(['user_status' => 'frozen', 'updated_at' => now()]);

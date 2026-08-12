@@ -281,6 +281,7 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('已关联绑定设备')
                 ->assertSee('登录卡密')
                 ->assertSee($securityCardCode)
+                ->assertSee('登录 IP')
                 ->assertSee(substr(hash('sha256', 'BLOCKED-DEVICE'), 0, 12).'…'.substr(hash('sha256', 'BLOCKED-DEVICE'), -8))
                 ->assertSee('使用新卡密时也会进入蜜罐返回')
                 ->assertDontSee('风险 IP 列表');

@@ -192,7 +192,7 @@
                 <label class="honeypot-policy-field honeypot-policy-mode">
                     <span>处置模式</span>
                     <select name="security_report_mode"><option value="disabled" @selected($policy->security_report_mode==='disabled')>关闭上报</option><option value="observe" @selected($policy->security_report_mode==='observe')>观察 · 只记录</option><option value="enforce" @selected($policy->security_report_mode==='enforce')>处置 · 高置信自动冻结</option></select>
-                    <small>控制 D0、D1、R0、S0 与 T1 的服务端处置。</small>
+                    <small>控制 D0、D1、R0、S0 与 T1 的服务端处置；拉黑时同步处理设备和登录 IP。</small>
                 </label>
                 <label class="honeypot-policy-field">
                     <span>异常退出窗口</span>
@@ -234,6 +234,7 @@
                     @php($deviceIdentifier = $deviceDetail['identifier'] ?? null)
                     @php($loginCredential = $deviceDetail['credential'] ?? null)
                     @php($loginCredentialType = $deviceDetail['credential_type'] ?? '授权来源')
+                    @php($blockedIp = $deviceDetail['ip'] ?? null)
                     @php($deviceHashSummary = substr($deviceState->device_hash, 0, 12).'…'.substr($deviceState->device_hash, -8))
                     <article>
                         <div class="honeypot-device-identity">
@@ -245,7 +246,7 @@
                             <small>{{ $loginCredentialType }}</small>
                             <code title="{{ $loginCredential ?: '历史记录未关联' }}">{{ $loginCredential ?: '历史记录未关联' }}</code>
                         </div>
-                        <span>{{ $deviceIdentifier ? '已关联绑定设备' : '摘要记录' }} · {{ $deviceState->reason_code ?: '—' }} · 风险分 {{ $deviceState->risk_score }} · {{ $deviceState->last_event_at?->diffForHumans() }}</span>
+                        <span>登录 IP {{ $blockedIp ?: '待关联' }} · {{ $deviceIdentifier ? '已关联绑定设备' : '摘要记录' }} · {{ $deviceState->reason_code ?: '—' }} · 风险分 {{ $deviceState->risk_score }} · {{ $deviceState->last_event_at?->diffForHumans() }}</span>
                         <b>{{ $deviceState->status === 'blocked' ? '已拉黑' : ($deviceState->status === 'quarantined' ? '重点观察' : '观察') }}</b>
                         @if($deviceState->status === 'blocked')<form method="post" action="{{ route('admin.risk-control.device-states.unblock', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">@csrf<button type="submit">解除拉黑</button></form>@endif
                     </article>

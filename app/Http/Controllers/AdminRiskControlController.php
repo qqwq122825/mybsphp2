@@ -179,12 +179,12 @@ final class AdminRiskControlController extends Controller
         $deviceState->forceFill(['status' => 'observe', 'blocked_until' => null, 'risk_score' => 0])->save();
         $this->recordAdminAction($request, 'risk.device_unblocked', 'client_security_subject_state', (string) $deviceState->getKey(), $deviceState->application_id, ['status' => 'observe'], '解除客户端设备黑名单');
 
-        return back()->with('success', '设备黑名单已解除；如需恢复原卡密或账号，请同时解冻授权主体。');
+        return back()->with('success', '设备黑名单已解除；关联 IP 与原卡密/账号保持原状态，可在对应列表中分别解除。');
     }
 
     /**
      * @param  Collection<int, ClientSecuritySubjectState>  $deviceStates
-     * @return array<string, array{identifier: string|null, credential_type: string|null, credential: string|null}>
+     * @return array<string, array{identifier: string|null, credential_type: string|null, credential: string|null, ip: string|null}>
      */
     private function resolveSecurityDeviceDetails(Collection $deviceStates): array
     {
@@ -210,6 +210,7 @@ final class AdminRiskControlController extends Controller
                 'identifier' => null,
                 'credential_type' => null,
                 'credential' => null,
+                'ip' => null,
             ];
             $candidates = [
                 $event->session?->device_id_ciphertext,
@@ -233,6 +234,24 @@ final class AdminRiskControlController extends Controller
                 $detail['credential'] = trim((string) $event->account->username);
             }
             $details[$hash] = $detail;
+        }
+
+        $ipStates = IpRiskState::query()
+            ->whereIn('last_device_hash', $hashes)
+            ->latest('last_seen_at')
+            ->get(['application_id', 'ip', 'last_device_hash']);
+        foreach ($ipStates as $ipState) {
+            $hash = (string) $ipState->last_device_hash;
+            if (! isset($details[$hash]) || $details[$hash]['ip'] !== null) {
+                continue;
+            }
+            $matchingDeviceState = $deviceStates->first(
+                fn (ClientSecuritySubjectState $state): bool => (string) $state->device_hash === $hash
+                    && (int) $state->application_id === (int) $ipState->application_id,
+            );
+            if ($matchingDeviceState !== null) {
+                $details[$hash]['ip'] = (string) $ipState->ip;
+            }
         }
 
         return $details;
