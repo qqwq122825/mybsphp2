@@ -6168,6 +6168,14 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 .honeypot-policy-action > small { text-align: center; }
 .honeypot-metric-grid { grid-template-columns: repeat(4,1fr); margin-bottom: 14px; }
 .honeypot-event-panel { margin-bottom: 0; }
+.honeypot-event-panel .risk-feed-list article { padding-top: 17px; padding-bottom: 17px; }
+.honeypot-event-panel .risk-feed-list article strong { font-size: 15px; }
+.honeypot-event-panel .risk-feed-list article p { font-size: 14px; }
+.honeypot-event-panel .risk-feed-list article small { font-size: 13px; }
+.honeypot-event-panel .risk-feed-identity { gap: 7px 16px; margin: 8px 0 7px; }
+.honeypot-event-panel .risk-feed-identity i { font-size: 12px; }
+.honeypot-event-panel .risk-feed-identity code { font-size: 13px; }
+.honeypot-event-panel .risk-feed-list article .risk-feed-badge { height: 32px; min-height: 32px; max-height: 32px; padding: 0 11px; font-size: 13px; }
 .honeypot-device-panel { margin-top: 14px; }
 .honeypot-device-list { padding: 0 18px 16px; }
 .honeypot-device-list article { display: grid; grid-template-columns: minmax(210px,1.1fr) minmax(190px,.9fr) minmax(190px,1fr) auto auto; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid #edf0f5; }
