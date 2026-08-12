@@ -189,7 +189,12 @@ final class AdminRiskControlController extends Controller
 
     public function unblockDevice(Request $request, string $adminPath, ClientSecuritySubjectState $deviceState): RedirectResponse
     {
-        $result = DB::transaction(function () use ($deviceState): array {
+        $releaseScope = (string) $request->input('release_scope', 'all');
+        abort_unless(in_array($releaseScope, ['device_only', 'device_credential', 'device_ip', 'all'], true), 422);
+        $releaseCredential = in_array($releaseScope, ['device_credential', 'all'], true);
+        $releaseIp = in_array($releaseScope, ['device_ip', 'all'], true);
+
+        $result = DB::transaction(function () use ($deviceState, $releaseCredential, $releaseIp): array {
             $lockedState = ClientSecuritySubjectState::query()->lockForUpdate()->findOrFail($deviceState->getKey());
             $events = ClientSecurityEvent::query()
                 ->where('application_id', $lockedState->application_id)
@@ -217,32 +222,34 @@ final class AdminRiskControlController extends Controller
             $cardIds = $events->pluck('card_id')->filter()->unique()->values();
             $accountIds = $events->pluck('application_account_id')->filter()->unique()->values();
             $sessionIds = $events->pluck('application_client_session_id')->filter()->unique()->values();
-            $cardsReleased = $cardIds->isEmpty() ? 0 : DB::table('cards')
+            $cardsReleased = ! $releaseCredential || $cardIds->isEmpty() ? 0 : DB::table('cards')
                 ->whereIn('id', $cardIds)
                 ->where('user_status', 'frozen')
                 ->update(['user_status' => 'active', 'user_frozen_at' => null, 'updated_at' => now()]);
-            $accountsReleased = $accountIds->isEmpty() ? 0 : DB::table('application_accounts')
+            $accountsReleased = ! $releaseCredential || $accountIds->isEmpty() ? 0 : DB::table('application_accounts')
                 ->whereIn('id', $accountIds)
                 ->where('status', 'frozen')
                 ->update(['status' => 'active', 'updated_at' => now()]);
-            $sessionsReleased = $sessionIds->isEmpty() ? 0 : DB::table('application_client_sessions')
+            $sessionsReleased = ! $releaseCredential || $sessionIds->isEmpty() ? 0 : DB::table('application_client_sessions')
                 ->whereIn('id', $sessionIds)
                 ->where('status', 'security_blocked')
                 ->update(['status' => 'revoked', 'logged_out_at' => now(), 'updated_at' => now()]);
-            $ipsReleased = IpRiskState::query()
-                ->where('application_id', $lockedState->application_id)
-                ->where('last_device_hash', $lockedState->device_hash)
-                ->update([
-                    'level' => 'normal',
-                    'window_attempts' => 0,
-                    'recent_attempt_timestamps' => '[]',
-                    'window_started_at' => now(),
-                    'blocked_until' => null,
-                    'permanently_blocked' => false,
-                    'last_attempt_succeeded' => false,
-                    'note' => '设备解除封控并建立新基线',
-                    'updated_at' => now(),
-                ]);
+            $ipsReleased = $releaseIp
+                ? IpRiskState::query()
+                    ->where('application_id', $lockedState->application_id)
+                    ->where('last_device_hash', $lockedState->device_hash)
+                    ->update([
+                        'level' => 'normal',
+                        'window_attempts' => 0,
+                        'recent_attempt_timestamps' => '[]',
+                        'window_started_at' => now(),
+                        'blocked_until' => null,
+                        'permanently_blocked' => false,
+                        'last_attempt_succeeded' => false,
+                        'note' => '设备解除封控并建立新基线',
+                        'updated_at' => now(),
+                    ])
+                : 0;
 
             $lockedState->forceFill([
                 'status' => 'observe',
@@ -260,11 +267,18 @@ final class AdminRiskControlController extends Controller
             'client_security_subject_state',
             (string) $deviceState->getKey(),
             $deviceState->application_id,
-            ['status' => 'observe', ...$result],
+            ['status' => 'observe', 'release_scope' => $releaseScope, ...$result],
             '解除客户端设备黑名单并建立永久总账新基线',
         );
 
-        return back()->with('success', '设备、关联 IP 与安全冻结主体已经恢复；历史闪退总账保留，新异常将从当前基线重新计算。');
+        $message = match ($releaseScope) {
+            'device_only' => '设备黑名单已解除；关联卡密/账号与 IP 保持原状态。',
+            'device_credential' => '设备黑名单及关联卡密/账号已恢复；IP 保持原封控状态。',
+            'device_ip' => '设备黑名单及关联 IP 已解除；卡密/账号保持原状态。',
+            default => '设备、关联 IP 与安全冻结主体已经恢复；历史闪退总账保留，新异常将从当前基线重新计算。',
+        };
+
+        return back()->with('success', $message);
     }
 
     /**

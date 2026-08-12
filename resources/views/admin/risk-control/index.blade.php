@@ -19,10 +19,10 @@
 @else
     @php($activeRiskTab = request('tab', 'ip') === 'honeypot' ? 'honeypot' : 'ip')
     <nav class="risk-control-tabs" aria-label="风控类型">
-        <a class="{{ $activeRiskTab === 'ip' ? 'is-active' : '' }}" href="{{ route('admin.risk-control.index', ['adminPath'=>$adminPath, 'application'=>$selectedApplication->public_id, 'tab'=>'ip']) }}">
+        <a data-workspace-follow class="{{ $activeRiskTab === 'ip' ? 'is-active' : '' }}" href="{{ route('admin.risk-control.index', ['adminPath'=>$adminPath, 'application'=>$selectedApplication->public_id, 'tab'=>'ip']) }}">
             <span>IP</span><strong>IP 封控</strong><small>登录请求频率与风险 IP</small>
         </a>
-        <a class="{{ $activeRiskTab === 'honeypot' ? 'is-active' : '' }}" href="{{ route('admin.risk-control.index', ['adminPath'=>$adminPath, 'application'=>$selectedApplication->public_id, 'tab'=>'honeypot']) }}">
+        <a data-workspace-follow class="{{ $activeRiskTab === 'honeypot' ? 'is-active' : '' }}" href="{{ route('admin.risk-control.index', ['adminPath'=>$adminPath, 'application'=>$selectedApplication->public_id, 'tab'=>'honeypot']) }}">
             <span>◈</span><strong>蜜罐封控</strong><small>客户端安全事件 · {{ $securityMetrics['blocked_devices'] }} 台已拉黑</small>
         </a>
     </nav>
@@ -132,7 +132,7 @@
                 <label><span>风险等级</span><select name="level"><option value="all">全部等级</option><option value="low" @selected(request('level')==='low')>低级封控</option><option value="high" @selected(request('level')==='high')>高级封控</option></select></label>
                 <label class="risk-filter-keyword"><span>IP 地址</span><input name="keyword" value="{{ request('keyword') }}" placeholder="输入完整或部分 IP"></label>
                 <button class="button button-primary" type="submit">筛选</button>
-                <a href="{{ route('admin.risk-control.index', ['adminPath'=>$adminPath,'application'=>$selectedApplication->public_id,'tab'=>'ip']) }}">重置</a>
+                <a data-workspace-follow href="{{ route('admin.risk-control.index', ['adminPath'=>$adminPath,'application'=>$selectedApplication->public_id,'tab'=>'ip']) }}">重置</a>
             </form>
         </x-slot:search>
         <table>
@@ -267,7 +267,18 @@
                         </div>
                         <span>登录 IP {{ $blockedIp ?: '待关联' }} · {{ $deviceIdentifier ? '已关联绑定设备' : '摘要记录' }} · {{ $deviceState->reason_code ?: '—' }} · 风险分 {{ $deviceState->risk_score }} · {{ $deviceState->last_event_at?->diffForHumans() }}</span>
                         <b>{{ $deviceState->status === 'blocked' ? '已拉黑' : ($deviceState->status === 'quarantined' ? '重点观察' : '观察') }}</b>
-                        @if($deviceState->status === 'blocked')<form method="post" action="{{ route('admin.risk-control.device-states.unblock', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">@csrf<button type="submit" onclick="return confirm('解除设备及关联安全封控，并以当前永久闪退次数建立新基线？')">解除并继续测试</button></form>@endif
+                        @if($deviceState->status === 'blocked')
+                            <form class="honeypot-device-release" method="post" action="{{ route('admin.risk-control.device-states.unblock', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">
+                                @csrf
+                                <select name="release_scope" aria-label="解除范围">
+                                    <option value="all">全部恢复</option>
+                                    <option value="device_only">仅解除设备</option>
+                                    <option value="device_credential">设备 + 卡密/账号</option>
+                                    <option value="device_ip">设备 + IP</option>
+                                </select>
+                                <button type="submit" onclick="return confirm('将按选定范围解除封控，并以当前永久闪退次数建立新基线，继续吗？')">确认解除</button>
+                            </form>
+                        @endif
                     </article>
                 @empty
                     <p class="risk-feed-empty">暂无设备黑名单</p>

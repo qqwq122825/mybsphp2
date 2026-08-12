@@ -547,6 +547,27 @@
                 return;
             }
 
+            const followLink = event.target instanceof Element
+                ? event.target.closest('a[data-workspace-follow]')
+                : null;
+            if (activeKey && followLink instanceof HTMLAnchorElement && workspaceContent.contains(followLink)) {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                const submissionKey = activeKey;
+                const tab = temporaryTabs.get(submissionKey);
+                if (!tab) return;
+                try {
+                    const page = await requestWorkspace(followLink.href);
+                    tab.content = page.content;
+                    tab.documentTitle = page.documentTitle;
+                    tab.url = page.url || followLink.href;
+                    if (activeKey === submissionKey) renderWorkspace(submissionKey);
+                } catch (error) {
+                    window.alert(error instanceof Error ? error.message : '工作页加载失败');
+                }
+                return;
+            }
+
             const baseLink = event.target instanceof Element
                 ? event.target.closest('a[data-workspace-base-tab], a[data-workspace-base-link], [data-workspace-content] a')
                 : null;

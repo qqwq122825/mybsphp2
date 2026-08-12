@@ -4769,7 +4769,7 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
     table-layout: fixed;
 }
 
-.software-user-table-component .bsphp-user-table { min-width: 1320px; }
+.software-user-table-component .bsphp-user-table { min-width: 1580px; }
 .bsphp-user-table .bsphp-user-select-column {
     width: 46px;
     padding: 12px 0 !important;
@@ -4782,9 +4782,10 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 }
 .bsphp-user-table .bsphp-user-identity-column { width: 210px; }
 .bsphp-user-table .bsphp-user-expiry-column { width: 190px; }
-.bsphp-user-table .bsphp-user-last-online-column { width: 112px; }
-.bsphp-user-table th:nth-child(8),
-.bsphp-user-table td:nth-child(8) { width: 250px; }
+.bsphp-user-table .bsphp-user-validity-column { width: 230px; white-space: nowrap; }
+.bsphp-user-table .bsphp-user-validity-column strong { display: block; overflow: hidden; text-overflow: ellipsis; }
+.bsphp-user-table .bsphp-user-last-online-column { width: 150px; white-space: nowrap; }
+.bsphp-user-table .bsphp-user-binding-column { width: 250px; }
 .bsphp-user-table .bsphp-user-note-column { width: 140px; }
 .bsphp-user-table .bsphp-user-action-column { width: 76px; text-align: center; }
 
@@ -6188,6 +6189,10 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 .honeypot-device-list span { color: #8490a3; font-size: 10px; }
 .honeypot-device-list b { color: #b43f52; font-size: 10px; }
 .honeypot-device-list button { padding: 6px 10px; border: 1px solid #d8c8e7; border-radius: 7px; background: #fff; color: #75449c; cursor: pointer; }
+.honeypot-device-release { display: grid; min-width: 168px; gap: 7px; }
+.honeypot-device-release select { width: 100%; min-height: 32px; padding: 5px 28px 5px 9px; border: 1px solid #d8c8e7; border-radius: 7px; outline: 0; background: #fff; color: #65437f; font-size: 10px; font-weight: 750; }
+.honeypot-device-release select:focus { border-color: #a98ac4; box-shadow: 0 0 0 3px rgba(117,68,156,.08); }
+.honeypot-device-release button { width: 100%; }
 
 @media (max-width: 1100px) {
     .risk-layout { grid-template-columns: 1fr; }

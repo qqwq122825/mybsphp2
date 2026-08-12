@@ -269,6 +269,9 @@ class IpRiskControlTest extends TestCase
 
             $this->get('/private-console/risk-control')
                 ->assertOk()
+                ->assertSee($application->code.'-封控设置')
+                ->assertSee('data-workspace-bootstrap-title="'.$application->code.'-封控设置"', false)
+                ->assertSee('data-workspace-follow', false)
                 ->assertSee($application->name.' · 封控设置')
                 ->assertSee('请求频率封控')
                 ->assertSee('客户端蜜罐封控')
@@ -305,10 +308,40 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('使用新卡密时也会进入隐藏响应')
                 ->assertSee('客户端统一显示“卡密不存在”')
                 ->assertSee('按完整卡密查询真实原因')
-                ->assertSee('解除并继续测试')
+                ->assertSee('全部恢复')
+                ->assertSee('仅解除设备')
+                ->assertSee('设备 + 卡密/账号')
+                ->assertSee('设备 + IP')
+                ->assertSee('确认解除')
                 ->assertDontSee('风险 IP 列表');
 
-            $this->post('/private-console/risk-control/device-states/'.$deviceState->getKey().'/unblock')
+            $this->post('/private-console/risk-control/device-states/'.$deviceState->getKey().'/unblock', [
+                'release_scope' => 'device_only',
+            ])
+                ->assertRedirect()
+                ->assertSessionHas('success', '设备黑名单已解除；关联卡密/账号与 IP 保持原状态。');
+            $this->assertDatabaseHas('client_security_subject_states', [
+                'id' => $deviceState->getKey(), 'status' => 'observe', 'risk_score' => 0,
+                'reason_code' => 'ADMIN_RESET',
+            ]);
+            $this->assertDatabaseHas('ip_risk_states', [
+                'application_id' => $application->getKey(), 'level' => 'high',
+                'permanently_blocked' => true, 'last_device_hash' => hash('sha256', 'BLOCKED-DEVICE'),
+            ]);
+            $this->assertDatabaseHas('cards', [
+                'id' => $securityCard->getKey(), 'user_status' => 'frozen',
+            ]);
+            $this->assertDatabaseHas('application_client_sessions', [
+                'id' => $securitySession->getKey(), 'status' => 'security_blocked',
+            ]);
+
+            // 再次标记为黑名单后选择全部恢复，联动解除卡密和 IP。
+            $deviceState->refresh()->forceFill([
+                'status' => 'blocked', 'risk_score' => 100, 'reason_code' => 'T1',
+            ])->save();
+            $this->post('/private-console/risk-control/device-states/'.$deviceState->getKey().'/unblock', [
+                'release_scope' => 'all',
+            ])
                 ->assertRedirect()
                 ->assertSessionHas('success', '设备、关联 IP 与安全冻结主体已经恢复；历史闪退总账保留，新异常将从当前基线重新计算。');
             $this->assertDatabaseHas('client_security_subject_states', [

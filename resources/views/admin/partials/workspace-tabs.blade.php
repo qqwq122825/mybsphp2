@@ -1,14 +1,14 @@
 @php
-    $isApplicationWorkspace = request()->routeIs('admin.applications.index', 'admin.applications.edit');
+    $isApplicationWorkspace = request()->routeIs('admin.applications.index', 'admin.applications.edit', 'admin.risk-control.index');
     $workspaceBaseUrl = $isApplicationWorkspace
         ? route('admin.applications.index', ['adminPath' => $adminPath])
         : null;
-    $workspaceBootstrapUrl = request()->routeIs('admin.applications.edit')
+    $workspaceBootstrapUrl = request()->routeIs('admin.applications.edit', 'admin.risk-control.index')
         ? request()->fullUrl()
         : null;
-    $workspaceBootstrapTitle = $workspaceBootstrapUrl && isset($application) && $application
-        ? $application->code.'-软件配置'
-        : null;
+    $workspaceBootstrapTitle = request()->routeIs('admin.risk-control.index')
+        ? (($selectedApplication?->code ?? '').'-封控设置')
+        : ($workspaceBootstrapUrl && isset($application) && $application ? $application->code.'-软件配置' : null);
 @endphp
 
 <nav class="admin-workspace-bar" aria-label="页面标签导航">
@@ -61,6 +61,13 @@
                     <span>{{ $application->code }}-用户管理</span><i aria-hidden="true">×</i>
                 </span>
             @endif
+        @elseif (request()->routeIs('admin.risk-control.index'))
+            <a class="workspace-tab" data-workspace-base-tab href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">
+                <span>软件管理</span><i aria-hidden="true">×</i>
+            </a>
+            <span class="workspace-tab is-active" aria-current="page">
+                <span>{{ $selectedApplication?->code ? $selectedApplication->code.'-' : '' }}封控设置</span><i aria-hidden="true">×</i>
+            </span>
         @elseif (request()->routeIs('admin.cards.*'))
             <a class="workspace-tab" href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">
                 <span>软件管理</span><i aria-hidden="true">×</i>

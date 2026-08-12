@@ -49,7 +49,7 @@
                         <thead><tr>
                             <th class="bsphp-user-select-column"><input type="checkbox" data-card-select-all aria-label="全选"></th>
                             <th class="bsphp-user-identity-column">充值卡号(激活码)</th><th>状态</th><th>账号多开</th><th>机器用量</th>
-                            <th class="bsphp-user-expiry-column">到期时间</th><th>有效期</th><th class="bsphp-user-last-online-column">最后在线</th><th>绑定特征</th><th>备注</th><th class="bsphp-user-action-column">操作</th>
+                            <th class="bsphp-user-expiry-column">到期时间</th><th class="bsphp-user-validity-column">有效期</th><th class="bsphp-user-last-online-column">最后在线</th><th class="bsphp-user-binding-column">绑定特征</th><th>备注</th><th class="bsphp-user-action-column">操作</th>
                         </tr></thead>
                         <tbody>
                         @forelse($users as $card)
@@ -63,7 +63,7 @@
                                 <td><span class="status-tag status-{{ $card->user_status ?? 'active' }}">{{ ($card->user_status ?? 'active') === 'frozen' ? '冻结' : '正常' }}</span></td>
                                 <td>{{ $accountLimit ?: '默认' }}</td><td>{{ $machineLimit ?: '默认' }}</td>
                                 <td class="bsphp-user-expiry-column">@if($card->expires_at)<time class="bsphp-user-expiry" datetime="{{ $card->expires_at->toIso8601String() }}" title="{{ $card->expires_at->toIso8601String() }}">{{ $card->expires_at->format('Y-m-d H:i:s') }}</time>@else 永久 @endif</td>
-                                <td><strong>{{ $formatRemainingValidity($card->expires_at) }}</strong></td>
+                                <td class="bsphp-user-validity-column"><strong>{{ $formatRemainingValidity($card->expires_at) }}</strong></td>
                                 <td class="bsphp-user-last-online-column" title="{{ $card->last_online_at?->format('Y-m-d H:i:s') }}">{{ $card->last_online_at?->diffForHumans() ?? '—' }}</td>
                                 <td class="bsphp-binding-value bsphp-user-truncate" title="{{ $card->bound_device_ciphertext ?: '' }}">{{ $card->bound_device_ciphertext ?: '—' }}</td>
                                 <td class="bsphp-user-note-column bsphp-user-truncate" title="{{ $card->user_note ?: '' }}">{{ $card->user_note ?: '—' }}</td>
@@ -84,7 +84,7 @@
                         <thead><tr>
                             <th class="bsphp-user-select-column"><input type="checkbox" data-card-select-all aria-label="全选"></th>
                             <th class="bsphp-user-identity-column">用户名</th><th>状态</th><th>账号多开</th><th>机器用量</th><th class="bsphp-user-expiry-column">到期时间</th>
-                            <th>有效期</th><th class="bsphp-user-last-online-column">最后在线</th><th>绑定特征</th><th>备注</th><th class="bsphp-user-action-column">操作</th>
+                            <th class="bsphp-user-validity-column">有效期</th><th class="bsphp-user-last-online-column">最后在线</th><th class="bsphp-user-binding-column">绑定特征</th><th>备注</th><th class="bsphp-user-action-column">操作</th>
                         </tr></thead>
                         <tbody>
                         @forelse($users as $account)
@@ -94,7 +94,7 @@
                                 <td><span class="status-tag status-{{ $account->status }}">{{ $account->status === 'frozen' ? '冻结' : '正常' }}</span></td>
                                 <td>{{ $account->account_concurrency_limit ?: '默认' }}</td><td>{{ $account->machine_concurrency_limit ?: '默认' }}</td>
                                 <td class="bsphp-user-expiry-column">@if($account->expires_at)<time class="bsphp-user-expiry" datetime="{{ $account->expires_at->toIso8601String() }}" title="{{ $account->expires_at->toIso8601String() }}">{{ $account->expires_at->format('Y-m-d H:i:s') }}</time>@else 永久 @endif</td>
-                                <td><strong>{{ $formatRemainingValidity($account->expires_at) }}</strong></td>
+                                <td class="bsphp-user-validity-column"><strong>{{ $formatRemainingValidity($account->expires_at) }}</strong></td>
                                 <td class="bsphp-user-last-online-column" title="{{ $account->last_login_at?->format('Y-m-d H:i:s') }}">{{ $account->last_login_at?->diffForHumans() ?? '—' }}</td>
                                 <td class="bsphp-binding-value bsphp-user-truncate" title="{{ $account->bound_device_ciphertext ?: '' }}">{{ $account->bound_device_ciphertext ?: '—' }}</td>
                                 <td class="bsphp-user-note-column bsphp-user-truncate" title="{{ $account->note ?: '' }}">{{ $account->note ?: '—' }}</td>
