@@ -3544,6 +3544,17 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
     border-bottom: 1px solid #e8ebf1;
 }
 
+.card-type-editor-header {
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.card-type-editor-header .button {
+    min-height: 36px;
+    padding: 0 14px;
+    text-decoration: none;
+}
+
 .card-type-workspace-header h2 {
     margin: 0;
     color: #172039;
@@ -3552,6 +3563,10 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 
 .card-type-page-form {
     margin: 0;
+}
+
+.card-type-workspace-card > .card-type-page-form {
+    min-height: calc(100% - 78px);
 }
 
 .card-type-editor-dialog__content {

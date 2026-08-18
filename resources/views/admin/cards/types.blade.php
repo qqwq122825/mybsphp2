@@ -10,59 +10,15 @@
             'mixed' => '默认数字+大写+小写组合', 'digits' => '仅数字', 'uppercase' => '仅大写字母',
             'lowercase' => '仅小写字母', 'digits_uppercase' => '数字+大写字母', 'digits_lowercase' => '数字+小写字母',
         ];
+        $cardTypeListUrl = route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application]);
     @endphp
-    <section class="dashboard-panel card-type-workspace-card">
-        <header class="card-type-workspace-header">
-            <h2>充值卡类型</h2>
-        </header>
-
-        <form id="quick-card-type-form" method="post" action="{{ route('admin.card-types.quick', ['adminPath' => $adminPath]) }}">@csrf<input type="hidden" name="application_id" value="{{ $application->id }}"></form>
-            <form class="bsphp-type-list-wrap uses-admin-data-table" method="post" action="{{ route('admin.card-types.delete', ['adminPath' => $adminPath]) }}">
-                @csrf @method('DELETE')
-                <input type="hidden" name="application_id" value="{{ $application->id }}">
-                <x-admin.table-frame frame-class="card-type-table-component" scroll-class="bsphp-type-table-scroll">
-                    <x-slot:toolbar>
-                        <div>
-                        <button class="button card-type-delete-button" type="submit"
-                                onclick="return confirm('将删除所选卡串类型本身，并清理该类型下未激活的库存卡和已发出卡；已激活或已使用的卡会保留并继续支持查询。确定继续吗？')">删除选中</button>
-                        <a class="button button-primary" data-workspace-follow href="{{ route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application, 'create' => 1]) }}">添加新充值卡类型</a>
-                        <button class="button bsphp-type-quick" type="submit" form="quick-card-type-form">快速添加模拟卡类型</button>
-                        </div>
-                        <span>{{ $cardTypes->count() }} 条</span>
-                    </x-slot:toolbar>
-                    <table class="bsphp-type-table">
-                        <thead><tr>
-                            <th><input type="checkbox" data-card-select-all aria-label="全选"></th><th>编号</th><th>排序</th><th>软件名称</th><th>代号</th><th>卡串名称</th><th>备注</th><th>期限</th>
-                            <th>卡号长度</th><th>卡号组成</th><th>价格</th><th>代理价格</th><th>账号多开</th><th>机器用量</th><th>操作</th>
-                        </tr></thead>
-                        <tbody>
-                        @forelse($cardTypes as $cardType)
-                            <tr>
-                                <td><input type="checkbox" name="card_type_ids[]" value="{{ $cardType->id }}" data-card-select></td>
-                                <td>{{ $cardType->id }}</td><td>{{ $cardType->sort_order }}</td><td>{{ $application->name }}</td><td>{{ $cardType->code }}</td>
-                                <td>{{ $cardType->name }}</td><td>{{ $cardType->note ?: '—' }}</td><td>{{ $cardType->duration_value }}{{ $units[$cardType->duration_unit] ?? '天' }}</td>
-                                <td>{{ $cardType->code_length }}</td><td>{{ $charsets[$cardType->code_charset] ?? $charsets['mixed'] }}</td>
-                                <td>{{ number_format($cardType->face_price_cents / 100, 2) }}</td><td>{{ number_format($cardType->default_agent_price_cents / 100, 2) }}</td>
-                                <td>{{ $cardType->account_concurrency_limit ?: '默认软件配置' }}</td><td>{{ $cardType->machine_concurrency_limit ?: '默认软件配置' }}</td>
-                                <td><a class="bsphp-detail-button" data-workspace-follow href="{{ route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application, 'edit' => $cardType->public_id]) }}">编辑</a></td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="15" class="bsphp-table-empty">无数据</td></tr>
-                        @endforelse
-                        </tbody>
-                    </table>
-                    <x-slot:footer><button type="button" disabled>‹</button><b>1</b><button type="button" disabled>›</button><span>共 {{ $cardTypes->count() }} 条</span><select><option>10 条/页</option></select></x-slot:footer>
-                </x-admin.table-frame>
-            </form>
-    </section>
 
     @if($showTypeForm)
-        <x-admin.window-dialog
-            class="card-type-editor-dialog"
-            content-class="card-type-editor-dialog__content"
-            :title="$type ? '编辑充值卡类型' : '添加充值卡类型'"
-            :auto-open="true"
-            data-card-type-editor-dialog>
+        <section class="dashboard-panel card-type-workspace-card" data-card-type-editor-dialog>
+            <header class="card-type-workspace-header card-type-editor-header">
+                <h2>{{ $type ? '编辑充值卡类型' : '添加充值卡类型' }}</h2>
+                <a class="button" data-workspace-follow href="{{ $cardTypeListUrl }}">返回列表</a>
+            </header>
             <form class="card-type-page-form" method="post"
                   action="{{ $type ? route('admin.card-types.update', ['adminPath' => $adminPath, 'cardType' => $type]) : route('admin.card-types.store', ['adminPath' => $adminPath]) }}">
                 @csrf
@@ -107,11 +63,61 @@
                     <label class="card-type-form-row"><strong>机器同时使用量</strong>
                         <input type="number" name="machine_concurrency_limit" min="-1" max="32767" value="{{ old('machine_concurrency_limit', $type?->machine_concurrency_limit ?? 0) }}" required><small>0 使用软件默认，-1 不限制设备数量</small></label>
                     <div class="form-submit-bar embedded-submit-bar">
-                        <button class="button" type="button" data-window-action="close">取消</button>
+                        <a class="button" data-workspace-follow href="{{ $cardTypeListUrl }}">取消</a>
                         <button class="button button-primary" type="submit">确认保存</button>
                     </div>
                 </div>
             </form>
-        </x-admin.window-dialog>
+        </section>
+    @else
+        <section class="dashboard-panel card-type-workspace-card">
+            <header class="card-type-workspace-header">
+                <h2>充值卡类型</h2>
+            </header>
+
+            <form id="quick-card-type-form" method="post" action="{{ route('admin.card-types.quick', ['adminPath' => $adminPath]) }}">@csrf<input type="hidden" name="application_id" value="{{ $application->id }}"></form>
+            <form id="card-type-create-form" method="get" action="{{ $cardTypeListUrl }}">
+                <input type="hidden" name="create" value="1">
+            </form>
+            <div class="bsphp-type-list-wrap uses-admin-data-table">
+                <x-admin.table-frame frame-class="card-type-table-component" scroll-class="bsphp-type-table-scroll">
+                    <x-slot:toolbar>
+                        <div>
+                        <button class="button card-type-delete-button" type="submit" form="card-type-delete-form"
+                                onclick="return confirm('将删除所选卡串类型本身，并清理该类型下未激活的库存卡和已发出卡；已激活或已使用的卡会保留并继续支持查询。确定继续吗？')">删除选中</button>
+                        <button class="button button-primary" type="submit" form="card-type-create-form">添加新充值卡类型</button>
+                        <button class="button bsphp-type-quick" type="submit" form="quick-card-type-form">快速添加模拟卡类型</button>
+                        </div>
+                        <span>{{ $cardTypes->count() }} 条</span>
+                    </x-slot:toolbar>
+                    <form id="card-type-delete-form" method="post" action="{{ route('admin.card-types.delete', ['adminPath' => $adminPath]) }}">
+                        @csrf @method('DELETE')
+                        <input type="hidden" name="application_id" value="{{ $application->id }}">
+                    <table class="bsphp-type-table">
+                        <thead><tr>
+                            <th><input type="checkbox" data-card-select-all aria-label="全选"></th><th>编号</th><th>排序</th><th>软件名称</th><th>代号</th><th>卡串名称</th><th>备注</th><th>期限</th>
+                            <th>卡号长度</th><th>卡号组成</th><th>价格</th><th>代理价格</th><th>账号多开</th><th>机器用量</th><th>操作</th>
+                        </tr></thead>
+                        <tbody>
+                        @forelse($cardTypes as $cardType)
+                            <tr>
+                                <td><input type="checkbox" name="card_type_ids[]" value="{{ $cardType->id }}" data-card-select></td>
+                                <td>{{ $cardType->id }}</td><td>{{ $cardType->sort_order }}</td><td>{{ $application->name }}</td><td>{{ $cardType->code }}</td>
+                                <td>{{ $cardType->name }}</td><td>{{ $cardType->note ?: '—' }}</td><td>{{ $cardType->duration_value }}{{ $units[$cardType->duration_unit] ?? '天' }}</td>
+                                <td>{{ $cardType->code_length }}</td><td>{{ $charsets[$cardType->code_charset] ?? $charsets['mixed'] }}</td>
+                                <td>{{ number_format($cardType->face_price_cents / 100, 2) }}</td><td>{{ number_format($cardType->default_agent_price_cents / 100, 2) }}</td>
+                                <td>{{ $cardType->account_concurrency_limit ?: '默认软件配置' }}</td><td>{{ $cardType->machine_concurrency_limit ?: '默认软件配置' }}</td>
+                                <td><a class="bsphp-detail-button" data-workspace-follow href="{{ route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application, 'edit' => $cardType->public_id]) }}">编辑</a></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="15" class="bsphp-table-empty">无数据</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                    </form>
+                    <x-slot:footer><button type="button" disabled>‹</button><b>1</b><button type="button" disabled>›</button><span>共 {{ $cardTypes->count() }} 条</span><select><option>10 条/页</option></select></x-slot:footer>
+                </x-admin.table-frame>
+            </div>
+        </section>
     @endif
 @endsection
