@@ -176,9 +176,9 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/agent/index.php', false)
             ->assertSee('激活码查询')
             ->assertSee('/activation-query', false)
-            ->assertSee('mybsphp.css?v=20260813-device-release-v8', false)
+            ->assertSee('mybsphp.css?v=20260818-ipad-nav-v1', false)
             ->assertSee('custom-select.js?v=20260812-select-scroll', false)
-            ->assertSee('mybsphp.js?v=20260812-risk-workspace-v7', false)
+            ->assertSee('mybsphp.js?v=20260818-ipad-nav-v1', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -258,7 +258,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-workspace-base-link', false)
             ->assertSee('data-workspace-base-tab', false)
             ->assertSee('data-workspace-base-url=', false)
-            ->assertSee('mybsphp.js?v=20260812-risk-workspace-v7', false)
+            ->assertSee('mybsphp.js?v=20260818-ipad-nav-v1', false)
             ->assertSee($application->code.'-卡串类型');
 
         $this->get('/private-console/applications/'.$application->public_id.'/users')
@@ -282,6 +282,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-workspace-static-close', false)
             ->assertSee('充值卡类型')
             ->assertSee('添加新充值卡类型')
+            ->assertSee('data-workspace-follow', false)
             ->assertSee('快速添加模拟卡类型')
             ->assertSee('删除选中')
             ->assertSee('card-type-workspace-card', false)

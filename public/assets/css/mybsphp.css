@@ -1578,12 +1578,8 @@ button.workspace-tab {
 
 .nav-group summary {
     position: relative;
-    min-height: 52px;
-    display: grid;
-    grid-template-columns: 26px minmax(0, 1fr) 10px;
-    align-items: center;
-    gap: 11px;
-    padding: 0 14px;
+    display: block;
+    padding: 0;
     border-radius: 12px;
     color: #485268;
     cursor: pointer;
@@ -1591,8 +1587,19 @@ button.workspace-tab {
     transition: color .18s ease, background-color .18s ease;
 }
 
-.nav-group summary::-webkit-details-marker {
+.nav-group summary::-webkit-details-marker,
+.nav-group summary::marker {
     display: none;
+    content: none;
+}
+
+.nav-group-label {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 0 14px;
+    border-radius: 12px;
 }
 
 .nav-group summary:hover,
@@ -1613,6 +1620,7 @@ button.workspace-tab {
 }
 
 .nav-group summary svg {
+    flex: 0 0 23px;
     width: 23px;
     height: 23px;
     fill: none;
@@ -1623,6 +1631,8 @@ button.workspace-tab {
 }
 
 .nav-group summary strong {
+    flex: 1 1 auto;
+    min-width: 0;
     overflow: hidden;
     font-size: 13px;
     font-weight: 780;
@@ -1631,8 +1641,10 @@ button.workspace-tab {
 }
 
 .nav-group summary i {
+    flex: 0 0 auto;
     width: 0;
     height: 0;
+    margin-left: auto;
     border-top: 5px solid #8e96a5;
     border-right: 5px solid transparent;
     border-left: 5px solid transparent;
@@ -1727,8 +1739,12 @@ button.workspace-tab {
 
 .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group summary {
     min-height: 48px;
-    grid-template-columns: 1fr;
-    place-items: center;
+    padding: 0;
+}
+
+.dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group-label {
+    min-height: 48px;
+    justify-content: center;
     gap: 0;
     padding: 0;
 }
@@ -2744,6 +2760,11 @@ dialog.admin-window-dialog:not([open]) {
     display: none !important;
 }
 
+dialog.admin-window-dialog[open] {
+    display: flex;
+    flex-direction: column;
+}
+
 dialog.admin-window-dialog {
     width: min(900px, calc(100vw - 40px));
     height: min(640px, calc(100vh - 120px));
@@ -2994,29 +3015,36 @@ dialog.admin-window-dialog.is-workspace-window {
     position: fixed;
     z-index: 44;
     top: 138px;
-    right: 16px;
-    bottom: 16px;
+    right: auto;
+    bottom: auto;
     left: 242px;
-    width: auto;
-    height: auto;
+    width: calc(100vw - 258px);
+    height: calc(100vh - 154px);
+    height: calc(100dvh - 154px);
+    max-width: none;
+    max-height: none;
     margin: 0;
+    transform: none;
 }
 
 dialog.admin-window-dialog.is-workspace-window.is-maximized {
     top: 122px;
-    right: 0;
-    bottom: 0;
+    right: auto;
+    bottom: auto;
     left: 226px;
-    width: auto;
-    height: auto;
+    width: calc(100vw - 226px);
+    height: calc(100vh - 122px);
+    height: calc(100dvh - 122px);
 }
 
 .dashboard-page.is-sidebar-collapsed dialog.admin-window-dialog.is-workspace-window {
     left: 84px;
+    width: calc(100vw - 100px);
 }
 
 .dashboard-page.is-sidebar-collapsed dialog.admin-window-dialog.is-workspace-window.is-maximized {
     left: 68px;
+    width: calc(100vw - 68px);
 }
 
 dialog.admin-window-dialog.is-workspace-window > .admin-window-dialog__window {
@@ -4312,7 +4340,8 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 }
 .admin-sidebar nav { gap:8px; }
 .admin-sidebar .nav-group { overflow:visible; border-radius:0; }
-.admin-sidebar .nav-group > summary { min-height:52px; grid-template-columns:24px minmax(0,1fr) 10px; gap:11px; padding:0 14px; border-radius:12px; color:#454d5e; }
+.admin-sidebar .nav-group > summary { padding:0; border-radius:12px; color:#454d5e; }
+.admin-sidebar .nav-group-label { min-height:52px; gap:11px; padding:0 14px; border-radius:12px; }
 .admin-sidebar .nav-group > summary:hover { color:#3177e9; background:#f4f7fc; }
 .admin-sidebar .nav-group[open] > summary { color:#454d5e; background:#fff; }
 .admin-sidebar .nav-group[open] > summary::before { display:block; left:-6px; }
@@ -4334,12 +4363,12 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 .admin-sidebar .nav-children .nav-subgroup a.is-active { color:#2e7fec; background:#deebfb; }
 .dashboard-page.is-sidebar-collapsed .admin-sidebar { overflow:visible; }
 .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group > summary { padding:0; border-radius:12px; }
-.nav-direct-link { min-height:52px; display:grid; grid-template-columns:24px minmax(0,1fr) 10px; align-items:center; gap:11px; padding:0 14px; border-radius:12px; color:#454d5e; }
+.nav-direct-link { min-height:52px; display:flex; align-items:center; gap:11px; padding:0 14px; border-radius:12px; color:#454d5e; }
 .nav-direct-link:hover,.nav-direct-link.is-active { color:#2e7fec; background:#e5effc; }
-.nav-direct-link svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.55; stroke-linecap:round; stroke-linejoin:round; }
-.nav-direct-link strong { font-size:14px; font-weight:760; }
-.nav-direct-link i { font-size:22px; font-style:normal; }
-.dashboard-page.is-sidebar-collapsed .nav-direct-link { min-height:48px; grid-template-columns:1fr; place-items:center; padding:0; }
+.nav-direct-link svg { flex:0 0 23px; width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.55; stroke-linecap:round; stroke-linejoin:round; }
+.nav-direct-link strong { flex:1 1 auto; min-width:0; font-size:14px; font-weight:760; }
+.nav-direct-link i { flex:0 0 auto; margin-left:auto; font-size:22px; font-style:normal; }
+.dashboard-page.is-sidebar-collapsed .nav-direct-link { min-height:48px; justify-content:center; padding:0; }
 .dashboard-page.is-sidebar-collapsed .nav-direct-link strong,.dashboard-page.is-sidebar-collapsed .nav-direct-link i { display:none; }
 
 .administrator-list-panel { min-height:calc(100vh - 165px); border-radius:16px; }
@@ -4563,7 +4592,7 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 .admin-data-table { overflow:hidden; border:1px solid #e0e3e8; border-radius:15px; background:#fff; }
 .admin-data-table-toolbar { min-height:58px; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:9px 16px; border-bottom:1px solid #e2e5e9; background:#f4f4f4; }
 .admin-data-table-toolbar > div { display:flex; align-items:center; flex-wrap:wrap; gap:9px; }
-.admin-data-table-toolbar button,.admin-data-table-toolbar .button { min-height:38px; padding:0 14px; border:1px solid #4389ee; border-radius:8px; color:#fff; background:#4389ee; font-size:13px; font-weight:700; cursor:pointer; }
+.admin-data-table-toolbar button,.admin-data-table-toolbar .button { min-height:38px; display:inline-flex; align-items:center; padding:0 14px; border:1px solid #4389ee; border-radius:8px; color:#fff; background:#4389ee; font-size:13px; font-weight:700; text-decoration:none; cursor:pointer; touch-action:manipulation; }
 .admin-data-table-toolbar button:hover,.admin-data-table-toolbar .button:hover { background:#2876e6; }
 .admin-data-table-toolbar > span { color:#8d94a0; font-size:12px; }
 .admin-data-table-toolbar .admin-table-utility-tools { margin-left:auto; }
@@ -5356,8 +5385,12 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 
     .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group summary {
         min-height: 52px;
-        grid-template-columns: 26px minmax(0, 1fr) 10px;
-        place-items: initial;
+        padding: 0;
+    }
+
+    .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group-label {
+        min-height: 52px;
+        justify-content: flex-start;
         align-items: center;
         gap: 11px;
         padding: 0 14px;
@@ -5460,13 +5493,31 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
     }
 
     dialog.admin-window-dialog.is-workspace-window,
-    .dashboard-page.is-sidebar-collapsed dialog.admin-window-dialog.is-workspace-window {
-        left: 12px;
-    }
-
+    .dashboard-page.is-sidebar-collapsed dialog.admin-window-dialog.is-workspace-window,
     dialog.admin-window-dialog.is-workspace-window.is-maximized,
     .dashboard-page.is-sidebar-collapsed dialog.admin-window-dialog.is-workspace-window.is-maximized {
+        top: 122px;
+        right: auto;
+        bottom: auto;
         left: 0;
+        width: 100vw;
+        height: calc(100vh - 122px);
+        height: calc(100dvh - 122px);
+    }
+}
+
+@media (max-width: 1180px) and (pointer: coarse) {
+    dialog.admin-window-dialog.is-workspace-window,
+    .dashboard-page.is-sidebar-collapsed dialog.admin-window-dialog.is-workspace-window,
+    dialog.admin-window-dialog.is-workspace-window.is-maximized,
+    .dashboard-page.is-sidebar-collapsed dialog.admin-window-dialog.is-workspace-window.is-maximized {
+        top: 122px;
+        right: auto;
+        bottom: auto;
+        left: 0;
+        width: 100vw;
+        height: calc(100vh - 122px);
+        height: calc(100dvh - 122px);
     }
 }
 

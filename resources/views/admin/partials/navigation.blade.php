@@ -2,10 +2,12 @@
     @canany(['dashboard.view', 'online_users.view', 'risk.view', 'audit.view', 'administrators.view', 'administrators.create'])
         <details class="nav-group" {{ request()->routeIs('admin.dashboard', 'admin.system-logs.*', 'admin.administrators.*') ? 'open' : '' }}>
             <summary title="控制台">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M3 10.5 12 3l9 7.5"></path><path d="M5.5 9.5V21h13V9.5"></path>
-                </svg>
-                <strong>控制台</strong><i aria-hidden="true"></i>
+                <span class="nav-group-label">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 10.5 12 3l9 7.5"></path><path d="M5.5 9.5V21h13V9.5"></path>
+                    </svg>
+                    <strong>控制台</strong><i aria-hidden="true"></i>
+                </span>
             </summary>
             <div class="nav-children">
                 @can('dashboard.view')
@@ -48,12 +50,14 @@
     @canany(['applications.view', 'applications.create', 'cards.bulk_manage', 'app_accounts.manage'])
         <details class="nav-group" {{ request()->routeIs('admin.applications.*', 'admin.cards.maintenance.*', 'admin.application-users.maintenance.*') ? 'open' : '' }}>
             <summary title="应用管理">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="3" width="7" height="7" rx="1"></rect>
-                    <rect x="14" y="14" width="7" height="7" rx="1"></rect>
-                    <path d="M14 6.5h7M17.5 3v7M3 17.5h7M6.5 14v7"></path>
-                </svg>
-                <strong>应用管理</strong><i aria-hidden="true"></i>
+                <span class="nav-group-label">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                        <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                        <path d="M14 6.5h7M17.5 3v7M3 17.5h7M6.5 14v7"></path>
+                    </svg>
+                    <strong>应用管理</strong><i aria-hidden="true"></i>
+                </span>
             </summary>
             <div class="nav-children">
                 @can('applications.view')
@@ -80,12 +84,14 @@
     @canany(['agents.view', 'users.create', 'users.manage'])
         <details class="nav-group" {{ request()->routeIs('admin.agents.*') ? 'open' : '' }}>
             <summary title="账号管理">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <circle cx="9" cy="8" r="4"></circle>
-                    <path d="M2.5 21c.4-4.3 2.7-6.5 6.5-6.5s6.1 2.2 6.5 6.5"></path>
-                    <path d="M15.5 5.2a3.7 3.7 0 0 1 0 6.8M17 14.5c2.8.6 4.3 2.8 4.5 6.5"></path>
-                </svg>
-                <strong>账号管理</strong><i aria-hidden="true"></i>
+                <span class="nav-group-label">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="9" cy="8" r="4"></circle>
+                        <path d="M2.5 21c.4-4.3 2.7-6.5 6.5-6.5s6.1 2.2 6.5 6.5"></path>
+                        <path d="M15.5 5.2a3.7 3.7 0 0 1 0 6.8M17 14.5c2.8.6 4.3 2.8 4.5 6.5"></path>
+                    </svg>
+                    <strong>账号管理</strong><i aria-hidden="true"></i>
+                </span>
             </summary>
             <div class="nav-children">
                 @can('agents.view')
@@ -103,11 +109,13 @@
     @can('settings.view')
         <details class="nav-group" {{ request()->routeIs('admin.settings.*') ? 'open' : '' }}>
             <summary title="系统配置">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"></path>
-                    <path d="m4 7.5 8 4.5 8-4.5M12 12v9"></path>
-                </svg>
-                <strong>系统配置</strong><i aria-hidden="true"></i>
+                <span class="nav-group-label">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"></path>
+                        <path d="m4 7.5 8 4.5 8-4.5M12 12v9"></path>
+                    </svg>
+                    <strong>系统配置</strong><i aria-hidden="true"></i>
+                </span>
             </summary>
             <div class="nav-children">
                 <a class="{{ request()->routeIs('admin.settings.system.*') ? 'is-active' : '' }}"
@@ -119,10 +127,12 @@
     @canany(['audit.view', 'cards.view', 'cards.bulk_manage', 'app_accounts.manage'])
         <details class="nav-group" {{ request()->routeIs('admin.operation-plugins.*', 'admin.quick-operations.*') ? 'open' : '' }}>
             <summary title="运营插件">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path>
-                </svg>
-                <strong>运营插件</strong><i aria-hidden="true"></i>
+                <span class="nav-group-label">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path>
+                    </svg>
+                    <strong>运营插件</strong><i aria-hidden="true"></i>
+                </span>
             </summary>
             <div class="nav-children">
                 @can('audit.view')

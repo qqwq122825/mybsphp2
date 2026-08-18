@@ -293,10 +293,13 @@
         if (!(dialog instanceof HTMLDialogElement) || dialog.open) return;
         dialog.classList.remove('is-minimized');
         dialog.classList.add('is-maximized');
-        if (dialog.dataset.windowScope === 'workspace') {
-            dialog.show();
-        } else {
-            dialog.showModal();
+        const preferModal = dialog.dataset.windowScope !== 'workspace'
+            || window.matchMedia('(pointer: coarse)').matches;
+        try {
+            if (preferModal) dialog.showModal();
+            else dialog.show();
+        } catch {
+            try { dialog.show(); } catch { /* ignore disconnected dialogs */ }
         }
     };
 
@@ -390,9 +393,13 @@
 
         const openAutomaticWindows = (scope = document) => {
             closeManualWindowDialogs(scope);
-            scope.querySelectorAll('[data-window-dialog][data-window-auto-open]').forEach((dialog) => {
-                showWindowDialog(dialog);
-            });
+            const dialogs = [...scope.querySelectorAll('[data-window-dialog][data-window-auto-open]')];
+            const open = () => dialogs.forEach((dialog) => showWindowDialog(dialog));
+            if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(() => requestAnimationFrame(open));
+            } else {
+                open();
+            }
         };
 
         const renderWorkspace = (key) => {
@@ -547,34 +554,50 @@
                 return;
             }
 
-            const followLink = event.target instanceof Element
-                ? event.target.closest('a[data-workspace-follow]')
+            const contentLink = event.target instanceof Element
+                ? event.target.closest('a[data-workspace-follow], a[data-workspace-base-tab], a[data-workspace-base-link], [data-workspace-content] a')
                 : null;
-            if (activeKey && followLink instanceof HTMLAnchorElement && workspaceContent.contains(followLink)) {
-                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            if (!(contentLink instanceof HTMLAnchorElement)) return;
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            if (isBaseLink(contentLink)) {
                 event.preventDefault();
-                const submissionKey = activeKey;
-                const tab = temporaryTabs.get(submissionKey);
-                if (!tab) return;
-                try {
-                    const page = await requestWorkspace(followLink.href);
-                    tab.content = page.content;
-                    tab.documentTitle = page.documentTitle;
-                    tab.url = page.url || followLink.href;
-                    if (activeKey === submissionKey) renderWorkspace(submissionKey);
-                } catch (error) {
-                    window.alert(error instanceof Error ? error.message : '工作页加载失败');
-                }
+                renderBaseWorkspace();
                 return;
             }
 
-            const baseLink = event.target instanceof Element
-                ? event.target.closest('a[data-workspace-base-tab], a[data-workspace-base-link], [data-workspace-content] a')
-                : null;
-            if (!isBaseLink(baseLink)) return;
-            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            const followInTab = (activeKey && workspaceContent.contains(contentLink))
+                || contentLink.hasAttribute('data-workspace-follow');
+            if (!followInTab || !workspaceContent.contains(contentLink)) return;
+            if (contentLink.target && contentLink.target !== '_self') return;
+            if (contentLink.hasAttribute('download')) return;
+
+            let nextUrl;
+            try {
+                nextUrl = new URL(contentLink.href, window.location.href);
+            } catch {
+                return;
+            }
+            if (nextUrl.origin !== window.location.origin) return;
+            if (nextUrl.protocol !== 'http:' && nextUrl.protocol !== 'https:') return;
+            const currentUrl = new URL(window.location.href);
+            if (nextUrl.pathname === currentUrl.pathname && nextUrl.search === currentUrl.search && nextUrl.hash) return;
+
             event.preventDefault();
-            renderBaseWorkspace();
+            const submissionKey = activeKey;
+            const tab = submissionKey ? temporaryTabs.get(submissionKey) : null;
+            if (!tab) {
+                window.location.assign(contentLink.href);
+                return;
+            }
+            try {
+                const page = await requestWorkspace(contentLink.href);
+                tab.content = page.content;
+                tab.documentTitle = page.documentTitle;
+                tab.url = page.url || contentLink.href;
+                if (activeKey === submissionKey) renderWorkspace(submissionKey);
+            } catch (error) {
+                window.alert(error instanceof Error ? error.message : '工作页加载失败');
+            }
         });
 
         document.addEventListener('submit', async (event) => {
