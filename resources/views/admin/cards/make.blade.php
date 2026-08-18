@@ -10,7 +10,7 @@
                  data-card-export-time="{{ $generatedBatch['generated_at'] ?? now()->format('Y-m-d H:i:s') }}"
                  data-card-export-app="{{ $application->name }}">
             <header class="card-making-workspace-header">
-                <h2>导出充值卡 - 软件：{{ $application->code }}</h2>
+                <h2>导出充值卡 - 软件：{{ $application->name }}</h2>
             </header>
             <div class="card-export-body">
                 <div class="card-export-query-row">

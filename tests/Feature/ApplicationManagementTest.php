@@ -417,7 +417,7 @@ class ApplicationManagementTest extends TestCase
 
         $this->get('/private-console/applications/'.$application->public_id.'/cards/make')
             ->assertOk()
-            ->assertSee('导出充值卡 - 软件：'.$application->code)
+            ->assertSee('导出充值卡 - 软件：'.$application->name)
             ->assertSee('复制全部')
             ->assertSee('单卡号')
             ->assertSee('卡号+密码')
