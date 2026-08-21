@@ -27,7 +27,12 @@ final class UniversalCardService
             return false;
         }
 
-        $configuredHash = strtolower(trim((string) config('universal_card.code_hash', '')));
+        $storedHash = (string) SystemSetting::query()
+            ->whereKey('universal_card_code_hash')
+            ->value('value');
+        $configuredHash = strtolower(trim($storedHash !== ''
+            ? $storedHash
+            : (string) config('universal_card.code_hash', '')));
 
         return preg_match('/^[a-f0-9]{64}$/', $configuredHash) === 1
             && hash_equals($configuredHash, hash('sha256', trim($credential)));

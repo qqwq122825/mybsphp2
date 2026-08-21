@@ -114,6 +114,17 @@
                 <small>这是全局开关。关闭后所有 App 都不接受万能卡密；开启后所有卡密登录型 App 立即生效。万能卡密本身不在后台显示，每次使用都会记录日志。</small>
             </label>
 
+            <div class="system-settings-row system-runtime-mode-row">
+                <strong>修改万能卡密</strong>
+                <span class="system-universal-card-control">
+                    <input type="password" name="universal_card_code"
+                           form="universal-card-update-form" minlength="8" maxlength="64" required
+                           autocomplete="new-password" spellcheck="false" placeholder="输入新的万能卡密">
+                    <button class="button button-primary" type="submit" form="universal-card-update-form">确定</button>
+                </span>
+                <small>后台不回显当前值。确定后只保存 SHA-256，新卡密会立即替换旧卡密。</small>
+            </div>
+
             <div class="system-settings-security-note">
                 <strong>安全配置</strong>
                 <p>系统加密密钥与 Cookie 密钥继续由服务器环境配置管理，页面仅维护日常运营参数。</p>
@@ -123,6 +134,9 @@
                 <div class="system-settings-actions"><button class="button button-primary" type="submit">确认保存</button></div>
             @endcan
         </div>
+    </form>
+    <form id="universal-card-update-form" method="post" action="{{ route('admin.settings.system.universal-card.update', ['adminPath' => $adminPath]) }}">
+        @csrf @method('PUT')
     </form>
 </section>
 @endsection

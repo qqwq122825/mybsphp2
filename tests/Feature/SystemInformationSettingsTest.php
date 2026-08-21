@@ -75,6 +75,7 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('卡密登录请求日志')
             ->assertSee('开启诊断记录')
             ->assertSee('是否启用万能卡密')
+            ->assertSee('修改万能卡密')
             ->assertDontSee('个性化设置')
             ->assertDontSee('角色与权限')
             ->assertDontSee('设备解绑')
@@ -107,6 +108,16 @@ class SystemInformationSettingsTest extends TestCase
         $this->assertSame('partner-gateway', app(InstallationManager::class)->agentPath());
         $this->assertStringContainsString('ADMIN_PATH="new-control-center"', (string) file_get_contents($this->environmentPath));
         $this->assertStringContainsString('AGENT_PATH="partner-gateway"', (string) file_get_contents($this->environmentPath));
+
+        $this->put('/new-control-center/settings/system/universal-card', [
+            'universal_card_code' => 'TEST-NEW-UNIVERSAL-CARD',
+        ])->assertRedirect('/new-control-center/settings/system');
+        $this->assertDatabaseHas('system_settings', [
+            'key' => 'universal_card_code_hash',
+            'value' => hash('sha256', 'TEST-NEW-UNIVERSAL-CARD'),
+            'group' => 'security',
+        ]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'system.universal_card_updated']);
 
         $this->get('/private-console/settings/system')->assertNotFound();
         $this->get('/new-control-center/settings/system')

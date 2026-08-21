@@ -31,7 +31,6 @@ class CardIssueAndActivationTest extends TestCase
     public function test_universal_card_logs_into_any_card_application_with_permanent_expiry_and_heartbeat(): void
     {
         $testUniversalCard = 'TEST-UNIVERSAL-CARD-001';
-        config(['universal_card.code_hash' => hash('sha256', $testUniversalCard)]);
         [$application] = $this->applicationAndType();
         $application->riskPolicy()->create(['enabled' => false]);
         SystemSetting::query()->create([
@@ -39,6 +38,10 @@ class CardIssueAndActivationTest extends TestCase
         ]);
         SystemSetting::query()->create([
             'key' => 'universal_card_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'security',
+        ]);
+        SystemSetting::query()->create([
+            'key' => 'universal_card_code_hash', 'value' => hash('sha256', $testUniversalCard),
+            'type' => 'string', 'group' => 'security',
         ]);
         $cipher = app(HybridPacketCipher::class);
         $handle = str_repeat('m', 64);

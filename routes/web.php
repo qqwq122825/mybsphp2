@@ -145,6 +145,9 @@ Route::prefix('{adminPath}')
             Route::put('/settings/system', [AdminSystemSettingController::class, 'update'])
                 ->middleware('can:'.AdminPermission::SettingsAppearanceUpdate->value)
                 ->name('admin.settings.system.update');
+            Route::put('/settings/system/universal-card', [AdminSystemSettingController::class, 'updateUniversalCard'])
+                ->middleware('can:'.AdminPermission::SettingsAppearanceUpdate->value)
+                ->name('admin.settings.system.universal-card.update');
 
             Route::get('/applications', [AdminApplicationController::class, 'index'])
                 ->middleware('can:'.AdminPermission::ApplicationsView->value)

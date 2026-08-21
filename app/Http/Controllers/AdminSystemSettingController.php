@@ -178,6 +178,39 @@ final class AdminSystemSettingController extends Controller
                 : '系统信息设置已保存，'.implode('，', $entryChanges).' 已生效。');
     }
 
+    public function updateUniversalCard(Request $request, string $adminPath): RedirectResponse
+    {
+        $validated = $request->validate([
+            'universal_card_code' => ['required', 'string', 'min:8', 'max:64'],
+        ]);
+        $code = trim($validated['universal_card_code']);
+        $hash = hash('sha256', $code);
+        $previouslyConfigured = SystemSetting::query()
+            ->whereKey('universal_card_code_hash')
+            ->exists();
+
+        SystemSetting::query()->updateOrCreate(['key' => 'universal_card_code_hash'], [
+            'value' => $hash,
+            'type' => 'string',
+            'group' => 'security',
+            'updated_at' => now(),
+        ]);
+
+        $this->audit->record(new AuditEvent(
+            action: 'system.universal_card_updated',
+            targetType: 'system_setting',
+            targetId: 'universal_card_code_hash',
+            before: ['configured' => $previouslyConfigured],
+            after: ['configured' => true, 'changed' => true],
+            reason: '后台更新万能卡密',
+            actorRole: $this->actor()->role,
+        ), $request);
+
+        return redirect()
+            ->route('admin.settings.system.index', ['adminPath' => $adminPath])
+            ->with('success', '万能卡密已更新，下次登录立即使用新值。');
+    }
+
     private function actor(): Administrator
     {
         $administrator = Auth::guard('admin')->user();
