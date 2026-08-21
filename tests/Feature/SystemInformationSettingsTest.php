@@ -8,6 +8,7 @@ use App\Models\Administrator;
 use App\Models\Role;
 use App\Models\SystemSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Route;
 use RuntimeException;
 use Tests\TestCase;
@@ -75,7 +76,8 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('卡密登录请求日志')
             ->assertSee('开启诊断记录')
             ->assertSee('是否启用万能卡密')
-            ->assertSee('修改万能卡密')
+            ->assertSee('万能卡密')
+            ->assertSee('value="jfkdls1314520"', false)
             ->assertDontSee('个性化设置')
             ->assertDontSee('角色与权限')
             ->assertDontSee('设备解绑')
@@ -117,6 +119,10 @@ class SystemInformationSettingsTest extends TestCase
             'value' => hash('sha256', 'TEST-NEW-UNIVERSAL-CARD'),
             'group' => 'security',
         ]);
+        $ciphertext = (string) SystemSetting::query()
+            ->whereKey('universal_card_code_ciphertext')
+            ->value('value');
+        $this->assertSame('TEST-NEW-UNIVERSAL-CARD', Crypt::decryptString($ciphertext));
         $this->assertDatabaseHas('audit_logs', ['action' => 'system.universal_card_updated']);
 
         $this->get('/private-console/settings/system')->assertNotFound();
@@ -127,6 +133,7 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('partner-gateway')
             ->assertSee('调试信息正在开放')
             ->assertSee('卡密登录诊断正在记录')
+            ->assertSee('value="TEST-NEW-UNIVERSAL-CARD"', false)
             ->assertSee('服务升级维护中，请稍后重新连接。');
 
         $this->postJson('/AppEn.php', [])

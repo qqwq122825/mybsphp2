@@ -111,18 +111,27 @@
                     <option value="0" @selected(old('universal_card_enabled', $settings['universal_card_enabled']) === '0')>关闭（所有 App 停用）</option>
                     <option value="1" @selected(old('universal_card_enabled', $settings['universal_card_enabled']) === '1')>开启（所有 App 启用）</option>
                 </select>
-                <small>这是全局开关。关闭后所有 App 都不接受万能卡密；开启后所有卡密登录型 App 立即生效。万能卡密本身不在后台显示，每次使用都会记录日志。</small>
+                <small>这是全局开关。关闭后所有 App 都不接受万能卡密；开启后所有卡密登录型 App 立即生效。每次使用都会记录日志。</small>
             </label>
 
             <div class="system-settings-row system-runtime-mode-row">
-                <strong>修改万能卡密</strong>
+                <strong>万能卡密</strong>
                 <span class="system-universal-card-control">
-                    <input type="password" name="universal_card_code"
+                    <input type="text" name="universal_card_code"
                            form="universal-card-update-form" minlength="8" maxlength="64" required
-                           autocomplete="new-password" spellcheck="false" placeholder="输入新的万能卡密">
+                           autocomplete="off" spellcheck="false"
+                           value="{{ old('universal_card_code', $settings['universal_card_code']) }}"
+                           placeholder="输入新的万能卡密">
                     <button class="button button-primary" type="submit" form="universal-card-update-form">确定</button>
                 </span>
-                <small>后台不回显当前值。确定后只保存 SHA-256，新卡密会立即替换旧卡密。</small>
+                <small>
+                    @if($settings['universal_card_code'] !== '')
+                        当前万能卡密会直接显示。
+                    @else
+                        该值由历史版本保存为摘要，请重新输入一次后即可回显。
+                    @endif
+                    确定后新卡密会立即替换旧卡密，数据库使用 APP_KEY 加密保存可回显值。
+                </small>
             </div>
 
             <div class="system-settings-security-note">

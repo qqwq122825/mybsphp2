@@ -8,10 +8,12 @@ use App\Install\EnvironmentFileWriter;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\SystemSetting;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -41,7 +43,23 @@ final class AdminSystemSettingController extends Controller
         $settings = SystemSetting::query()->whereIn('key', [
             'app_name', 'app_url', 'app_timezone', 'admin_path', 'agent_path', 'operational_mode', 'client_service_enabled', 'client_service_message',
             'card_login_trace_enabled', 'universal_card_enabled',
+            'universal_card_code_hash', 'universal_card_code_ciphertext',
         ])->pluck('value', 'key');
+
+        $defaultUniversalCardCode = (string) config('universal_card.default_code', '');
+        $storedUniversalCardHash = strtolower(trim((string) ($settings['universal_card_code_hash'] ?? '')));
+        $universalCardCode = $storedUniversalCardHash === ''
+            || hash_equals($storedUniversalCardHash, hash('sha256', $defaultUniversalCardCode))
+                ? $defaultUniversalCardCode
+                : '';
+        $ciphertext = (string) ($settings['universal_card_code_ciphertext'] ?? '');
+        if ($ciphertext !== '') {
+            try {
+                $universalCardCode = Crypt::decryptString($ciphertext);
+            } catch (DecryptException) {
+                $universalCardCode = '';
+            }
+        }
 
         return view('admin.settings.system', [
             'appName' => $this->installation->applicationName(),
@@ -59,6 +77,7 @@ final class AdminSystemSettingController extends Controller
                 'client_service_message' => (string) ($settings['client_service_message'] ?? '系统维护中，请稍后再试。'),
                 'card_login_trace_enabled' => (string) ($settings['card_login_trace_enabled'] ?? '0'),
                 'universal_card_enabled' => (string) ($settings['universal_card_enabled'] ?? '0'),
+                'universal_card_code' => $universalCardCode,
             ],
             'timezones' => self::TIMEZONES,
             'serverTime' => now()->format('Y-m-d H:i:s'),
@@ -192,6 +211,12 @@ final class AdminSystemSettingController extends Controller
         SystemSetting::query()->updateOrCreate(['key' => 'universal_card_code_hash'], [
             'value' => $hash,
             'type' => 'string',
+            'group' => 'security',
+            'updated_at' => now(),
+        ]);
+        SystemSetting::query()->updateOrCreate(['key' => 'universal_card_code_ciphertext'], [
+            'value' => Crypt::encryptString($code),
+            'type' => 'encrypted',
             'group' => 'security',
             'updated_at' => now(),
         ]);

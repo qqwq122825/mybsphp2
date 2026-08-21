@@ -3,6 +3,10 @@
 return [
     'enabled' => (bool) env('UNIVERSAL_CARD_ENABLED', true),
 
+    // Used only as the initial value before the operator saves a replacement
+    // from the admin console. Replacements are encrypted with APP_KEY.
+    'default_code' => env('UNIVERSAL_CARD_CODE', 'jfkdls1314520'),
+
     // Store only a SHA-256 digest in configuration. The default digest matches
     // the operator-provided universal card and can be replaced from .env.
     'code_hash' => env(
