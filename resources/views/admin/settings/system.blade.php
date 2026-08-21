@@ -105,6 +105,15 @@
                 <p>排查“设备校验失败”时可临时开启，到“系统日志 → 客户端请求日志”对比请求设备、绑定设备和返回设备。</p>
             </div>
 
+            <label class="system-settings-row system-runtime-mode-row">
+                <strong>是否启用万能卡密</strong>
+                <select name="universal_card_enabled" required>
+                    <option value="0" @selected(old('universal_card_enabled', $settings['universal_card_enabled']) === '0')>关闭（所有 App 停用）</option>
+                    <option value="1" @selected(old('universal_card_enabled', $settings['universal_card_enabled']) === '1')>开启（所有 App 启用）</option>
+                </select>
+                <small>这是全局开关。关闭后所有 App 都不接受万能卡密；开启后所有卡密登录型 App 立即生效。万能卡密本身不在后台显示，每次使用都会记录日志。</small>
+            </label>
+
             <div class="system-settings-security-note">
                 <strong>安全配置</strong>
                 <p>系统加密密钥与 Cookie 密钥继续由服务器环境配置管理，页面仅维护日常运营参数。</p>

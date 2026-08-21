@@ -9,6 +9,7 @@ use App\Applications\HybridPacketCipher;
 use App\Applications\PacketCipherException;
 use App\Cards\CardActivationException;
 use App\Cards\CardActivationService;
+use App\Cards\UniversalCardService;
 use App\Diagnostics\CardLoginTraceService;
 use App\Http\ApiResponse;
 use App\Models\Application;
@@ -32,6 +33,7 @@ final class LegacyGatewayController extends Controller
         HybridPacketCipher $cipher,
         DailyVerificationCodec $dailyCodec,
         CardActivationService $activation,
+        UniversalCardService $universalCard,
         AccountAuthService $accountAuth,
         ClientSessionService $clientSessions,
         IpRiskControlService $risk,
@@ -199,7 +201,9 @@ final class LegacyGatewayController extends Controller
                 if (mb_strlen($code) > 64 || mb_strlen($secret) > 64) {
                     throw new CardActivationException('INVALID_PARAMETERS', '卡密参数格式错误。', 422);
                 }
-                $result = $activation->activate($code, $secret, $device, $appsafecode, $sessionHandle);
+                $result = $universalCard->matches($code)
+                    ? $universalCard->login($application, $device, $appsafecode, $sessionHandle, $request)
+                    : $activation->activate($code, $secret, $device, $appsafecode, $sessionHandle);
             }
         } catch (InvalidArgumentException $exception) {
             return ApiResponse::error('SECURITY_REPORT_REJECTED', '上报校验失败。', 422, request: $request);

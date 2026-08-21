@@ -29,6 +29,41 @@ final class ClientSessionService
         return $this->bind($application, $handle, $deviceId, 'account', null, $account);
     }
 
+    public function bindUniversal(Application $application, string $handle, string $deviceId): string
+    {
+        if (trim($handle) === '') return '';
+        $handle = $this->issueHandle($handle);
+        $tokenHash = hash('sha256', $handle);
+
+        return DB::transaction(function () use ($application, $handle, $tokenHash, $deviceId): string {
+            $existing = ApplicationClientSession::query()
+                ->where('application_id', $application->getKey())
+                ->where('token_hash', $tokenHash)
+                ->lockForUpdate()
+                ->first();
+            if ($existing && $existing->auth_mode !== 'universal') {
+                throw new ClientSessionException('SESSION_CONFLICT', 'BSphpSeSsL 已绑定其他登录用户。', 409);
+            }
+
+            ApplicationClientSession::query()->updateOrCreate(
+                ['application_id' => $application->getKey(), 'token_hash' => $tokenHash],
+                [
+                    'public_id' => $existing?->public_id ?? (string) Str::ulid(),
+                    'auth_mode' => 'universal',
+                    'card_id' => null,
+                    'application_account_id' => null,
+                    'device_id_ciphertext' => trim($deviceId) ?: null,
+                    'device_mask' => $this->maskDevice($deviceId),
+                    'status' => 'active',
+                    'last_heartbeat_at' => now(),
+                    'logged_out_at' => null,
+                ],
+            );
+
+            return $handle;
+        }, 3);
+    }
+
     /** @return array{code: string, message: string, handle: string, server_time: string} */
     public function heartbeat(Application $application, string $handle, string $deviceId = ''): array
     {
@@ -51,7 +86,10 @@ final class ClientSessionService
             return $this->heartbeatResult('5026', '登录设备不匹配', $handle);
         }
 
-        if ($session->auth_mode === 'card') {
+        if ($session->auth_mode === 'universal') {
+            // Universal sessions have no card/account row and use the configured
+            // far-future expiry returned by login.ic.
+        } elseif ($session->auth_mode === 'card') {
             $card = $session->card;
             if (! $card instanceof Card || $card->user_status === 'frozen') return $this->heartbeatResult('5026', '网络连接异常', $handle);
             if ($card->status !== 'active' || ! $card->expires_at || $card->expires_at->isPast()) return $this->heartbeatResult('5030', '授权时间已到期', $handle);

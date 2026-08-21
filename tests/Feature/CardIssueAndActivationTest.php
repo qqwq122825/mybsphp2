@@ -28,6 +28,83 @@ class CardIssueAndActivationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_universal_card_logs_into_any_card_application_with_permanent_expiry_and_heartbeat(): void
+    {
+        $testUniversalCard = 'TEST-UNIVERSAL-CARD-001';
+        config(['universal_card.code_hash' => hash('sha256', $testUniversalCard)]);
+        [$application] = $this->applicationAndType();
+        $application->riskPolicy()->create(['enabled' => false]);
+        SystemSetting::query()->create([
+            'key' => 'card_login_trace_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'diagnostics',
+        ]);
+        SystemSetting::query()->create([
+            'key' => 'universal_card_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'security',
+        ]);
+        $cipher = app(HybridPacketCipher::class);
+        $handle = str_repeat('m', 64);
+        $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
+        $sealed = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $testUniversalCard, 'key' => 'MASTER-DEVICE-01',
+            'appsafecode' => 'MASTER-SAFE', 'BSphpSeSsL' => $handle,
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $response = $this->postJson($gateway, $sealed['envelope'])->assertOk()->json();
+        $plain = $cipher->openResponse($response, $sealed['session_key'], $sealed['request_nonce']);
+        $fields = explode('|', $plain);
+        $this->assertSame('01', $fields[0]);
+        $this->assertSame('MASTER-SAFE', $fields[3]);
+        $this->assertSame('2099-12-31T23:59:59+08:00', $fields[6]);
+        $this->assertSame('MASTER-DEVICE-01', $fields[8]);
+        $this->assertSame($handle, $fields[9]);
+        $this->assertSame(0x100000, app(DailyVerificationCodec::class)->decryptUInt32($fields[2]));
+
+        $this->assertDatabaseHas('application_client_sessions', [
+            'application_id' => $application->getKey(),
+            'token_hash' => hash('sha256', $handle),
+            'auth_mode' => 'universal',
+            'status' => 'active',
+        ]);
+        $loginLog = AuditLog::query()->where('action', 'client.universal_card_login')->sole();
+        $this->assertSame('success', $loginLog->result);
+        $this->assertSame('UNIVERSAL_CARD_ACCEPTED', data_get($loginLog->after_data, 'internal_code'));
+        $this->assertSame('MASTER-DEVICE-01', data_get($loginLog->before_data, 'device'));
+        $this->assertStringNotContainsString($testUniversalCard, json_encode([
+            $loginLog->before_data, $loginLog->after_data,
+        ], JSON_THROW_ON_ERROR));
+
+        $heartbeat = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'timeout.ic', 'BSphpSeSsL' => $handle, 'key' => 'MASTER-DEVICE-01',
+            'appsafecode' => 'MASTER-HEART-SAFE',
+        ], '', '&', PHP_QUERY_RFC3986));
+        $heartbeatResponse = $this->postJson($gateway, $heartbeat['envelope'])->assertOk()->json();
+        $heartbeatFields = explode('|', $cipher->openResponse(
+            $heartbeatResponse,
+            $heartbeat['session_key'],
+            $heartbeat['request_nonce'],
+        ));
+        $this->assertSame(['5031', $handle, 'MASTER-HEART-SAFE'], array_slice($heartbeatFields, 0, 3));
+    }
+
+    public function test_universal_card_is_hidden_while_the_runtime_switch_is_off(): void
+    {
+        $testUniversalCard = 'TEST-UNIVERSAL-CARD-OFF';
+        config(['universal_card.code_hash' => hash('sha256', $testUniversalCard)]);
+        [$application] = $this->applicationAndType();
+        $application->riskPolicy()->create(['enabled' => false]);
+        $cipher = app(HybridPacketCipher::class);
+        $sealed = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $testUniversalCard, 'key' => 'MASTER-OFF-DEVICE',
+            'appsafecode' => 'MASTER-OFF-SAFE', 'BSphpSeSsL' => str_repeat('n', 64),
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $this->assertMaskedCardFailure($this->postJson(
+            '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token,
+            $sealed['envelope'],
+        ));
+        $this->assertDatabaseMissing('application_client_sessions', ['auth_mode' => 'universal']);
+        $this->assertDatabaseMissing('audit_logs', ['action' => 'client.universal_card_login']);
+    }
+
     public function test_encrypted_card_login_reports_empty_card_explicitly(): void
     {
         [$application] = $this->applicationAndType();
