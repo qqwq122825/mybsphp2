@@ -75,7 +75,9 @@ final class AdminSystemSettingController extends Controller
                 'operational_mode' => (string) ($settings['operational_mode'] ?? 'production'),
                 'client_service_enabled' => (string) ($settings['client_service_enabled'] ?? '1'),
                 'client_service_message' => (string) ($settings['client_service_message'] ?? '系统维护中，请稍后再试。'),
-                'card_login_trace_enabled' => (string) ($settings['card_login_trace_enabled'] ?? '0'),
+                'card_login_trace_enabled' => $this->normalizeCardLoginTraceMode(
+                    (string) ($settings['card_login_trace_enabled'] ?? 'simple'),
+                ),
                 'universal_card_enabled' => (string) ($settings['universal_card_enabled'] ?? '0'),
                 'universal_card_code' => $universalCardCode,
             ],
@@ -115,14 +117,13 @@ final class AdminSystemSettingController extends Controller
             'operational_mode' => ['required', Rule::in(['production', 'debug'])],
             'client_service_enabled' => ['required', 'boolean'],
             'client_service_message' => ['required', 'string', 'min:2', 'max:500'],
-            'card_login_trace_enabled' => ['required', 'boolean'],
+            'card_login_trace_enabled' => ['required', Rule::in(['simple', 'errors', 'all'])],
             'universal_card_enabled' => ['required', 'boolean'],
         ]);
 
         $before = SystemSetting::query()->whereIn('key', array_keys($validated))->pluck('value', 'key')->all();
         $types = [
             'client_service_enabled' => 'boolean',
-            'card_login_trace_enabled' => 'boolean',
             'universal_card_enabled' => 'boolean',
         ];
         $now = now();
@@ -242,5 +243,14 @@ final class AdminSystemSettingController extends Controller
         abort_unless($administrator instanceof Administrator, 401);
 
         return $administrator;
+    }
+
+    private function normalizeCardLoginTraceMode(string $mode): string
+    {
+        return match ($mode) {
+            '1', 'all' => 'all',
+            'errors' => 'errors',
+            default => 'simple',
+        };
     }
 }

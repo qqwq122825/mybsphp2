@@ -34,7 +34,7 @@ class CardIssueAndActivationTest extends TestCase
         [$application] = $this->applicationAndType();
         $application->riskPolicy()->create(['enabled' => false]);
         SystemSetting::query()->create([
-            'key' => 'card_login_trace_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'diagnostics',
+            'key' => 'card_login_trace_enabled', 'value' => 'all', 'type' => 'string', 'group' => 'diagnostics',
         ]);
         SystemSetting::query()->create([
             'key' => 'universal_card_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'security',
@@ -131,7 +131,7 @@ class CardIssueAndActivationTest extends TestCase
         $requestedApplication->riskPolicy()->create(['enabled' => false]);
         $cardApplication->riskPolicy()->create(['enabled' => false]);
         SystemSetting::query()->create([
-            'key' => 'card_login_trace_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'diagnostics',
+            'key' => 'card_login_trace_enabled', 'value' => 'all', 'type' => 'string', 'group' => 'diagnostics',
         ]);
         $credential = app(CardGenerationService::class)
             ->generate($cardType, 1, $this->administrator())['credentials'][0];
@@ -165,7 +165,7 @@ class CardIssueAndActivationTest extends TestCase
         [$application, $cardType] = $this->applicationAndType();
         $application->riskPolicy()->create(['enabled' => false]);
         SystemSetting::query()->create([
-            'key' => 'card_login_trace_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'diagnostics',
+            'key' => 'card_login_trace_enabled', 'value' => 'all', 'type' => 'string', 'group' => 'diagnostics',
         ]);
         $administrator = $this->administrator();
         $credential = app(CardGenerationService::class)->generate($cardType, 1, $administrator)['credentials'][0];
@@ -232,13 +232,32 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertSame('inventory', $blockedCard->status);
         $this->assertNull($blockedCard->bound_device_ciphertext);
 
-        SystemSetting::query()->whereKey('card_login_trace_enabled')->update(['value' => '0']);
+        SystemSetting::query()->whereKey('card_login_trace_enabled')->update(['value' => 'errors']);
         $third = $cipher->sealRequestWithContext($application, http_build_query([
             'api' => 'login.ic', 'icid' => $credential['code'], 'key' => 'TRACE-DEVICE-A',
             'appsafecode' => 'TRACE-SAFE-C', 'BSphpSeSsL' => $firstSession,
         ], '', '&', PHP_QUERY_RFC3986));
         $this->postJson($gateway, $third['envelope'])->assertOk();
         $this->assertSame(3, AuditLog::query()->where('action', 'client.card_login_trace')->count());
+
+        $diagnosticFailure = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => 'UNKNOWN-CARD-CODE-123', 'key' => 'TRACE-ERROR-DEVICE',
+            'appsafecode' => 'TRACE-SAFE-D', 'BSphpSeSsL' => str_repeat('w', 64),
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->assertMaskedCardFailure($this->postJson($gateway, $diagnosticFailure['envelope']));
+        $this->assertSame(4, AuditLog::query()->where('action', 'client.card_login_trace')->count());
+        $this->assertSame(
+            'INVALID_CARD',
+            data_get(AuditLog::query()->where('action', 'client.card_login_trace')->latest('id')->firstOrFail()->after_data, 'business_code'),
+        );
+
+        SystemSetting::query()->whereKey('card_login_trace_enabled')->update(['value' => 'simple']);
+        $simpleFailure = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => 'ANOTHER-UNKNOWN-CARD', 'key' => 'TRACE-SIMPLE-DEVICE',
+            'appsafecode' => 'TRACE-SAFE-E', 'BSphpSeSsL' => str_repeat('z', 64),
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->assertMaskedCardFailure($this->postJson($gateway, $simpleFailure['envelope']));
+        $this->assertSame(4, AuditLog::query()->where('action', 'client.card_login_trace')->count());
     }
 
     public function test_generated_card_can_be_manually_issued_and_activated_once(): void

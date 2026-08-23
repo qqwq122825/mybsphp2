@@ -131,7 +131,7 @@ final class CardLoginTraceService
         array $responseData,
         bool $success,
     ): void {
-        if (! $this->enabled()) {
+        if (! $this->shouldRecord($success)) {
             return;
         }
 
@@ -182,10 +182,19 @@ final class CardLoginTraceService
         }
     }
 
-    private function enabled(): bool
+    private function shouldRecord(bool $success): bool
     {
         try {
-            return (string) SystemSetting::query()->whereKey('card_login_trace_enabled')->value('value') === '1';
+            $storedMode = (string) SystemSetting::query()
+                ->whereKey('card_login_trace_enabled')
+                ->value('value');
+            $mode = match ($storedMode) {
+                '1', 'all' => 'all',
+                'errors' => 'errors',
+                default => 'simple',
+            };
+
+            return $mode === 'all' || ($mode === 'errors' && ! $success);
         } catch (Throwable) {
             return false;
         }

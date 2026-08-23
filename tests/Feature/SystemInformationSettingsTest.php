@@ -74,10 +74,9 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('客户端服务')
             ->assertSee('暂停提示')
             ->assertSee('卡密登录请求日志')
-            ->assertSee('开启诊断记录')
-            ->assertSee('查看详细日志')
-            ->assertSee('value="__view_detailed_log__"', false)
-            ->assertSee('/private-console/system-logs/client-requests?view=detailed', false)
+            ->assertSee('简单模式（关闭详细记录）')
+            ->assertSee('诊断模式（只记录错误）')
+            ->assertSee('全部模式（记录每次请求）')
             ->assertSee('是否启用万能卡密')
             ->assertSee('万能卡密')
             ->assertSee('value="jfkdls1314520"', false)
@@ -98,7 +97,7 @@ class SystemInformationSettingsTest extends TestCase
             'operational_mode' => 'debug',
             'client_service_enabled' => '0',
             'client_service_message' => '服务升级维护中，请稍后重新连接。',
-            'card_login_trace_enabled' => '1',
+            'card_login_trace_enabled' => 'all',
             'universal_card_enabled' => '1',
         ])->assertRedirect('/new-control-center/settings/system');
 
@@ -106,7 +105,7 @@ class SystemInformationSettingsTest extends TestCase
         $this->assertDatabaseHas('system_settings', ['key' => 'admin_path', 'value' => 'new-control-center']);
         $this->assertDatabaseHas('system_settings', ['key' => 'agent_path', 'value' => 'partner-gateway']);
         $this->assertDatabaseHas('system_settings', ['key' => 'client_service_enabled', 'value' => '0']);
-        $this->assertDatabaseHas('system_settings', ['key' => 'card_login_trace_enabled', 'value' => '1', 'group' => 'diagnostics']);
+        $this->assertDatabaseHas('system_settings', ['key' => 'card_login_trace_enabled', 'value' => 'all', 'type' => 'string', 'group' => 'diagnostics']);
         $this->assertDatabaseHas('system_settings', ['key' => 'universal_card_enabled', 'value' => '1', 'group' => 'security']);
         $this->assertDatabaseHas('system_settings', ['key' => 'operational_mode', 'value' => 'debug', 'group' => 'security']);
         $this->assertSame('new-control-center', app(InstallationManager::class)->adminPath());
@@ -135,7 +134,7 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('new-control-center')
             ->assertSee('partner-gateway')
             ->assertSee('调试信息正在开放')
-            ->assertSee('卡密登录诊断正在记录')
+            ->assertSee('卡密登录全部模式：记录每次请求')
             ->assertSee('value="TEST-NEW-UNIVERSAL-CARD"', false)
             ->assertSee('服务升级维护中，请稍后重新连接。');
 

@@ -91,22 +91,28 @@
                 <small>客户端服务暂停时返回的提示内容</small>
             </label>
 
+            @php($cardLoginTraceMode = (string) old('card_login_trace_enabled', $settings['card_login_trace_enabled']))
             <label class="system-settings-row system-runtime-mode-row">
                 <strong>卡密登录请求日志</strong>
-                <select name="card_login_trace_enabled"
-                        data-detailed-log-url="{{ route('admin.system-logs.index', ['adminPath' => $adminPath, 'type' => 'client-requests', 'view' => 'detailed']) }}"
-                        onchange="if (this.value === '__view_detailed_log__') window.location.assign(this.dataset.detailedLogUrl)"
-                        required>
-                    <option value="0" @selected(old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '0')>关闭</option>
-                    <option value="1" @selected(old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1')>开启诊断记录</option>
-                    <option value="__view_detailed_log__">查看详细日志</option>
+                <select name="card_login_trace_enabled" required>
+                    <option value="simple" @selected($cardLoginTraceMode === 'simple')>简单模式（关闭详细记录）</option>
+                    <option value="errors" @selected($cardLoginTraceMode === 'errors')>诊断模式（只记录错误）</option>
+                    <option value="all" @selected($cardLoginTraceMode === 'all')>全部模式（记录每次请求）</option>
                 </select>
-                <small>记录每次 login.ic 的解密请求、实际返回、完整卡密、请求设备和卡密绑定设备。密码、payload、session 与上报令牌仍会脱敏。</small>
+                <small>简单模式只保留日常简要事件；诊断模式详细记录错误请求；全部模式详细记录每次 login.ic。</small>
             </label>
 
-            <div class="system-settings-mode-note is-{{ old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1' ? 'debug' : 'production' }}">
-                <strong>{{ old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1' ? '卡密登录诊断正在记录' : '卡密登录诊断已关闭' }}</strong>
-                <p>排查“设备校验失败”时可临时开启，到“系统日志 → 客户端请求日志”对比请求设备、绑定设备和返回设备。</p>
+            <div class="system-settings-mode-note is-{{ $cardLoginTraceMode === 'simple' ? 'production' : 'debug' }}">
+                <strong>{{ match ($cardLoginTraceMode) {
+                    'errors' => '卡密登录诊断模式：只记录错误',
+                    'all' => '卡密登录全部模式：记录每次请求',
+                    default => '卡密登录简单模式：已关闭详细记录',
+                } }}</strong>
+                <p>{{ match ($cardLoginTraceMode) {
+                    'errors' => '只写入失败、拦截及风控错误的详细请求，用于排查问题并控制日志增长。',
+                    'all' => '写入所有成功与失败的 login.ic 详细请求，数据量最大。',
+                    default => '仅保留万能卡密等日常简要事件，不写入 client.card_login_trace 详细日志。',
+                } }}</p>
             </div>
 
             <label class="system-settings-row system-runtime-mode-row">
