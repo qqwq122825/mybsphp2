@@ -203,7 +203,7 @@ final class LegacyGatewayController extends Controller
                 }
                 $result = $universalCard->matches($code)
                     ? $universalCard->login($application, $device, $appsafecode, $sessionHandle, $request)
-                    : $activation->activate($code, $secret, $device, $appsafecode, $sessionHandle);
+                    : $activation->activate($application, $code, $secret, $device, $appsafecode, $sessionHandle);
             }
         } catch (InvalidArgumentException $exception) {
             return ApiResponse::error('SECURITY_REPORT_REJECTED', '上报校验失败。', 422, request: $request);

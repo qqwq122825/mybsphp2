@@ -124,6 +124,42 @@ class CardIssueAndActivationTest extends TestCase
             ->assertJsonPath('error.message', '卡密为空。');
     }
 
+    public function test_card_from_another_application_is_rejected_by_the_requested_gateway(): void
+    {
+        [$requestedApplication] = $this->applicationAndType();
+        [$cardApplication, $cardType] = $this->applicationAndType('202', '三角洲测试应用');
+        $requestedApplication->riskPolicy()->create(['enabled' => false]);
+        $cardApplication->riskPolicy()->create(['enabled' => false]);
+        SystemSetting::query()->create([
+            'key' => 'card_login_trace_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'diagnostics',
+        ]);
+        $credential = app(CardGenerationService::class)
+            ->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $request = $cipher->sealRequestWithContext($requestedApplication, http_build_query([
+            'api' => 'login.ic',
+            'icid' => $credential['code'],
+            'key' => 'CROSS-APP-DEVICE',
+            'appsafecode' => 'CROSS-APP-SAFE',
+            'BSphpSeSsL' => str_repeat('x', 64),
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $this->assertMaskedCardFailure($this->postJson(
+            '/AppEn.php?appid='.$requestedApplication->code.'&md5='.$requestedApplication->gateway_token,
+            $request['envelope'],
+        ));
+
+        $card = Card::query()->where('code_lookup_hash', app(CardCredentialHasher::class)->lookupHash($credential['code']))->sole();
+        $this->assertSame($cardApplication->getKey(), $card->application_id);
+        $this->assertSame('inventory', $card->status);
+        $this->assertNull($card->activated_at);
+        $this->assertNull($card->expires_at);
+        $trace = AuditLog::query()->where('action', 'client.card_login_trace')->sole();
+        $this->assertSame($requestedApplication->code, data_get($trace->before_data, 'application.code'));
+        $this->assertSame('INVALID_CARD', data_get($trace->after_data, 'business_code'));
+        $this->assertSame([], data_get($trace->after_data, 'card_state'));
+    }
+
     public function test_card_login_diagnostic_switch_records_sanitized_request_response_and_device_mismatch(): void
     {
         [$application, $cardType] = $this->applicationAndType();
@@ -980,13 +1016,13 @@ class CardIssueAndActivationTest extends TestCase
     /**
      * @return array{Application, CardType}
      */
-    private function applicationAndType(): array
+    private function applicationAndType(string $code = '201', string $name = '激活演示应用'): array
     {
         $credentials = app(ApplicationCredentialService::class)->generate();
         $application = Application::query()->create([
             'public_id' => (string) Str::ulid(),
-            'code' => '201',
-            'name' => '激活演示应用',
+            'code' => $code,
+            'name' => $name,
             'mode' => 'card_login',
             'entitlement_kind' => 'duration',
             'status' => 'active',

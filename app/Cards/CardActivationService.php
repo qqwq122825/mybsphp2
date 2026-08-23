@@ -24,15 +24,17 @@ final class CardActivationService
      * @return array<string, mixed>
      */
     public function activate(
+        Application $requestedApplication,
         string $code,
         string $secret,
         string $deviceId,
         string $appsafecode = '',
         string $sessionHandle = '',
     ): array {
-        return DB::transaction(function () use ($code, $secret, $deviceId, $appsafecode, $sessionHandle): array {
+        return DB::transaction(function () use ($requestedApplication, $code, $secret, $deviceId, $appsafecode, $sessionHandle): array {
             $card = Card::query()
                 ->with(['application', 'cardType'])
+                ->where('application_id', $requestedApplication->getKey())
                 ->where('code_lookup_hash', $this->hasher->lookupHash($code))
                 ->lockForUpdate()
                 ->first();

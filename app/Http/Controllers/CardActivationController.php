@@ -38,7 +38,11 @@ final class CardActivationController extends Controller
         }
 
         try {
+            if (! $card instanceof Card) {
+                throw new CardActivationException('INVALID_CARD', '卡密不存在。', 404);
+            }
             $result = $activation->activate(
+                $card->application,
                 $validated['code'],
                 $validated['secret'] ?? '',
                 $validated['device_id'] ?? '',
