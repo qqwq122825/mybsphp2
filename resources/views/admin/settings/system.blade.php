@@ -101,7 +101,7 @@
                     <option value="1" @selected(old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1')>开启诊断记录</option>
                     <option value="__view_detailed_log__">查看详细日志</option>
                 </select>
-                <small>记录每次 login.ic 的解密请求、实际返回、请求设备和卡密绑定设备。卡密、密码、payload、session 与上报令牌会脱敏。</small>
+                <small>记录每次 login.ic 的解密请求、实际返回、完整卡密、请求设备和卡密绑定设备。密码、payload、session 与上报令牌仍会脱敏。</small>
             </label>
 
             <div class="system-settings-mode-note is-{{ old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1' ? 'debug' : 'production' }}">

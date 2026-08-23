@@ -72,7 +72,7 @@
                                 data-created-at="{{ $detailLog->created_at?->format('Y-m-d H:i:s') }}"
                                 data-ip="{{ $detailLog->ip ?: '—' }}"
                                 data-application="{{ data_get($detailRequest, 'application.name', data_get($simpleRequest, 'application.name', '—')) }}"
-                                data-credential="{{ data_get($detailRequest, 'credential_masked', data_get($simpleRequest, 'credential_masked', '—')) }}"
+                                data-credential="{{ data_get($detailRequest, 'credential', data_get($detailRequest, 'credential_masked', data_get($simpleRequest, 'credential_masked', '—'))) }}"
                                 data-request-device="{{ $requestDevice ?: '—' }}"
                                 data-bound-device="{{ $boundDevice ?: '未绑定' }}"
                                 data-returned-device="{{ $returnedDevice ?: '—' }}"
@@ -105,7 +105,7 @@
                 <tr>
                     <td class="admin-select-column"><input type="checkbox" name="log_ids[]" value="{{ $log->id }}" form="system-log-maintenance-form" aria-label="选择日志 {{ $log->id }}" data-card-select></td>
                     <td><strong>{{ $log->created_at?->format('m-d H:i:s') }}</strong><small class="client-trace-meta">{{ $log->ip ?: '—' }} · #{{ $log->id }}</small></td>
-                    <td><strong>{{ data_get($traceRequest, 'application.name', '—') }}</strong><small class="client-trace-meta">{{ data_get($traceRequest, 'credential_masked', '—') }} · {{ data_get($traceRequest, 'credential_fingerprint', '—') }}</small></td>
+                    <td><strong>{{ data_get($traceRequest, 'application.name', '—') }}</strong><small class="client-trace-meta">{{ data_get($traceRequest, 'credential', data_get($traceRequest, 'credential_masked', '—')) }} · {{ data_get($traceRequest, 'credential_fingerprint', '—') }}</small></td>
                     <td class="client-trace-device">
                         <span><b>请求</b><code>{{ $requestDevice ?: '—' }}</code></span>
                         <span><b>绑定</b><code>{{ $boundDevice ?: '未绑定' }}</code></span>
@@ -121,7 +121,7 @@
                                 data-created-at="{{ $log->created_at?->format('Y-m-d H:i:s') }}"
                                 data-ip="{{ $log->ip ?: '—' }}"
                                 data-application="{{ data_get($traceRequest, 'application.name', '—') }}"
-                                data-credential="{{ data_get($traceRequest, 'credential_masked', '—') }}"
+                                data-credential="{{ data_get($traceRequest, 'credential', data_get($traceRequest, 'credential_masked', '—')) }}"
                                 data-request-device="{{ $requestDevice ?: '—' }}"
                                 data-bound-device="{{ $boundDevice ?: '未绑定' }}"
                                 data-returned-device="{{ $returnedDevice ?: '—' }}"

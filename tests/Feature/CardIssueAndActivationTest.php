@@ -148,11 +148,14 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertSame('v2-object', data_get($successLog->before_data, 'wire_format'));
         $this->assertSame('[REDACTED]', data_get($successLog->before_data, 'parameters.appsafecode'));
         $this->assertSame('[SESSION_HANDLE]', data_get($successLog->before_data, 'parameters.BSphpSeSsL'));
+        $this->assertSame($credential['code'], data_get($successLog->before_data, 'credential'));
+        $this->assertSame($credential['code'], data_get($successLog->before_data, 'parameters.icid'));
+        $this->assertStringContainsString('icid='.rawurlencode($credential['code']), (string) data_get($successLog->before_data, 'request_query'));
         $this->assertSame('TRACE-DEVICE-A', data_get($successLog->after_data, 'returned_device'));
         $this->assertTrue(data_get($successLog->after_data, 'request_device_matches_binding'));
         $this->assertStringContainsString('[PAYLOAD]', (string) data_get($successLog->after_data, 'legacy_response'));
         $successJson = json_encode([$successLog->before_data, $successLog->after_data], JSON_THROW_ON_ERROR);
-        $this->assertStringNotContainsString($credential['code'], $successJson);
+        $this->assertStringContainsString($credential['code'], $successJson);
         $this->assertStringNotContainsString('TRACE-SAFE-A', $successJson);
         $this->assertStringNotContainsString($firstSession, $successJson);
 

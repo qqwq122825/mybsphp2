@@ -161,7 +161,7 @@ final class CardLoginTraceService
                     'application' => ['code' => $application->code, 'name' => $application->name],
                     'api' => 'login.ic',
                     'wire_format' => $compactWire ? 'v3-compact' : 'v2-object',
-                    'credential_masked' => $this->maskCredential($credential),
+                    'credential' => $credential,
                     'credential_fingerprint' => $this->fingerprint($credential),
                     'secret_present' => $this->parameter($parameters, $parameterNames['secret']) !== '',
                     'device' => trim($device),
@@ -205,7 +205,7 @@ final class CardLoginTraceService
             }
             $scalar = is_scalar($value) ? (string) $value : '';
             if ($key === $parameterNames['credential']) {
-                $result[$key] = $this->maskCredential($scalar);
+                $result[$key] = trim($scalar);
             } elseif ($key === $parameterNames['device']) {
                 $result[$key] = trim($scalar);
             } elseif ($key === $parameterNames['secret']) {
@@ -280,16 +280,6 @@ final class CardLoginTraceService
         $value = $parameters[$name] ?? '';
 
         return is_string($value) ? trim($value) : '';
-    }
-
-    private function maskCredential(string $credential): string
-    {
-        $length = mb_strlen($credential);
-        if ($length === 0) {
-            return '';
-        }
-
-        return $length <= 4 ? str_repeat('•', $length) : str_repeat('•', min(12, $length - 4)).mb_substr($credential, -4);
     }
 
     private function fingerprint(string $value): string
