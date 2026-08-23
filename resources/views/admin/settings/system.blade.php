@@ -101,7 +101,12 @@
             </label>
 
             <div class="system-settings-mode-note is-{{ old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1' ? 'debug' : 'production' }}">
-                <strong>{{ old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1' ? '卡密登录诊断正在记录' : '卡密登录诊断已关闭' }}</strong>
+                <div class="system-settings-mode-note-heading">
+                    <strong>{{ old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1' ? '卡密登录诊断正在记录' : '卡密登录诊断已关闭' }}</strong>
+                    <a class="system-settings-log-link" href="{{ route('admin.system-logs.index', ['adminPath' => $adminPath, 'type' => 'client-requests', 'view' => 'detailed']) }}">
+                        查看详细日志 <span aria-hidden="true">→</span>
+                    </a>
+                </div>
                 <p>排查“设备校验失败”时可临时开启，到“系统日志 → 客户端请求日志”对比请求设备、绑定设备和返回设备。</p>
             </div>
 
