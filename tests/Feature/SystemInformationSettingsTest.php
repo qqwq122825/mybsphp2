@@ -76,6 +76,7 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('卡密登录请求日志')
             ->assertSee('开启诊断记录')
             ->assertSee('查看详细日志')
+            ->assertSee('value="__view_detailed_log__"', false)
             ->assertSee('/private-console/system-logs/client-requests?view=detailed', false)
             ->assertSee('是否启用万能卡密')
             ->assertSee('万能卡密')

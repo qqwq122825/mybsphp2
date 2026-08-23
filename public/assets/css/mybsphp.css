@@ -4491,10 +4491,6 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 .system-admin-path-control i { align-self:stretch; display:grid; place-items:center; padding:0 11px; color:#7f8ba2; background:#f5f7fa; font-style:normal; }
 .system-admin-path-control input { min-width:0; flex:1; align-self:stretch; padding:0 12px; border:0; outline:0; color:#303744; background:#fff; font:600 14px/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
 .system-settings-row > small { color:#999fa8; font-size:13px; line-height:1.55; }
-.system-settings-mode-note-heading { display:flex; align-items:center; justify-content:space-between; gap:18px; }
-.system-settings-log-link { display:inline-flex; min-height:34px; flex:0 0 auto; align-items:center; justify-content:center; gap:7px; padding:0 13px; border:1px solid currentColor; border-radius:8px; color:inherit; background:rgba(255,255,255,.55); font-size:12px; font-weight:800; text-decoration:none; transition:transform .16s ease,background .16s ease; }
-.system-settings-log-link:hover { transform:translateY(-1px); background:#fff; }
-.system-settings-log-link span { font-size:15px; }
 .system-universal-card-control { display:grid; grid-template-columns:minmax(0,1fr) 82px; gap:9px; }
 .system-universal-card-control input { width:100%; height:44px; padding:0 14px; border:1px solid #dfe3e9; border-radius:8px; color:#303744; background:#fff; font-size:14px; outline:none; }
 .system-universal-card-control input:focus { border-color:#4a8ef0; box-shadow:0 0 0 3px rgba(66,137,238,.1); }
@@ -4534,7 +4530,6 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
     .system-settings-row > strong { text-align:left; }
     .system-settings-row > small { grid-column:1; }
     .system-settings-security-note,.system-settings-mode-note,.system-settings-actions { margin-left:0; }
-    .system-settings-mode-note-heading { align-items:flex-start; flex-direction:column; }
     .operation-plugin-query-form { padding:18px; }
     .operation-query-results,.operation-monitor-table { margin:0 18px 18px; }
 }

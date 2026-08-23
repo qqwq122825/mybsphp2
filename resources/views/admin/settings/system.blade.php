@@ -93,20 +93,19 @@
 
             <label class="system-settings-row system-runtime-mode-row">
                 <strong>卡密登录请求日志</strong>
-                <select name="card_login_trace_enabled" required>
+                <select name="card_login_trace_enabled"
+                        data-detailed-log-url="{{ route('admin.system-logs.index', ['adminPath' => $adminPath, 'type' => 'client-requests', 'view' => 'detailed']) }}"
+                        onchange="if (this.value === '__view_detailed_log__') window.location.assign(this.dataset.detailedLogUrl)"
+                        required>
                     <option value="0" @selected(old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '0')>关闭</option>
                     <option value="1" @selected(old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1')>开启诊断记录</option>
+                    <option value="__view_detailed_log__">查看详细日志</option>
                 </select>
                 <small>记录每次 login.ic 的解密请求、实际返回、请求设备和卡密绑定设备。卡密、密码、payload、session 与上报令牌会脱敏。</small>
             </label>
 
             <div class="system-settings-mode-note is-{{ old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1' ? 'debug' : 'production' }}">
-                <div class="system-settings-mode-note-heading">
-                    <strong>{{ old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1' ? '卡密登录诊断正在记录' : '卡密登录诊断已关闭' }}</strong>
-                    <a class="system-settings-log-link" href="{{ route('admin.system-logs.index', ['adminPath' => $adminPath, 'type' => 'client-requests', 'view' => 'detailed']) }}">
-                        查看详细日志 <span aria-hidden="true">→</span>
-                    </a>
-                </div>
+                <strong>{{ old('card_login_trace_enabled', $settings['card_login_trace_enabled']) === '1' ? '卡密登录诊断正在记录' : '卡密登录诊断已关闭' }}</strong>
                 <p>排查“设备校验失败”时可临时开启，到“系统日志 → 客户端请求日志”对比请求设备、绑定设备和返回设备。</p>
             </div>
 
