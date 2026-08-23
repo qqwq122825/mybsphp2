@@ -248,8 +248,8 @@ final class AdminSystemSettingController extends Controller
     private function normalizeCardLoginTraceMode(string $mode): string
     {
         return match ($mode) {
-            '1', 'all' => 'all',
-            'errors' => 'errors',
+            'all' => 'all',
+            '1', 'errors' => 'errors',
             default => 'simple',
         };
     }

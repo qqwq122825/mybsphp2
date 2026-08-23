@@ -189,8 +189,8 @@ final class CardLoginTraceService
                 ->whereKey('card_login_trace_enabled')
                 ->value('value');
             $mode = match ($storedMode) {
-                '1', 'all' => 'all',
-                'errors' => 'errors',
+                'all' => 'all',
+                '1', 'errors' => 'errors',
                 default => 'simple',
             };
 
