@@ -7,7 +7,7 @@
     <title>@yield('title', '管理后台') · {{ $appName }}</title>
     <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260818-ipad-nav-v2">
     <script src="/assets/js/custom-select.js?v=20260812-select-scroll" defer></script>
-    <script src="/assets/js/mybsphp.js?v=20260818-ipad-nav-v2" defer></script>
+    <script src="/assets/js/mybsphp.js?v=20260824-card-export-template-cache" defer></script>
     @stack('head')
 </head>
 <body class="dashboard-page">

@@ -178,7 +178,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/activation-query', false)
             ->assertSee('mybsphp.css?v=20260818-ipad-nav-v2', false)
             ->assertSee('custom-select.js?v=20260812-select-scroll', false)
-            ->assertSee('mybsphp.js?v=20260818-ipad-nav-v2', false)
+            ->assertSee('mybsphp.js?v=20260824-card-export-template-cache', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -258,7 +258,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-workspace-base-link', false)
             ->assertSee('data-workspace-base-tab', false)
             ->assertSee('data-workspace-base-url=', false)
-            ->assertSee('mybsphp.js?v=20260818-ipad-nav-v2', false)
+            ->assertSee('mybsphp.js?v=20260824-card-export-template-cache', false)
             ->assertSee($application->code.'-卡串类型');
 
         $this->get('/private-console/applications/'.$application->public_id.'/users')
@@ -424,8 +424,9 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('Tab分隔')
             ->assertSee('CSV')
             ->assertSee('继续制卡')
-            ->assertSee('{KAID}-----')
-            ->assertSee('-----')
+            ->assertSee('value="{KAID}"', false)
+            ->assertSee('data-card-export-template-cache-key="mybsphp.card-export-template.'.$application->public_id.'"', false)
+            ->assertDontSee('value="{KAID}-----"', false)
             ->assertDontSee('卡密批次生成成功，明文仅在本次页面展示。')
             ->assertDontSee($batch->batch_no);
 

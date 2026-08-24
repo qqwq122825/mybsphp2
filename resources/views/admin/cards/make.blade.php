@@ -8,7 +8,8 @@
                  data-card-export-panel
                  data-card-export-status-text="未使用"
                  data-card-export-time="{{ $generatedBatch['generated_at'] ?? now()->format('Y-m-d H:i:s') }}"
-                 data-card-export-app="{{ $application->name }}">
+                 data-card-export-app="{{ $application->name }}"
+                 data-card-export-template-cache-key="mybsphp.card-export-template.{{ $application->public_id }}">
             <header class="card-making-workspace-header">
                 <h2>导出充值卡 - 软件：{{ $application->name }}</h2>
             </header>
@@ -16,7 +17,7 @@
                 <div class="card-export-query-row">
                     <select aria-label="导出时间字段"><option>制作时间</option></select>
                     <input value="{{ $generatedBatch['generated_at'] ?? now()->format('Y-m-d H:i:s') }}" readonly aria-label="制作时间">
-                    <input value="{KAID}-----" aria-label="显示格式" data-card-export-template>
+                    <input value="{KAID}" aria-label="显示格式" data-card-export-template>
                     <button class="button button-primary card-export-search" type="button" aria-label="按显示格式生成" data-card-export-search>⌕</button>
                 </div>
                 <div class="card-export-actions" aria-label="导出格式">
@@ -30,7 +31,7 @@
                     <button type="button" data-card-export-format="detail">详细</button>
                 </div>
                 <script type="application/json" data-card-export-json>@json($generatedCards)</script>
-                <textarea class="card-export-textarea" data-card-export-output readonly>@foreach($generatedCards as $credential){{ $credential['code'] }}-----
+                <textarea class="card-export-textarea" data-card-export-output readonly>@foreach($generatedCards as $credential){{ $credential['code'] }}
 @endforeach</textarea>
                 <div class="card-export-footer">
                     <span data-card-export-status>本次生成 {{ count($generatedCards) }} 张，明文仅在当前结果页展示。</span>

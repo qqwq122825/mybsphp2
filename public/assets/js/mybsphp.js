@@ -698,6 +698,43 @@
         .replaceAll('{APPTIME}', panel.dataset.cardExportTime || '')
         .replaceAll('{APPNAME}', panel.dataset.cardExportApp || '')
     ).join('\n');
+    const exportTemplateCacheKey = (panel) => panel.dataset.cardExportTemplateCacheKey
+        || 'mybsphp.card-export-template';
+    const readExportTemplateCache = (panel) => {
+        try {
+            return window.localStorage.getItem(exportTemplateCacheKey(panel)) || '';
+        } catch {
+            return '';
+        }
+    };
+    const writeExportTemplateCache = (panel, template) => {
+        try {
+            window.localStorage.setItem(exportTemplateCacheKey(panel), template);
+        } catch {
+            // 浏览器禁用本地存储时，当前页面的格式功能仍可正常使用。
+        }
+    };
+    const initializeCardExportPanels = (scope = document) => {
+        scope.querySelectorAll('[data-card-export-panel]').forEach((panel) => {
+            if (!(panel instanceof HTMLElement) || panel.dataset.cardExportCacheReady === '1') return;
+            const templateInput = panel.querySelector('[data-card-export-template]');
+            const output = panel.querySelector('[data-card-export-output]');
+            if (!(templateInput instanceof HTMLInputElement) || !(output instanceof HTMLTextAreaElement)) return;
+
+            const template = readExportTemplateCache(panel) || '{KAID}';
+            templateInput.value = template;
+            output.value = renderExportTemplate(panel, exportCredentials(panel), template);
+            panel.dataset.cardExportCacheReady = '1';
+        });
+    };
+
+    initializeCardExportPanels(document);
+    if (workspaceContent instanceof HTMLElement) {
+        new MutationObserver(() => initializeCardExportPanels(workspaceContent)).observe(workspaceContent, {
+            childList: true,
+            subtree: true,
+        });
+    }
 
     document.addEventListener('click', async (event) => {
         const panel = cardExportPanel(event.target);
@@ -711,9 +748,12 @@
             : null;
         if (searchButton instanceof HTMLButtonElement) {
             const templateInput = panel.querySelector('[data-card-export-template]');
-            const template = templateInput instanceof HTMLInputElement ? templateInput.value : '{KAID}';
+            const enteredTemplate = templateInput instanceof HTMLInputElement ? templateInput.value : '';
+            const template = enteredTemplate || '{KAID}';
+            if (templateInput instanceof HTMLInputElement) templateInput.value = template;
+            writeExportTemplateCache(panel, template);
             output.value = renderExportTemplate(panel, rows, template);
-            setExportStatus(panel, `已按显示格式生成，共 ${rows.length} 张。`);
+            setExportStatus(panel, `已按显示格式生成并保存，共 ${rows.length} 张。`);
             return;
         }
 
