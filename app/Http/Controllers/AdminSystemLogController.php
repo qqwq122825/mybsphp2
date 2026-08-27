@@ -10,6 +10,7 @@ use App\Models\Administrator;
 use App\Models\AuditLog;
 use App\Models\Card;
 use App\Models\CardBatch;
+use App\Models\GlobalSecurityBlock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -97,6 +98,9 @@ final class AdminSystemLogController extends Controller
             'logs' => $logs,
             'clientTraceDetails' => $clientTraceDetails,
             'cardMakingBatches' => $cardMakingBatches,
+            'blockedIpHashes' => $type === 'protection'
+                ? GlobalSecurityBlock::query()->where('subject_type', 'ip')->pluck('subject_hash')
+                : collect(),
         ]);
     }
 

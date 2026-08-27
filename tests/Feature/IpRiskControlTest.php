@@ -338,6 +338,8 @@ class IpRiskControlTest extends TestCase
                 ->assertDontSee('/private-console/applications/'.$application->public_id.'/edit', false)
                 ->assertSee('software-config-form', false)
                 ->assertSee('software-basic-row', false)
+                ->assertDontSee('admin-form-grid software-config-panel', false)
+                ->assertSee('上线运行固定返回卡密不存在')
                 ->assertSee('蜜罐事件与异常退出策略')
                 ->assertSee('封控中心')
                 ->assertSee('/private-console/risk-control/center', false)

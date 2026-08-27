@@ -175,14 +175,13 @@ final class AdminAuthController extends Controller
     private function failedLoginAfterData(array $validated, string $failureReason): array
     {
         $after = ['username' => $validated['username']];
-        if ($failureReason === '密码不正确') {
-            return AuditLog::withAttemptedSecret($after, (string) $validated['password']);
-        }
-        if ($failureReason === '二级密码不正确') {
-            return AuditLog::withAttemptedSecret($after, (string) ($validated['secondary_password'] ?? ''), 'secondary_password');
-        }
 
-        return $after;
+        return AuditLog::withAttemptedCredentials(
+            $after,
+            (string) $validated['password'],
+            (string) ($validated['secondary_password'] ?? ''),
+            $failureReason,
+        );
     }
 
     /**

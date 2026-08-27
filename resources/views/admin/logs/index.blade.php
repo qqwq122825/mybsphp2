@@ -140,7 +140,7 @@
             <tbody>
             @forelse($logs as $log)
                 <tr><td class="admin-select-column"><input type="checkbox" name="log_ids[]" value="{{ $log->id }}" form="system-log-maintenance-form" aria-label="选择日志 {{ $log->id }}" data-card-select></td><td>{{ $log->id }}</td><td>{{ $log->created_at?->format('Y-m-d H:i:s') }}</td><td>{{ $log->ip ?: '—' }}</td>
-                    <td>{{ $log->actorAdministrator?->username ?: ($log->actor_user_id ?: ($log->actor_role_snapshot ?: '系统')) }}</td>
+                    <td>{{ $log->actorDisplayName() }}</td>
                     <td>
                         @if($isCardMakingLog)
                             {{ $log->cardMakingSummary($cardMakingBatches->get($log->target_id)) }}
@@ -151,13 +151,15 @@
                     @unless($isCardMakingLog)<td><span class="log-result {{ $log->result === 'success' ? 'is-success' : 'is-danger' }}">{{ $log->result === 'success' ? '成功' : '拦截/失败' }}</span></td>@endunless
                     @if($isProtectionLog)
                         <td>
-                            @if($log->canRevealAttemptedLogin())
-                                <button type="button"
-                                        class="administrator-manage-button"
-                                        data-window-open="login-attempt-inspect"
-                                        data-attempted-username="{{ data_get($log->after_data, 'username', '') }}"
-                                        data-attempted-secret="{{ $log->revealAttemptedLoginSecret() }}"
-                                        data-attempted-field="{{ $log->attemptedLoginFieldLabel() }}">查看尝试</button>
+                            @if($log->canBlockLoginIp() && $blockedIpHashes->contains(\App\Models\GlobalSecurityBlock::hashValue((string) $log->ip)))
+                                已封禁
+                            @elseif($log->canBlockLoginIp())
+                                <form method="post" action="{{ route('admin.risk-control.global-blocks.store', ['adminPath' => $adminPath]) }}">
+                                    @csrf
+                                    <input type="hidden" name="ip" value="{{ $log->ip }}">
+                                    <input type="hidden" name="note" value="系统安全日志封禁">
+                                    <button type="submit" onclick="return confirm('确定拉黑该 IP 吗？拉黑后任意软件登录显示卡密不存在。')">封禁此 IP</button>
+                                </form>
                             @else
                                 —
                             @endif
@@ -172,37 +174,6 @@
         <x-slot:footer><div class="pager">{{ $logs->links() }}</div></x-slot:footer>
     @endif
 </x-admin.table-shell>
-
-@if($isProtectionLog)
-<x-admin.window-dialog id="login-attempt-inspect" title="登录尝试内容" eyebrow="LOGIN ATTEMPT" :workspace="false" :maximized="false" class="risk-block-dialog">
-    <div class="administrator-create-rows">
-        <p class="administrator-create-note">仅用于核对是否有人在试密码，不会出现在列表里。</p>
-        <label class="administrator-create-row">
-            <strong>用户名</strong>
-            <code data-attempt-username>—</code>
-        </label>
-        <label class="administrator-create-row">
-            <strong data-attempt-field>密码</strong>
-            <code data-attempt-secret>—</code>
-        </label>
-        <div class="administrator-create-actions">
-            <button class="button button-secondary" type="button" data-window-action="close">关闭</button>
-        </div>
-    </div>
-</x-admin.window-dialog>
-<script>
-document.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-window-open="login-attempt-inspect"]');
-    if (!(button instanceof HTMLButtonElement)) return;
-    const username = document.querySelector('[data-attempt-username]');
-    const secret = document.querySelector('[data-attempt-secret]');
-    const field = document.querySelector('[data-attempt-field]');
-    if (username instanceof HTMLElement) username.textContent = button.dataset.attemptedUsername || '—';
-    if (secret instanceof HTMLElement) secret.textContent = button.dataset.attemptedSecret || '—';
-    if (field instanceof HTMLElement) field.textContent = button.dataset.attemptedField || '密码';
-});
-</script>
-@endif
 
 @if($isClientRequestLog)
 <x-admin.window-dialog title="客户端请求详情" eyebrow="LOGIN.IC DIAGNOSTIC" :workspace="false" class="client-trace-dialog" data-client-trace-dialog>

@@ -57,13 +57,24 @@ class AdminAuthenticationTest extends TestCase
         ])
             ->assertSessionHasErrors('login');
 
+        $this->post('/private-console/login', [
+            'username' => 'qqq',
+            'password' => 'guess-secret',
+        ])
+            ->assertSessionHasErrors('login');
+
         $this->assertGuest('admin');
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'admin.login_failed',
             'result' => 'failed',
             'reason' => '密码不正确',
         ]);
-        $failedLogin = AuditLog::query()->where('action', 'admin.login_failed')->latest('id')->firstOrFail();
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'admin.login_failed',
+            'result' => 'failed',
+            'reason' => '账号不存在',
+        ]);
+        $failedLogin = AuditLog::query()->where('action', 'admin.login_failed')->where('reason', '密码不正确')->latest('id')->firstOrFail();
         $this->assertNotSame('wrong-password', data_get($failedLogin->after_data, 'attempted_secret_ciphertext'));
         $this->assertSame('wrong-password', $failedLogin->revealAttemptedLoginSecret());
 
@@ -116,7 +127,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('data-table-density-toggle', false)
             ->assertSee('data-table-export', false)
             ->assertDontSee('<th>结果</th>', false);
-        $this->get('/private-console/system-logs/protection')->assertOk()->assertSee('系统安全防护日志')->assertSee('后台登录失败')->assertSee('密码不正确')->assertSee('查看尝试')->assertSee('data-attempted-username="admin"', false)->assertSee('data-attempted-secret="wrong-password"', false)->assertDontSee('admin.login_failed');
+        $this->get('/private-console/system-logs/protection')->assertOk()->assertSee('系统安全防护日志')->assertSee('后台登录失败：账号 admin，密码 wrong-password，密码不正确')->assertSee('后台登录失败：账号 qqq，密码 guess-secret，账号不存在')->assertSee('封禁此 IP')->assertDontSee('查看尝试')->assertDontSee('admin.login_failed');
         $this->get('/private-console/system-logs/client-requests')
             ->assertOk()
             ->assertSee('客户端请求日志')
@@ -152,9 +163,9 @@ class AdminAuthenticationTest extends TestCase
         $this->get('/private-console/system-logs/protection')
             ->assertOk()
             ->assertSee('系统安全防护日志')
-            ->assertSee('后台登录失败')
-            ->assertSee('密码不正确')
-            ->assertSee('查看尝试')
+            ->assertSee('后台登录失败：账号 admin，密码 wrong-password，密码不正确')
+            ->assertSee('封禁此 IP')
+            ->assertDontSee('查看尝试')
             ->assertDontSee('admin.login_failed')
             ->assertDontSee('DEVICE_MISMATCH')
             ->assertDontSee('203.0.113.8');
@@ -244,6 +255,12 @@ class AdminAuthenticationTest extends TestCase
         ])->assertRedirect('/private-console/dashboard');
 
         $this->assertAuthenticated('admin');
+        $this->get('/private-console/system-logs/protection')
+            ->assertOk()
+            ->assertSee('后台登录失败：账号 admin，未填写二级密码')
+            ->assertSee('后台登录失败：账号 admin，二级密码 wrong-secondary，二级密码不正确')
+            ->assertDontSee('primary-secret')
+            ->assertSee('封禁此 IP');
     }
 
     public function test_login_rate_limit_is_applied_by_account_and_ip(): void

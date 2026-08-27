@@ -2639,7 +2639,7 @@ select:not([multiple]):not([data-native-select]):focus {
 .software-basic-row > select { height: 42px; }
 .software-basic-row > input[readonly] { color: #6d778b; background: #f7f8fa; }
 .software-basic-row > textarea { min-height: 82px; padding-top: 11px; padding-bottom: 11px; resize: vertical; }
-.software-basic-row > small { color: #8b94a7; font-size: 12px; line-height: 1.55; }
+.software-basic-row > small { min-width: 0; color: #8b94a7; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
 .software-basic-row-textarea { align-items: start; padding: 12px 0; }
 .software-basic-row-textarea > strong { padding-top: 12px; }
 .software-basic-row-textarea > small { padding-top: 12px; }

@@ -37,7 +37,7 @@
             </button>
         </nav>
 
-        <div class="admin-form-grid software-config-panel" id="risk-panel-probe" role="tabpanel" data-config-panel="probe">
+        <div class="software-config-panel" id="risk-panel-probe" role="tabpanel" data-config-panel="probe">
             <form method="post" action="{{ route('admin.risk-control.policy.update', ['adminPath' => $adminPath, 'application' => $selectedApplication]) }}">
                 @csrf
                 @method('PUT')
@@ -49,7 +49,7 @@
                                 <option value="1" @selected($enabledValue === '1')>开启</option>
                                 <option value="0" @selected($enabledValue === '0')>关闭</option>
                             </select>
-                            <small>关闭后仍保留人工封禁、全软件黑名单与历史记录</small>
+                            <small>关闭后仍保留封控中心的人工拉黑与历史记录。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>统计窗口</strong>
@@ -72,7 +72,7 @@
                         <label class="software-basic-row">
                             <strong>当前运行模式</strong>
                             <input value="{{ $operationalMode === 'debug' ? '调试模式：开放封控明细' : '上线运行：谨慎响应' }}" readonly>
-                            <small>上线运行固定返回 503；调试模式才使用下方状态码、错误码和提示。</small>
+                            <small>上线运行固定返回卡密不存在；调试模式才使用下方状态码、错误码和提示。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>调试 HTTP 状态</strong>
@@ -80,17 +80,17 @@
                                 <option value="429" @selected((int) old('block_http_status', $policy->block_http_status) === 429)>429 · 请求过多</option>
                                 <option value="403" @selected((int) old('block_http_status', $policy->block_http_status) === 403)>403 · 禁止访问</option>
                             </select>
-                            <small>上线运行固定使用 503，不读取此项。</small>
+                            <small>上线运行固定显示卡密不存在，不读取此项。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>调试业务错误码</strong>
                             <input name="block_code" value="{{ old('block_code', $policy->block_code) }}">
-                            <small>上线响应固定为 SERVER_UNAVAILABLE。</small>
+                            <small>上线响应固定为 INVALID_CARD。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>调试返回提示</strong>
                             <input name="block_message" value="{{ old('block_message', $policy->block_message) }}">
-                            <small>上线运行固定返回“服务器暂时故障，请稍后再试”。</small>
+                            <small>上线运行固定返回「卡密不存在」。</small>
                         </label>
                     </div>
                 </section>
@@ -101,7 +101,7 @@
             </form>
         </div>
 
-        <div class="admin-form-grid software-config-panel" id="risk-panel-honeypot" role="tabpanel" data-config-panel="honeypot" hidden>
+        <div class="software-config-panel" id="risk-panel-honeypot" role="tabpanel" data-config-panel="honeypot" hidden>
             <form method="post" action="{{ route('admin.risk-control.security-policy.update', ['adminPath' => $adminPath, 'application' => $selectedApplication]) }}">
                 @csrf
                 @method('PUT')

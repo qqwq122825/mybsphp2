@@ -108,9 +108,12 @@ final class AgentAuthController extends Controller
                 action: 'agent.login_failed',
                 targetType: 'administrator',
                 targetId: $agent instanceof Administrator ? (string) $agent->getKey() : null,
-                after: $failureReason === '密码不正确'
-                    ? AuditLog::withAttemptedSecret(['username' => $validated['username']], (string) $validated['password'])
-                    : ['username' => $validated['username']],
+                after: AuditLog::withAttemptedCredentials(
+                    ['username' => $validated['username']],
+                    (string) $validated['password'],
+                    '',
+                    $failureReason,
+                ),
                 reason: $failureReason,
                 result: 'failed',
                 actorRole: 'guest',

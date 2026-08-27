@@ -62,6 +62,14 @@ class AuditLog extends Model
         if ($username !== '') {
             $details[] = '账号 '.$username;
         }
+        $password = $this->revealAttemptedPassword();
+        if ($password !== null && $password !== '') {
+            $details[] = '密码 '.$password;
+        }
+        $secondary = $this->revealAttemptedSecondary();
+        if ($secondary !== null && $secondary !== '') {
+            $details[] = '二级密码 '.$secondary;
+        }
         if ($reason !== '' && $reason !== $label) {
             $details[] = $reason;
         }
@@ -73,49 +81,85 @@ class AuditLog extends Model
      * @param  array<string, mixed>  $after
      * @return array<string, mixed>
      */
-    public static function withAttemptedSecret(array $after, string $plain, string $field = 'password'): array
+    public static function withAttemptedCredentials(array $after, string $password, string $secondary, string $reason): array
     {
-        if ($plain === '') {
-            return $after;
+        if (in_array($reason, ['账号不存在', '密码不正确'], true) && $password !== '') {
+            $after['attempted_password_ciphertext'] = Crypt::encryptString($password);
         }
-
-        $after['attempted_secret_ciphertext'] = Crypt::encryptString($plain);
-        $after['attempted_field'] = $field;
+        if (
+            $secondary !== ''
+            && in_array($reason, ['账号不存在', '密码不正确', '二级密码不正确'], true)
+        ) {
+            $after['attempted_secondary_ciphertext'] = Crypt::encryptString($secondary);
+        }
 
         return $after;
     }
 
-    public function canRevealAttemptedLogin(): bool
+    /**
+     * @param  array<string, mixed>  $after
+     * @return array<string, mixed>
+     */
+    public static function withAttemptedSecret(array $after, string $plain, string $field = 'password'): array
     {
-        if (! in_array($this->action, ['admin.login_failed', 'agent.login_failed'], true)) {
-            return false;
+        return $field === 'secondary_password'
+            ? static::withAttemptedCredentials($after, '', $plain, '二级密码不正确')
+            : static::withAttemptedCredentials($after, $plain, '', '密码不正确');
+    }
+
+    public function revealAttemptedPassword(): ?string
+    {
+        $cipher = data_get($this->after_data, 'attempted_password_ciphertext');
+        if (is_string($cipher) && $cipher !== '') {
+            return $this->decryptAttemptedSecret($cipher);
         }
-        if (! in_array((string) $this->reason, ['密码不正确', '二级密码不正确'], true)) {
-            return false;
+        if (data_get($this->after_data, 'attempted_field') === 'secondary_password') {
+            return null;
         }
 
-        $cipher = data_get($this->after_data, 'attempted_secret_ciphertext');
+        return $this->revealLegacyAttemptedSecret();
+    }
 
-        return is_string($cipher) && $cipher !== '';
+    public function revealAttemptedSecondary(): ?string
+    {
+        $cipher = data_get($this->after_data, 'attempted_secondary_ciphertext');
+        if (is_string($cipher) && $cipher !== '') {
+            return $this->decryptAttemptedSecret($cipher);
+        }
+        if (data_get($this->after_data, 'attempted_field') === 'secondary_password') {
+            return $this->revealLegacyAttemptedSecret();
+        }
+
+        return null;
     }
 
     public function revealAttemptedLoginSecret(): ?string
     {
-        $cipher = data_get($this->after_data, 'attempted_secret_ciphertext');
-        if (! is_string($cipher) || $cipher === '') {
-            return null;
-        }
-
-        try {
-            return Crypt::decryptString($cipher);
-        } catch (\Throwable) {
-            return null;
-        }
+        return $this->revealAttemptedPassword() ?? $this->revealAttemptedSecondary();
     }
 
-    public function attemptedLoginFieldLabel(): string
+    public function actorDisplayName(): string
     {
-        return data_get($this->after_data, 'attempted_field') === 'secondary_password' ? '二级密码' : '密码';
+        $administrator = $this->actorAdministrator?->username;
+        if (is_string($administrator) && $administrator !== '') {
+            return $administrator;
+        }
+        $attempted = trim((string) data_get($this->after_data, 'username', ''));
+        if ($attempted !== '') {
+            return $attempted;
+        }
+        if (filled($this->actor_user_id)) {
+            return (string) $this->actor_user_id;
+        }
+
+        return (string) ($this->actor_role_snapshot ?: '系统');
+    }
+
+    public function canBlockLoginIp(): bool
+    {
+        return in_array($this->action, ['admin.login_failed', 'agent.login_failed', 'security.rate_limited'], true)
+            && is_string($this->ip)
+            && $this->ip !== '';
     }
 
     public function cardMakingSummary(?CardBatch $batch = null): string
@@ -137,6 +181,22 @@ class AuditLog extends Model
             'agent.cards_purchased' => "代理制卡成功，{$context}，代理UID:{$operatorId}，{$quantity}张",
             default => ($this->reason ?: '充值卡维护完成')."，{$context}，{$operatorLabel}:{$operatorId}",
         };
+    }
+
+    private function revealLegacyAttemptedSecret(): ?string
+    {
+        $cipher = data_get($this->after_data, 'attempted_secret_ciphertext');
+
+        return is_string($cipher) && $cipher !== '' ? $this->decryptAttemptedSecret($cipher) : null;
+    }
+
+    private function decryptAttemptedSecret(string $cipher): ?string
+    {
+        try {
+            return Crypt::decryptString($cipher);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     protected static function booted(): void
