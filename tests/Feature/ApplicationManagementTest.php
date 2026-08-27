@@ -178,7 +178,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/activation-query', false)
             ->assertSee('mybsphp.css?v=20260828-risk-settings-layout', false)
             ->assertSee('custom-select.js?v=20260812-select-scroll', false)
-            ->assertSee('mybsphp.js?v=20260824-card-export-template-cache', false)
+            ->assertSee('mybsphp.js?v=20260828-workspace-form-action', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -258,7 +258,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-workspace-base-link', false)
             ->assertSee('data-workspace-base-tab', false)
             ->assertSee('data-workspace-base-url=', false)
-            ->assertSee('mybsphp.js?v=20260824-card-export-template-cache', false)
+            ->assertSee('mybsphp.js?v=20260828-workspace-form-action', false)
             ->assertSee($application->code.'-卡串类型');
 
         $this->get('/private-console/applications/'.$application->public_id.'/users')
@@ -613,6 +613,59 @@ class ApplicationManagementTest extends TestCase
             'target_id' => $application->public_id,
         ]);
 
+    }
+
+    public function test_card_list_bulk_delete_returns_to_the_workspace_card_list(): void
+    {
+        $administrator = $this->administrator();
+        $this->actingAs($administrator, 'admin');
+
+        $this->post('/private-console/applications', [
+            'code' => '20000009',
+            'name' => '批量删卡软件',
+            'mode' => 'card_login',
+        ])->assertRedirect();
+        $application = Application::query()->where('code', '20000009')->sole();
+        $this->post('/private-console/card-types', [
+            'application_id' => $application->getKey(),
+            'name' => '批量删卡',
+            'code_prefix' => 'DEL',
+            'note' => '列表勾选删除',
+            'sort_order' => 0,
+            'duration_value' => 1,
+            'duration_unit' => 'day',
+            'face_price' => 1,
+            'agent_price' => 1,
+            'balance_recharge' => 0,
+            'code_length' => 25,
+            'code_charset' => 'mixed',
+            'secret_length' => 8,
+            'secret_charset' => 'mixed',
+            'account_concurrency_limit' => 0,
+            'machine_concurrency_limit' => 0,
+        ])->assertRedirect();
+        $cardType = $application->cardTypes()->sole();
+        $generated = app(CardGenerationService::class)->generate($cardType, 3, $administrator, '批量删除');
+        $cardIds = $generated['batch']->cards()->pluck('id')->all();
+        $cardsUrl = '/private-console/cards?application='.$application->getKey();
+
+        $this->get($cardsUrl)
+            ->assertOk()
+            ->assertSee('/private-console/cards/bulk-action', false)
+            ->assertSee('name="action" value="delete"', false);
+
+        $this->from($cardsUrl)
+            ->withHeader('X-Workspace-Url', url($cardsUrl))
+            ->post('/private-console/cards/bulk-action', [
+                'card_ids' => $cardIds,
+                'action' => 'delete',
+            ])
+            ->assertRedirect($cardsUrl)
+            ->assertSessionHas('success', '所选充值卡已删除。');
+
+        foreach ($cardIds as $cardId) {
+            $this->assertDatabaseHas('cards', ['id' => $cardId, 'status' => 'revoked']);
+        }
     }
 
     private function administrator(): Administrator

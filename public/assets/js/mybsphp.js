@@ -609,15 +609,22 @@
             const submissionKey = activeKey;
             const tab = temporaryTabs.get(submissionKey);
             if (!tab) return;
-            const method = (form.method || 'get').toUpperCase();
             const formData = new FormData(form);
             if (event.submitter instanceof HTMLButtonElement && event.submitter.name) {
                 formData.set(event.submitter.name, event.submitter.value);
             }
-            // A form without an explicit action inherits document.location. Workspace
-            // pages are rendered inside the applications index document, so using the
-            // resolved form.action would incorrectly submit back to software management.
-            let requestUrl = form.hasAttribute('action') ? form.action : tab.url;
+            // Named controls such as <button name="action"> clobber form.action /
+            // form.method. Read the attributes so bulk delete does not POST to /delete.
+            const submitter = event.submitter instanceof HTMLElement ? event.submitter : null;
+            const method = (
+                submitter?.getAttribute('formmethod')
+                || form.getAttribute('method')
+                || 'get'
+            ).toUpperCase();
+            const actionAttr = submitter?.getAttribute('formaction') || form.getAttribute('action');
+            let requestUrl = actionAttr
+                ? new URL(actionAttr, window.location.href).href
+                : tab.url;
             const options = { method };
             if (method === 'GET') {
                 const targetUrl = new URL(requestUrl, window.location.href);
