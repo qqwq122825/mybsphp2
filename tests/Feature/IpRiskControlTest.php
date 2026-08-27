@@ -102,6 +102,20 @@ class IpRiskControlTest extends TestCase
             'level' => 'high',
             'action' => 'block',
         ]);
+        $this->assertDatabaseHas('global_security_blocks', [
+            'subject_type' => 'device',
+            'subject_hash' => hash('sha256', $device),
+        ]);
+        $this->assertDatabaseHas('global_security_blocks', [
+            'subject_type' => 'ip',
+        ]);
+
+        [$other] = $this->cardLoginApplication('800002');
+        $otherGateway = '/AppEn.php?appid='.$other->code.'&md5='.$other->gateway_token;
+        $this->assertMaskedCardFailure($this->postJson($otherGateway, $cipher->sealRequestWithContext($other, http_build_query([
+            'api' => 'login.ic', 'icid' => 'OTHER-APP-CARD', 'key' => $device,
+            'appsafecode' => 'SAFE', 'BSphpSeSsL' => str_repeat('9', 64),
+        ], '', '&', PHP_QUERY_RFC3986))['envelope']));
     }
 
     public function test_empty_and_malformed_card_errors_count_toward_probe_threshold(): void
@@ -336,34 +350,19 @@ class IpRiskControlTest extends TestCase
             $this->get('/private-console/risk-control/center')
                 ->assertOk()
                 ->assertSee('封控中心')
-                ->assertSee('主动添加封禁')
-                ->assertSee('设备黑名单')
-                ->assertSee('风险 IP 列表')
-                ->assertSee('当前有 1 台设备处于黑名单')
-                ->assertSee('设备序列号')
+                ->assertSee('添加封禁')
+                ->assertSee('封控对象')
+                ->assertSee('关联')
+                ->assertSee('data-window-open="add-risk-block"', false)
                 ->assertSee('BLOCKED-DEVICE')
-                ->assertSee('已关联绑定设备')
-                ->assertSee('登录卡密')
-                ->assertSee($securityCardCode)
-                ->assertSee('登录 IP')
-                ->assertSee(substr(hash('sha256', 'BLOCKED-DEVICE'), 0, 12).'…'.substr(hash('sha256', 'BLOCKED-DEVICE'), -8))
-                ->assertSee('使用新卡密时也会进入隐藏响应')
-                ->assertSee('客户端统一显示“卡密不存在”')
-                ->assertSee('按完整卡密查询真实原因')
-                ->assertSee('全软件拉黑')
-                ->assertSee('处置等级')
-                ->assertSee('观察')
-                ->assertSee('拉黑')
-                ->assertSee('全部恢复')
-                ->assertSee('仅解除设备')
-                ->assertSee('设备 + 卡密/账号')
-                ->assertSee('设备 + IP')
-                ->assertSee('确认修改')
-                ->assertSee('name="status" aria-label="处置等级" data-native-select', false)
-                ->assertSee('name="release_scope" aria-label="解除范围" data-native-select', false)
-                ->assertSee('data-risk-action-trigger', false)
-                ->assertSee('data-risk-action-popover', false)
-                ->assertDontSee('<details class="risk-action-menu"', false);
+                ->assertSee('2409:8a55:d336:d350:c5ac:6a09:45d4:572a')
+                ->assertSee('卡密不存在')
+                ->assertDontSee('主动添加封禁')
+                ->assertDontSee('全软件封禁')
+                ->assertDontSee('全软件拉黑')
+                ->assertDontSee('风险 IP 列表')
+                ->assertDontSee('name="status" aria-label="处置等级"', false)
+                ->assertDontSee('data-risk-action-trigger', false);
 
             $this->post('/private-console/risk-control/device-states/'.$deviceState->getKey().'/unblock', [
                 'release_scope' => 'device_only',

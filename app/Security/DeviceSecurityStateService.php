@@ -32,6 +32,7 @@ final class DeviceSecurityStateService
             ['application_id' => $application->getKey(), 'device_hash' => $this->hash($deviceId)],
             ['risk_score' => 100, 'status' => 'blocked', 'blocked_until' => null, 'last_event_at' => now(), 'reason_code' => $reason],
         );
+        GlobalSecurityBlock::rememberDevice($deviceId, $reason, '设备已拉黑，全软件登录显示卡密不存在');
     }
 
     public function observe(Application $application, string $deviceId, int $riskScore, string $reason): void

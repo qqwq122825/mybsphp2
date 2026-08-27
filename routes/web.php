@@ -91,6 +91,9 @@ Route::prefix('{adminPath}')
             Route::get('/risk-control/center', [AdminRiskControlController::class, 'center'])
                 ->middleware('can:'.AdminPermission::RiskEventsView->value)
                 ->name('admin.risk-control.center');
+            Route::post('/risk-control/center/release', [AdminRiskControlController::class, 'releaseSelected'])
+                ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
+                ->name('admin.risk-control.center.release');
             Route::put('/risk-control/applications/{application}/policy', [AdminRiskControlController::class, 'updatePolicy'])
                 ->middleware('can:'.AdminPermission::RiskEventsView->value)
                 ->name('admin.risk-control.policy.update');

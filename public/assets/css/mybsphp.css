@@ -2800,10 +2800,13 @@ dialog.admin-window-dialog {
     overflow: visible;
 }
 
-dialog.admin-window-dialog.is-maximized {
-    width: min(1200px, calc(100vw - 40px));
-    height: calc(100vh - 60px);
+dialog.risk-block-dialog {
+    width: min(560px, calc(100vw - 40px));
+    height: auto;
+    max-height: calc(100vh - 80px);
 }
+dialog.risk-block-dialog .admin-window-dialog__window { height: auto; }
+dialog.risk-block-dialog .administrator-create-rows { padding: 8px 4px 16px; }
 
 dialog.admin-window-dialog::backdrop {
     background: rgba(20, 29, 47, .48);

@@ -42,6 +42,42 @@ class GlobalSecurityBlock extends Model
             ->exists();
     }
 
+    public static function rememberDevice(string $deviceId, string $reason, ?string $note = null): void
+    {
+        $normalized = trim($deviceId);
+        if ($normalized === '') {
+            return;
+        }
+        static::query()->updateOrCreate(
+            ['subject_type' => 'device', 'subject_hash' => static::hashValue($normalized)],
+            ['subject_value' => $normalized, 'reason' => $reason, 'note' => $note],
+        );
+    }
+
+    public static function rememberDeviceHash(string $deviceHash, ?string $displayValue, string $reason, ?string $note = null): void
+    {
+        $hash = trim($deviceHash);
+        if ($hash === '') {
+            return;
+        }
+        static::query()->updateOrCreate(
+            ['subject_type' => 'device', 'subject_hash' => $hash],
+            ['subject_value' => trim((string) $displayValue) !== '' ? trim((string) $displayValue) : $hash, 'reason' => $reason, 'note' => $note],
+        );
+    }
+
+    public static function rememberIp(string $ip, string $reason, ?string $note = null): void
+    {
+        $normalized = trim($ip);
+        if ($normalized === '') {
+            return;
+        }
+        static::query()->updateOrCreate(
+            ['subject_type' => 'ip', 'subject_hash' => static::hashValue($normalized)],
+            ['subject_value' => $normalized, 'reason' => $reason, 'note' => $note],
+        );
+    }
+
     /** @return BelongsTo<Administrator, $this> */
     public function administrator(): BelongsTo
     {

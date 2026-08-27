@@ -3,185 +3,110 @@
 @section('title', '封控中心')
 
 @section('content')
-@php
-    $defaultConfigTab = ($errors->has('device_serial') || $errors->has('ip'))
-        ? 'add'
-        : (request()->filled('keyword') || request()->filled('level') ? 'ips' : 'add');
-@endphp
-<div class="software-config-form risk-center-form" data-config-form data-default-config-tab="{{ $defaultConfigTab }}">
-    <header class="software-settings-heading">
+<form id="risk-center-release-form" method="post" action="{{ route('admin.risk-control.center.release', ['adminPath' => $adminPath]) }}">
+    @csrf
+</form>
+
+<x-admin.table-shell title="封控中心" subtitle="近 24 小时 {{ $metrics['events_24h'] }} 次 · 设备 {{ $metrics['blocked_devices'] }} · IP {{ $metrics['blocked_ips'] }}。拉黑后任意软件登录显示卡密不存在。" panel-class="bsphp-log-panel">
+    <x-slot:headingActions>
+        <button class="button button-primary" type="button" data-window-open="add-risk-block">添加封禁</button>
+    </x-slot:headingActions>
+    <x-slot:search>
+        <x-admin.filter-bar :action="route('admin.risk-control.center', ['adminPath' => $adminPath])" button-label="⌕" :icon-only="true">
+            <x-slot:field>
+                <select name="subject_type" aria-label="搜索字段">
+                    <option value="all" @selected(request('subject_type', 'all') === 'all')>全部</option>
+                    <option value="device" @selected(request('subject_type') === 'device')>设备</option>
+                    <option value="ip" @selected(request('subject_type') === 'ip')>IP</option>
+                </select>
+            </x-slot:field>
+            <x-slot:keyword>
+                <input name="keyword" value="{{ request('keyword') }}" placeholder="序列号或 IP">
+            </x-slot:keyword>
+            <x-slot:sort>
+                <select name="sort">
+                    <option value="latest" @selected(request('sort', 'latest') === 'latest')>正序</option>
+                    <option value="oldest" @selected(request('sort') === 'oldest')>倒序</option>
+                </select>
+            </x-slot:sort>
+        </x-admin.filter-bar>
+    </x-slot:search>
+    <x-slot:toolbar>
         <div>
-            <span>RISK CONTROL CENTER</span>
-            <h1>封控中心</h1>
-            <p>全软件名单汇总与手动拉黑。当前 {{ $metrics['blocked_devices'] }} 台设备、{{ $metrics['blocked_ips'] }} 个 IP、{{ $metrics['global_blocks'] }} 条全软件封禁。</p>
+            <button type="submit" form="risk-center-release-form" onclick="return confirm('确定解除选中的封控吗？')">解除选定</button>
         </div>
-    </header>
+        <div class="admin-table-utility-tools">
+            <button type="button" data-table-density-toggle aria-label="切换表格密度" title="切换表格密度"><span aria-hidden="true">▥</span></button>
+            <button type="button" data-table-export aria-label="导出当前表格" title="导出当前表格"><span aria-hidden="true">↥</span></button>
+            <button type="button" onclick="window.print()" aria-label="打印" title="打印"><span aria-hidden="true">▤</span></button>
+        </div>
+    </x-slot:toolbar>
+    <table>
+        <thead>
+            <tr>
+                <th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th>
+                <th>类型</th>
+                <th>封控对象</th>
+                <th>关联</th>
+                <th>原因</th>
+                <th>时间</th>
+                <th>处置</th>
+            </tr>
+        </thead>
+        <tbody>
+        @forelse($blocks as $block)
+            <tr>
+                <td class="admin-select-column">
+                    <input type="checkbox" name="block_keys[]" value="{{ $block['key'] }}" form="risk-center-release-form" aria-label="选择封控 {{ $block['value'] }}" data-card-select>
+                </td>
+                <td>{{ $block['kind'] === 'device' ? '设备' : 'IP' }}</td>
+                <td><strong><code>{{ $block['value'] }}</code></strong></td>
+                <td>{{ $block['related'] ?: '—' }}</td>
+                <td>{{ $block['reason'] }}</td>
+                <td>{{ $block['at']?->format('Y-m-d H:i:s') ?: '—' }}</td>
+                <td>
+                    <button type="submit" form="risk-center-release-form" name="block_keys[]" value="{{ $block['key'] }}" onclick="return confirm('确定解除该封控吗？')">解除</button>
+                </td>
+            </tr>
+        @empty
+            <tr><td class="empty-cell" colspan="7">当前没有封控记录。</td></tr>
+        @endforelse
+        </tbody>
+    </table>
+    @if($blocks->hasPages())
+        <x-slot:footer>
+            <div class="pager">{{ $blocks->links() }}</div>
+        </x-slot:footer>
+    @endif
+</x-admin.table-shell>
 
-    <nav class="software-config-tabs" role="tablist" aria-label="封控中心分类">
-        <button type="button" role="tab" data-config-tab="add" aria-controls="risk-center-add">
-            <span>01</span><strong>主动添加封禁</strong><small>设备序列号与 IP</small>
-        </button>
-        <button type="button" role="tab" data-config-tab="devices" aria-controls="risk-center-devices">
-            <span>02</span><strong>设备黑名单</strong><small>{{ $metrics['blocked_devices'] }} 台已拉黑</small>
-        </button>
-        <button type="button" role="tab" data-config-tab="ips" aria-controls="risk-center-ips">
-            <span>03</span><strong>风险 IP 列表</strong><small>{{ $metrics['blocked_ips'] }} 个正在封禁</small>
-        </button>
-    </nav>
-
-    <div class="admin-form-grid software-config-panel" id="risk-center-add" role="tabpanel" data-config-panel="add">
-        <form method="post" action="{{ route('admin.risk-control.global-blocks.store', ['adminPath' => $adminPath]) }}">
-            @csrf
-            <section class="dashboard-panel form-panel form-panel-wide">
-                <div class="panel-body software-basic-rows">
-                    <label class="software-basic-row">
-                        <strong>设备序列号</strong>
-                        <input name="device_serial" value="{{ old('device_serial') }}" placeholder="例如 D2QDT96KLH" maxlength="160">
-                        <small>按特征码全软件拉黑；可与 IP 同时填写。</small>
-                    </label>
-                    <label class="software-basic-row">
-                        <strong>IP 地址</strong>
-                        <input name="ip" value="{{ old('ip') }}" placeholder="可选，可与序列号同时填写">
-                        <small>按登录 IP 全软件拉黑，对所有软件立即生效。</small>
-                    </label>
-                    <label class="software-basic-row">
-                        <strong>备注</strong>
-                        <input name="note" value="{{ old('note') }}" placeholder="可选" maxlength="500">
-                        <small>仅后台可见，便于日后核对拉黑原因。</small>
-                    </label>
-                </div>
-            </section>
-            @if($errors->has('device_serial') || $errors->has('ip'))
-                <p class="honeypot-global-block-error">{{ $errors->first('device_serial') ?: $errors->first('ip') }}</p>
-            @endif
-            <div class="form-submit-bar">
-                <span>将按全软件范围拉黑所填设备 / IP，保存后立即生效。</span>
-                <button class="button button-primary" type="submit" onclick="return confirm('将按全软件范围拉黑所填设备/IP，继续吗？')">全软件拉黑</button>
+<x-admin.window-dialog id="add-risk-block" title="添加封禁" eyebrow="RISK BLOCK" :workspace="false" :maximized="false"
+                       :auto-open="$errors->has('device_serial') || $errors->has('ip')"
+                       class="risk-block-dialog">
+    <form method="post" action="{{ route('admin.risk-control.global-blocks.store', ['adminPath' => $adminPath]) }}">
+        @csrf
+        <div class="administrator-create-rows">
+            <p class="administrator-create-note">可只填设备、只填 IP，或两个都填。拉黑后任意软件登录都显示卡密不存在。</p>
+            <label class="administrator-create-row">
+                <strong>设备序列号</strong>
+                <input name="device_serial" value="{{ old('device_serial') }}" placeholder="例如 D2QDT96KLH" maxlength="160">
+                <small>{{ $errors->first('device_serial') ?: '按特征码拉黑' }}</small>
+            </label>
+            <label class="administrator-create-row">
+                <strong>IP 地址</strong>
+                <input name="ip" value="{{ old('ip') }}" placeholder="例如 203.0.113.88">
+                <small>{{ $errors->first('ip') ?: '按登录 IP 拉黑' }}</small>
+            </label>
+            <label class="administrator-create-row">
+                <strong>备注</strong>
+                <input name="note" value="{{ old('note') }}" placeholder="可选" maxlength="500">
+                <small>仅后台可见</small>
+            </label>
+            <div class="administrator-create-actions">
+                <button class="button button-primary" type="submit" onclick="return confirm('确定拉黑所填设备或 IP 吗？')">确认拉黑</button>
+                <button class="button button-secondary" type="button" data-window-action="close">取消</button>
             </div>
-        </form>
-    </div>
-
-    <div class="risk-center-panel" data-config-panel="add">
-        <section class="dashboard-panel honeypot-device-panel risk-center-block-list">
-            <header><div><p class="eyebrow">GLOBAL BLOCKS</p><h2>全软件封禁</h2></div><span>最近 50 条</span></header>
-            <div class="honeypot-global-block-list">
-                @forelse($globalBlocks as $globalBlock)
-                    <article>
-                        <strong>{{ $globalBlock->subject_type === 'device' ? '设备' : 'IP' }}</strong>
-                        <code>{{ $globalBlock->subject_value }}</code>
-                        <span>{{ $globalBlock->administrator?->username ?: '系统' }} · {{ $globalBlock->created_at?->diffForHumans() }}{{ $globalBlock->note ? ' · '.$globalBlock->note : '' }}</span>
-                        <form method="post" action="{{ route('admin.risk-control.global-blocks.destroy', ['adminPath'=>$adminPath, 'globalBlock'=>$globalBlock]) }}">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" onclick="return confirm('确定解除该全软件封禁吗？')">解除</button>
-                        </form>
-                    </article>
-                @empty
-                    <p class="risk-feed-empty">暂无全软件封禁</p>
-                @endforelse
-            </div>
-        </section>
-    </div>
-
-    <div class="risk-center-panel" id="risk-center-devices" role="tabpanel" data-config-panel="devices" hidden>
-        @if($metrics['blocked_devices'] > 0)
-            <section class="system-settings-mode-note is-debug">
-                <strong>当前有 {{ $metrics['blocked_devices'] }} 台设备处于黑名单</strong>
-                <p>黑名单设备使用新卡密时也会进入隐藏响应，客户端统一显示“卡密不存在”；可在客户端请求日志中按完整卡密查询真实原因。</p>
-            </section>
-        @endif
-        <section class="dashboard-panel honeypot-device-panel">
-            <header><div><p class="eyebrow">DEVICE BLOCKLIST</p><h2>设备黑名单</h2></div><span>最近 50 条 · 全软件汇总</span></header>
-            <div class="honeypot-device-list">
-                @forelse($securityDeviceStates as $deviceState)
-                    @php($deviceDetail = $securityDeviceDetails[$deviceState->device_hash] ?? [])
-                    @php($deviceIdentifier = $deviceDetail['identifier'] ?? null)
-                    @php($loginCredential = $deviceDetail['credential'] ?? null)
-                    @php($loginCredentialType = $deviceDetail['credential_type'] ?? '授权来源')
-                    @php($blockedIp = $deviceDetail['ip'] ?? null)
-                    @php($deviceHashSummary = substr($deviceState->device_hash, 0, 12).'…'.substr($deviceState->device_hash, -8))
-                    <article>
-                        <div class="honeypot-device-identity">
-                            <small>{{ $deviceState->application?->code ? $deviceState->application->code.' · ' : '' }}{{ $deviceIdentifier ? '设备序列号' : '设备指纹' }}</small>
-                            <code title="{{ $deviceIdentifier ?: $deviceState->device_hash }}">{{ $deviceIdentifier ?: $deviceHashSummary }}</code>
-                            <i>{{ $deviceIdentifier ? '指纹 '.$deviceHashSummary : '绑定序列号待关联' }}</i>
-                        </div>
-                        <div class="honeypot-device-credential">
-                            <small>{{ $loginCredentialType }}</small>
-                            <code title="{{ $loginCredential ?: '历史记录未关联' }}">{{ $loginCredential ?: '历史记录未关联' }}</code>
-                        </div>
-                        <span>登录 IP {{ $blockedIp ?: '待关联' }} · {{ $deviceIdentifier ? '已关联绑定设备' : '摘要记录' }} · {{ $deviceState->reason_code ?: '—' }} · 风险分 {{ $deviceState->risk_score }} · {{ $deviceState->last_event_at?->diffForHumans() }}</span>
-                        <form class="honeypot-device-release" method="post" action="{{ route('admin.risk-control.device-states.status', ['adminPath'=>$adminPath,'deviceState'=>$deviceState]) }}">
-                            @csrf
-                            <select name="status" aria-label="处置等级" data-native-select>
-                                <option value="observe" @selected($deviceState->status === 'observe')>观察</option>
-                                <option value="quarantined" @selected($deviceState->status === 'quarantined')>重点观察</option>
-                                <option value="blocked" @selected($deviceState->status === 'blocked')>拉黑</option>
-                            </select>
-                            @if($deviceState->status === 'blocked')
-                                <select name="release_scope" aria-label="解除范围" data-native-select>
-                                    <option value="all">全部恢复</option>
-                                    <option value="device_only">仅解除设备</option>
-                                    <option value="device_credential">设备 + 卡密/账号</option>
-                                    <option value="device_ip">设备 + IP</option>
-                                </select>
-                            @endif
-                            <button type="submit" onclick="return confirm({{ $deviceState->status === 'blocked' ? "'将按选定范围调整处置等级，继续吗？'" : "'确认修改该设备的处置等级？改为拉黑时会同步拉黑关联 IP。'" }})">确认修改</button>
-                        </form>
-                    </article>
-                @empty
-                    <p class="risk-feed-empty">暂无设备黑名单</p>
-                @endforelse
-            </div>
-        </section>
-    </div>
-
-    <div class="risk-center-panel" id="risk-center-ips" role="tabpanel" data-config-panel="ips" hidden>
-        <x-admin.table-shell title="风险 IP 列表" subtitle="显示已被拉黑或进入风险档位的 IP，覆盖全部软件" panel-class="risk-table-panel">
-            <x-slot:search>
-                <form class="risk-filter" method="get">
-                    <label class="risk-filter-keyword"><span>IP 地址</span><input name="keyword" value="{{ request('keyword') }}" placeholder="输入完整或部分 IP"></label>
-                    <button class="button button-primary" type="submit">筛选</button>
-                    <a href="{{ route('admin.risk-control.center', ['adminPath'=>$adminPath]) }}#ips">重置</a>
-                </form>
-            </x-slot:search>
-            <table>
-                <thead><tr><th>软件</th><th>风险等级</th><th>IP 地址</th><th>窗口请求</th><th>累计请求</th><th>最近接口</th><th>最后出现</th><th>封禁状态</th><th class="risk-actions-column">处置</th></tr></thead>
-                <tbody>
-                @forelse($states as $state)
-                    <tr>
-                        <td>{{ $state->application?->code ?: '—' }}</td>
-                        <td><span class="risk-level-pill is-{{ $state->level }}"><i></i>{{ $state->level === 'high' ? '高级' : ($state->level === 'low' ? '低级' : '普通') }}</span></td>
-                        <td><strong class="risk-ip">{{ $state->ip }}</strong>@if($state->note)<small class="risk-note">{{ $state->note }}</small>@endif</td>
-                        <td><strong>{{ $state->window_attempts }}</strong> 次</td><td>{{ number_format($state->total_attempts) }}</td>
-                        <td><code>{{ $state->last_endpoint ?: '—' }}</code></td><td>{{ $state->last_seen_at?->format('m-d H:i:s') ?: '—' }}</td>
-                        <td>
-                            @if($state->permanently_blocked)<span class="risk-block-status is-blocked">长期封禁</span>
-                            @elseif($state->blocked_until?->isFuture())<span class="risk-block-status is-blocked">至 {{ $state->blocked_until->format('m-d H:i') }}</span>
-                            @else<span class="risk-block-status">观察中</span>@endif
-                        </td>
-                        <td>
-                            <div class="risk-action-menu">
-                                <button class="risk-action-trigger" type="button" data-risk-action-trigger aria-haspopup="menu" aria-expanded="false">处置 <span>⌄</span></button>
-                                <div class="risk-action-popover" data-risk-action-popover role="menu" hidden>
-                                @foreach(['reset'=>'解除并清零','set_low'=>'调整为低级','block_1h'=>'封禁 1 小时','block_24h'=>'封禁 24 小时','block_permanent'=>'长期封禁'] as $action => $label)
-                                    <form method="post" action="{{ route('admin.risk-control.states.action', ['adminPath'=>$adminPath,'state'=>$state]) }}">@csrf<input type="hidden" name="action" value="{{ $action }}"><button type="submit">{{ $label }}</button></form>
-                                @endforeach
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr><td class="empty-cell" colspan="9">当前筛选范围内没有风险 IP。</td></tr>
-                @endforelse
-                </tbody>
-            </table>
-            @if($states->hasPages())
-                <x-slot:footer>
-                    <div class="pager">{{ $states->links() }}</div>
-                </x-slot:footer>
-            @endif
-        </x-admin.table-shell>
-    </div>
-</div>
+        </div>
+    </form>
+</x-admin.window-dialog>
 @endsection

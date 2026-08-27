@@ -139,6 +139,7 @@ final class IpRiskControlService
                 'last_attempt_succeeded' => false,
                 'note' => '套卡探测 '.$errorCode.' 达到 '.$threshold.' 次 / '.$policy->invalid_card_window_seconds.' 秒',
             ])->save();
+            GlobalSecurityBlock::rememberIp($ip, 'C0', 'IP 已拉黑，全软件登录显示卡密不存在');
 
             if ($normalizedDevice !== '') {
                 $this->deviceStates->block($application, $normalizedDevice, 'C0');
@@ -177,7 +178,7 @@ final class IpRiskControlService
         $deviceHash = trim($deviceId) !== '' ? hash('sha256', trim($deviceId)) : null;
         $policy = $application->riskPolicy()->firstOrCreate([], $this->defaults());
 
-        return DB::transaction(function () use ($application, $ip, $ipHash, $deviceHash, $endpoint, $reasonCode, $policy): IpRiskState {
+        return DB::transaction(function () use ($application, $ip, $ipHash, $deviceId, $deviceHash, $endpoint, $reasonCode, $policy): IpRiskState {
             $state = IpRiskState::query()
                 ->where('application_id', $application->getKey())
                 ->where('ip_hash', $ipHash)
@@ -206,6 +207,10 @@ final class IpRiskControlService
                 'last_seen_at' => now(),
                 'note' => '客户端安全事件 '.$reasonCode.' 同步拉黑 IP',
             ])->save();
+            GlobalSecurityBlock::rememberIp($ip, $reasonCode, 'IP 已拉黑，全软件登录显示卡密不存在');
+            if (trim($deviceId) !== '') {
+                $this->deviceStates->block($application, $deviceId, $reasonCode);
+            }
 
             if (! $alreadyBlocked) {
                 RiskEvent::query()->create([
@@ -265,9 +270,9 @@ final class IpRiskControlService
     {
         if (! $this->operationalMode->isDebug()) {
             return ApiResponse::error(
-                'SERVER_UNAVAILABLE',
-                '服务器暂时故障，请稍后再试。',
-                503,
+                'INVALID_CARD',
+                '卡密不存在',
+                200,
                 request: $request,
             );
         }

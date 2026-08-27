@@ -14,6 +14,7 @@ use App\Models\IpRiskState;
 use App\Models\RiskEvent;
 use App\Risk\IpRiskControlService;
 use App\Support\OperationalMode;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -56,42 +57,75 @@ final class AdminRiskControlController extends Controller
         $administrator = Auth::guard('admin')->user();
         abort_unless($administrator instanceof Administrator, 401);
 
-        $deviceStates = ClientSecuritySubjectState::query()
-            ->with('application:id,public_id,code,name')
-            ->latest('last_event_at')
-            ->limit(50)
-            ->get();
-        $ipQuery = IpRiskState::query()->with('application:id,public_id,code,name')->where(function ($query): void {
-            $query->where('permanently_blocked', true)
-                ->orWhere('blocked_until', '>', now())
-                ->orWhereIn('level', ['low', 'high']);
-        });
-        $keyword = trim((string) $request->query('keyword', ''));
-        if ($keyword !== '') {
-            $ipQuery->where('ip', 'like', '%'.$keyword.'%');
+        $subjectType = (string) $request->query('subject_type', 'all');
+        if (! in_array($subjectType, ['all', 'device', 'ip'], true)) {
+            $subjectType = 'all';
         }
+        $keyword = trim((string) $request->query('keyword', ''));
+        $sort = (string) $request->query('sort', 'latest') === 'oldest' ? 'oldest' : 'latest';
+
+        $rows = $this->centerBlockRows();
+        if ($subjectType !== 'all') {
+            $rows = $rows->where('kind', $subjectType)->values();
+        }
+        if ($keyword !== '') {
+            $needle = mb_strtolower($keyword);
+            $rows = $rows->filter(function (array $row) use ($needle): bool {
+                return str_contains(mb_strtolower($row['value']), $needle)
+                    || str_contains(mb_strtolower((string) $row['related']), $needle);
+            })->values();
+        }
+        $rows = $sort === 'oldest'
+            ? $rows->sortBy('timestamp')->values()
+            : $rows->sortByDesc('timestamp')->values();
+
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 20;
+        $blocks = new LengthAwarePaginator(
+            $rows->forPage($page, $perPage)->values(),
+            $rows->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
+
+        $blockedDeviceHashes = ClientSecuritySubjectState::query()
+            ->where('status', 'blocked')
+            ->where(fn ($query) => $query->whereNull('blocked_until')->orWhere('blocked_until', '>', now()))
+            ->pluck('device_hash');
+        $globalDeviceHashes = GlobalSecurityBlock::query()->where('subject_type', 'device')->pluck('subject_hash');
 
         return view('admin.risk-control.center', [
             'appName' => $this->installation->applicationName(),
             'adminPath' => $adminPath,
             'administrator' => $administrator,
             'databaseHealthy' => true,
-            'globalBlocks' => GlobalSecurityBlock::query()->with('administrator:id,username')->latest()->limit(50)->get(),
-            'securityDeviceStates' => $deviceStates,
-            'securityDeviceDetails' => $this->resolveSecurityDeviceDetails($deviceStates),
-            'states' => $ipQuery->latest('last_seen_at')->paginate(20)->withQueryString(),
+            'blocks' => $blocks,
             'metrics' => [
-                'blocked_devices' => ClientSecuritySubjectState::query()
-                    ->where('status', 'blocked')
-                    ->where(fn ($query) => $query->whereNull('blocked_until')->orWhere('blocked_until', '>', now()))
+                'events_24h' => RiskEvent::query()->where('created_at', '>=', now()->subDay())->count()
+                    + ClientSecurityEvent::query()->where('created_at', '>=', now()->subDay())->count(),
+                'blocked_devices' => $blockedDeviceHashes->merge($globalDeviceHashes)->unique()->count(),
+                'blocked_ips' => GlobalSecurityBlock::query()->where('subject_type', 'ip')->pluck('subject_hash')
+                    ->merge(IpRiskState::query()->where(function ($query): void {
+                        $query->where('permanently_blocked', true)->orWhere('blocked_until', '>', now());
+                    })->pluck('ip_hash'))
+                    ->unique()
                     ->count(),
-                'blocked_ips' => IpRiskState::query()->where(function ($query): void {
-                    $query->where('permanently_blocked', true)->orWhere('blocked_until', '>', now());
-                })->count(),
-                'global_blocks' => GlobalSecurityBlock::query()->count(),
-                'events_24h' => RiskEvent::query()->where('created_at', '>=', now()->subDay())->count(),
             ],
         ]);
+    }
+
+    public function releaseSelected(Request $request, string $adminPath): RedirectResponse
+    {
+        $validated = $request->validate([
+            'block_keys' => ['required', 'array', 'min:1'],
+            'block_keys.*' => ['required', 'string'],
+        ]);
+        foreach ($validated['block_keys'] as $key) {
+            $this->releaseCenterRow((string) $key);
+        }
+
+        return back()->with('success', '已解除选定的封控。');
     }
 
     public function updatePolicy(Request $request, string $adminPath, Application $application): RedirectResponse
@@ -159,6 +193,15 @@ final class AdminRiskControlController extends Controller
             $state->note = $validated['note'];
         }
         $state->save();
+        if ($validated['action'] === 'block_permanent') {
+            GlobalSecurityBlock::rememberIp((string) $state->ip, 'ADMIN_BLOCK', $validated['note'] ?? 'IP 已拉黑，全软件登录显示卡密不存在');
+        }
+        if (in_array($validated['action'], ['reset', 'set_low'], true)) {
+            GlobalSecurityBlock::query()
+                ->where('subject_type', 'ip')
+                ->where('subject_hash', $state->ip_hash)
+                ->delete();
+        }
 
         $this->recordAdminAction($request, 'risk.ip_state_updated', 'ip_risk_state', $state->public_id, $state->application_id, $validated, '人工调整 IP 封控状态');
 
@@ -235,6 +278,21 @@ final class AdminRiskControlController extends Controller
                 'risk_score' => 0,
                 'reason_code' => 'ADMIN_RESET',
             ])->save();
+            GlobalSecurityBlock::query()
+                ->where('subject_type', 'device')
+                ->where('subject_hash', $lockedState->device_hash)
+                ->delete();
+            if ($releaseIp) {
+                $ipHashes = IpRiskState::query()
+                    ->where('last_device_hash', $lockedState->device_hash)
+                    ->pluck('ip_hash');
+                if ($ipHashes->isNotEmpty()) {
+                    GlobalSecurityBlock::query()
+                        ->where('subject_type', 'ip')
+                        ->whereIn('subject_hash', $ipHashes)
+                        ->delete();
+                }
+            }
 
             return compact('baselineEvents', 'cardsReleased', 'accountsReleased', 'sessionsReleased', 'ipsReleased');
         }, 3);
@@ -274,8 +332,8 @@ final class AdminRiskControlController extends Controller
                 'reason_code' => 'ADMIN_BLOCK',
                 'last_event_at' => now(),
             ])->save();
+            GlobalSecurityBlock::rememberDeviceHash($deviceState->device_hash, null, 'ADMIN_BLOCK', '设备已拉黑，全软件登录显示卡密不存在');
             IpRiskState::query()
-                ->where('application_id', $deviceState->application_id)
                 ->where('last_device_hash', $deviceState->device_hash)
                 ->update([
                     'level' => 'high',
@@ -284,6 +342,9 @@ final class AdminRiskControlController extends Controller
                     'note' => '后台将设备处置等级改为拉黑',
                     'updated_at' => now(),
                 ]);
+            foreach (IpRiskState::query()->where('last_device_hash', $deviceState->device_hash)->get(['ip']) as $relatedIp) {
+                GlobalSecurityBlock::rememberIp((string) $relatedIp->ip, 'ADMIN_BLOCK', '随设备拉黑，全软件登录显示卡密不存在');
+            }
             $this->recordAdminAction(
                 $request,
                 'risk.device_blocked',
@@ -408,7 +469,7 @@ final class AdminRiskControlController extends Controller
             '后台主动添加全软件封禁',
         );
 
-        return back()->with('success', '已按全软件范围拉黑'.($deviceSerial !== '' ? '设备' : '').($deviceSerial !== '' && $ip !== '' ? '和' : '').($ip !== '' ? 'IP' : '').'。');
+        return back()->with('success', '已拉黑，任意软件登录将显示卡密不存在。');
     }
 
     public function destroyGlobalBlock(Request $request, string $adminPath, GlobalSecurityBlock $globalBlock): RedirectResponse
@@ -417,7 +478,6 @@ final class AdminRiskControlController extends Controller
         if ($globalBlock->subject_type === 'device') {
             ClientSecuritySubjectState::query()
                 ->where('device_hash', $globalBlock->subject_hash)
-                ->where('reason_code', 'GLOBAL_BLOCK')
                 ->update([
                     'status' => 'observe',
                     'blocked_until' => null,
@@ -429,14 +489,13 @@ final class AdminRiskControlController extends Controller
         if ($globalBlock->subject_type === 'ip') {
             IpRiskState::query()
                 ->where('ip_hash', $globalBlock->subject_hash)
-                ->where('permanently_blocked', true)
                 ->update([
                     'level' => 'normal',
                     'permanently_blocked' => false,
                     'blocked_until' => null,
                     'window_attempts' => 0,
                     'recent_card_probes' => '[]',
-                    'note' => '解除全软件 IP 黑名单',
+                    'note' => '解除 IP 封控',
                     'updated_at' => now(),
                 ]);
         }
@@ -448,10 +507,10 @@ final class AdminRiskControlController extends Controller
             $snapshot['subject_hash'],
             0,
             $snapshot,
-            '解除全软件封禁',
+            '解除设备或 IP 封控',
         );
 
-        return back()->with('success', '已解除该全软件封禁。');
+        return back()->with('success', '已解除该封控。');
     }
 
     /**
@@ -514,19 +573,164 @@ final class AdminRiskControlController extends Controller
             ->get(['application_id', 'ip', 'last_device_hash']);
         foreach ($ipStates as $ipState) {
             $hash = (string) $ipState->last_device_hash;
-            if (! isset($details[$hash]) || $details[$hash]['ip'] !== null) {
+            if ($hash === '') {
                 continue;
             }
-            $matchingDeviceState = $deviceStates->first(
-                fn (ClientSecuritySubjectState $state): bool => (string) $state->device_hash === $hash
-                    && (int) $state->application_id === (int) $ipState->application_id,
-            );
-            if ($matchingDeviceState !== null) {
+            if (! isset($details[$hash])) {
+                $details[$hash] = [
+                    'identifier' => null,
+                    'credential_type' => null,
+                    'credential' => null,
+                    'ip' => null,
+                ];
+            }
+            if ($details[$hash]['ip'] === null) {
                 $details[$hash]['ip'] = (string) $ipState->ip;
             }
         }
 
         return $details;
+    }
+
+    /**
+     * @return Collection<int, array{key:string,kind:string,value:string,related:?string,reason:string,at:?\Carbon\CarbonInterface,timestamp:int}>
+     */
+    private function centerBlockRows(): Collection
+    {
+        $global = GlobalSecurityBlock::query()->latest()->get();
+        $deviceHashes = $global->where('subject_type', 'device')->pluck('subject_hash');
+        $ipHashes = $global->where('subject_type', 'ip')->pluck('subject_hash');
+
+        $blockedDevices = ClientSecuritySubjectState::query()
+            ->where('status', 'blocked')
+            ->where(fn ($query) => $query->whereNull('blocked_until')->orWhere('blocked_until', '>', now()))
+            ->latest('last_event_at')
+            ->get()
+            ->unique('device_hash')
+            ->values();
+        $details = $this->resolveSecurityDeviceDetails($blockedDevices);
+
+        $blockedIps = IpRiskState::query()
+            ->where(function ($query): void {
+                $query->where('permanently_blocked', true)->orWhere('blocked_until', '>', now());
+            })
+            ->latest('last_seen_at')
+            ->get()
+            ->unique('ip_hash')
+            ->values();
+
+        $rows = collect();
+        foreach ($global as $block) {
+            $related = null;
+            if ($block->subject_type === 'device') {
+                $related = $details[$block->subject_hash]['ip'] ?? IpRiskState::query()
+                    ->where('last_device_hash', $block->subject_hash)
+                    ->latest('last_seen_at')
+                    ->value('ip');
+                $related = $related ? '当时 IP '.$related : null;
+            } else {
+                $deviceHash = IpRiskState::query()->where('ip_hash', $block->subject_hash)->latest('last_seen_at')->value('last_device_hash');
+                $relatedDevice = $deviceHash ? ($details[$deviceHash]['identifier'] ?? GlobalSecurityBlock::query()
+                    ->where('subject_type', 'device')
+                    ->where('subject_hash', $deviceHash)
+                    ->value('subject_value')) : null;
+                $related = $relatedDevice ? '当时设备 '.$relatedDevice : null;
+            }
+            $at = $block->updated_at ?? $block->created_at;
+            $rows->push([
+                'key' => 'global:'.$block->getKey(),
+                'kind' => $block->subject_type,
+                'value' => (string) $block->subject_value,
+                'related' => $related,
+                'reason' => $this->blockReasonLabel((string) $block->reason, $block->note),
+                'at' => $at,
+                'timestamp' => $at?->getTimestamp() ?? 0,
+            ]);
+        }
+
+        foreach ($blockedDevices as $deviceState) {
+            if ($deviceHashes->contains($deviceState->device_hash)) {
+                continue;
+            }
+            $detail = $details[$deviceState->device_hash] ?? [];
+            $identifier = $detail['identifier'] ?? null;
+            $hashSummary = substr($deviceState->device_hash, 0, 12).'…'.substr($deviceState->device_hash, -8);
+            $relatedIp = $detail['ip'] ?? null;
+            $at = $deviceState->last_event_at ?? $deviceState->updated_at;
+            $rows->push([
+                'key' => 'device:'.$deviceState->getKey(),
+                'kind' => 'device',
+                'value' => $identifier ?: $hashSummary,
+                'related' => $relatedIp ? '当时 IP '.$relatedIp : null,
+                'reason' => $this->blockReasonLabel((string) $deviceState->reason_code, null),
+                'at' => $at,
+                'timestamp' => $at?->getTimestamp() ?? 0,
+            ]);
+        }
+
+        foreach ($blockedIps as $state) {
+            if ($ipHashes->contains($state->ip_hash)) {
+                continue;
+            }
+            $relatedDevice = null;
+            if (is_string($state->last_device_hash) && $state->last_device_hash !== '') {
+                $relatedDevice = $details[$state->last_device_hash]['identifier']
+                    ?? GlobalSecurityBlock::query()->where('subject_type', 'device')->where('subject_hash', $state->last_device_hash)->value('subject_value');
+            }
+            $at = $state->last_seen_at ?? $state->updated_at;
+            $rows->push([
+                'key' => 'ip:'.$state->getKey(),
+                'kind' => 'ip',
+                'value' => (string) $state->ip,
+                'related' => $relatedDevice ? '当时设备 '.$relatedDevice : null,
+                'reason' => $this->blockReasonLabel((string) ($state->note ?: $state->level), $state->note),
+                'at' => $at,
+                'timestamp' => $at?->getTimestamp() ?? 0,
+            ]);
+        }
+
+        return $rows->values();
+    }
+
+    private function releaseCenterRow(string $key): void
+    {
+        [$source, $id] = array_pad(explode(':', $key, 2), 2, '');
+        if ($source === 'global') {
+            $block = GlobalSecurityBlock::query()->find($id);
+            if ($block instanceof GlobalSecurityBlock) {
+                $this->destroyGlobalBlock(request(), (string) request()->route('adminPath'), $block);
+            }
+
+            return;
+        }
+        if ($source === 'device') {
+            $deviceState = ClientSecuritySubjectState::query()->find($id);
+            if ($deviceState instanceof ClientSecuritySubjectState) {
+                $request = request();
+                $request->merge(['status' => 'observe', 'release_scope' => 'device_only']);
+                $this->updateDeviceStatus($request, (string) $request->route('adminPath'), $deviceState);
+            }
+
+            return;
+        }
+        if ($source === 'ip') {
+            $state = IpRiskState::query()->find($id);
+            if ($state instanceof IpRiskState) {
+                $request = request();
+                $request->merge(['action' => 'reset']);
+                $this->stateAction($request, (string) $request->route('adminPath'), $state);
+            }
+        }
+    }
+
+    private function blockReasonLabel(string $reason, ?string $note): string
+    {
+        return match (true) {
+            in_array($reason, ['ADMIN_BLOCK', 'GLOBAL_BLOCK'], true) => '手动添加',
+            $reason === 'C0' || str_contains((string) $note, '套卡探测') => '套卡探测',
+            in_array($reason, ['D0', 'D1', 'R0', 'S0', 'T1'], true) || str_contains((string) $note, '客户端安全') => '蜜罐事件',
+            default => $note ?: ($reason !== '' ? $reason : '封控'),
+        };
     }
 
     /** @param array<string, mixed> $after */
