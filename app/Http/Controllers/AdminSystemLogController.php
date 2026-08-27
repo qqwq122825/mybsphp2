@@ -9,6 +9,7 @@ use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\AuditLog;
 use App\Models\Card;
+use App\Models\CardBatch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,7 @@ final class AdminSystemLogController extends Controller
 
         $logs = $query->orderBy('id', $sort)->paginate(30)->withQueryString();
         $clientTraceDetails = collect();
+        $cardMakingBatches = collect();
         if ($type === 'client-requests' && $clientLogMode === 'simple') {
             $requestIds = $logs->getCollection()
                 ->pluck('request_id')
@@ -62,6 +64,20 @@ final class AdminSystemLogController extends Controller
                     ->get()
                     ->unique('request_id')
                     ->keyBy('request_id');
+            }
+        }
+        if ($type === 'card-making') {
+            $batchIds = $logs->getCollection()
+                ->pluck('target_id')
+                ->filter(fn ($targetId): bool => is_string($targetId) && $targetId !== '')
+                ->unique()
+                ->values();
+            if ($batchIds->isNotEmpty()) {
+                $cardMakingBatches = CardBatch::query()
+                    ->with(['cardType.application:id,name'])
+                    ->whereIn('public_id', $batchIds)
+                    ->get()
+                    ->keyBy('public_id');
             }
         }
 
@@ -80,6 +96,7 @@ final class AdminSystemLogController extends Controller
             },
             'logs' => $logs,
             'clientTraceDetails' => $clientTraceDetails,
+            'cardMakingBatches' => $cardMakingBatches,
         ]);
     }
 

@@ -7,7 +7,10 @@
     @csrf
 </form>
 
-<x-admin.table-shell title="封控中心" subtitle="近 24 小时 {{ $metrics['events_24h'] }} 次 · 设备 {{ $metrics['blocked_devices'] }} · IP {{ $metrics['blocked_ips'] }}。拉黑后任意软件登录显示卡密不存在。" panel-class="bsphp-log-panel">
+<x-admin.table-shell title="封控中心" subtitle="设备或 IP 拉黑后，任意软件登录都显示卡密不存在。" panel-class="bsphp-log-panel">
+    <x-slot:headingMeta>
+        <p class="risk-center-metrics">近 24 小时 <b>{{ $metrics['events_24h'] }}</b> 次 · 设备 <b>{{ $metrics['blocked_devices'] }}</b> · IP <b>{{ $metrics['blocked_ips'] }}</b></p>
+    </x-slot:headingMeta>
     <x-slot:headingActions>
         <button class="button button-primary" type="button" data-window-open="add-risk-block">添加封禁</button>
     </x-slot:headingActions>

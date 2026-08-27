@@ -4344,7 +4344,11 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 
 .bsphp-log-panel { min-height:0; border:1px solid #e5e8ed; border-radius:12px; box-shadow:0 4px 14px rgba(42,58,93,.035); }
 .bsphp-log-panel > header { min-height:72px; padding:0 22px; }
+.bsphp-log-panel > header:has(.admin-table-shell-heading-meta) { align-items:flex-start; min-height:0; padding:16px 22px; }
 .bsphp-log-panel > header h2 { margin:0; font-size:17px; }
+.admin-table-shell-heading-meta { margin-top:8px; }
+.risk-center-metrics { margin:0; color:#8b94a7; font-size:13px; line-height:1.4; }
+.risk-center-metrics b { color:#202735; font-size:22px; font-weight:700; }
 .bsphp-log-filter { display:flex; align-items:center; justify-content:flex-start; gap:14px; padding:20px 30px; border-bottom:1px solid #e8ebf0; font-size:14px; }
 .bsphp-log-filter select,.bsphp-log-filter input { height:44px; min-width:0; padding:0 14px; border:1px solid #dfe3e9; border-radius:8px; background:#fff; font-size:14px; }
 .bsphp-log-filter select:first-of-type { width:220px; }

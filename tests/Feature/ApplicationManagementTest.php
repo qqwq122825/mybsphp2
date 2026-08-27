@@ -176,7 +176,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/agent/index.php', false)
             ->assertSee('激活码查询')
             ->assertSee('/activation-query', false)
-            ->assertSee('mybsphp.css?v=20260828-risk-center-table', false)
+            ->assertSee('mybsphp.css?v=20260828-log-attempt', false)
             ->assertSee('custom-select.js?v=20260812-select-scroll', false)
             ->assertSee('mybsphp.js?v=20260824-card-export-template-cache', false)
             ->assertDontSee('后台入口')
@@ -448,7 +448,7 @@ class ApplicationManagementTest extends TestCase
         $this->get('/private-console/system-logs/card-making')
             ->assertOk()
             ->assertSee('代理制卡日志')
-            ->assertSee('后台制卡成功，后台管理员UID:'.$administrator->getKey().'，2张')
+            ->assertSee('后台制卡成功，软件 游戏 iOS，卡类 贵宾年卡，后台管理员UID:'.$administrator->getKey().'，2张')
             ->assertDontSee('{&quot;batch_no&quot;', false);
 
         $maintenanceCard = $cardType->cards()->oldest('id')->firstOrFail();

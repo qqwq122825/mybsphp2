@@ -138,8 +138,8 @@ class AgentPortalTest extends TestCase
         $this->get('/private-console/system-logs/card-making')
             ->assertOk()
             ->assertSee($agent->username)
-            ->assertSee('代理制卡成功，代理UID:'.$agent->getKey().'，2张')
-            ->assertDontSee('代理制卡成功，代理UID:'.$administrator->getKey().'，2张');
+            ->assertSee('代理制卡成功，软件 测试软件，卡类 30天卡，代理UID:'.$agent->getKey().'，2张')
+            ->assertDontSee('代理制卡成功，软件 测试软件，卡类 30天卡，代理UID:'.$administrator->getKey().'，2张');
         $ownedCards = Card::query()->whereHas('batch', fn ($query) => $query->where('created_by_administrator_id', $agent->getKey()))->get();
         $this->assertCount(2, $ownedCards);
         $this->assertTrue($ownedCards->every(fn (Card $card): bool => $card->status === 'issued'));

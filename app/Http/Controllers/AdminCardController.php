@@ -639,6 +639,8 @@ final class AdminCardController extends Controller
             after: [
                 'batch_no' => $result['batch']->batch_no,
                 'quantity' => count($result['credentials']),
+                'application_name' => $cardType->application?->name,
+                'card_type_name' => $cardType->name,
             ],
             actorRole: $this->administrator()->role,
         ), $request);

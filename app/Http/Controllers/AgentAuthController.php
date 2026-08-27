@@ -6,6 +6,7 @@ use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
+use App\Models\AuditLog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -64,6 +65,14 @@ final class AgentAuthController extends Controller
             : '';
         if ($captchaEnabled && ($expectedCaptcha === '' || ! hash_equals($expectedCaptcha, (string) $validated['captcha']))) {
             $this->renewCaptcha($request);
+            $this->audit->record(new AuditEvent(
+                action: 'agent.login_failed',
+                targetType: 'administrator',
+                after: ['username' => $validated['username']],
+                reason: '图形验证码不正确',
+                result: 'failed',
+                actorRole: 'guest',
+            ), $request);
 
             return back()->withErrors(['captcha' => '图形验证码不正确。'])->onlyInput('username');
         }
@@ -73,19 +82,24 @@ final class AgentAuthController extends Controller
             if ($captchaEnabled) {
                 $this->renewCaptcha($request);
             }
+            $this->audit->record(new AuditEvent(
+                action: 'security.rate_limited',
+                targetType: 'administrator',
+                after: ['username' => $validated['username']],
+                reason: '代理登录尝试过多，请稍后重试',
+                result: 'failed',
+                actorRole: 'guest',
+            ), $request);
 
             return back()->withErrors(['login' => '登录尝试较多，请稍后重试。'])->onlyInput('username');
         }
 
         $agent = Administrator::query()
             ->where('username', $validated['username'])
-            ->where('status', 'active')
             ->first();
-        $valid = $agent instanceof Administrator
-            && ($agent->role === 'agent' || $agent->hasRole('agent'))
-            && Hash::check((string) $validated['password'], (string) $agent->password);
+        $failureReason = $this->agentLoginFailureReason($agent, (string) $validated['password']);
 
-        if (! $valid || ! $agent instanceof Administrator) {
+        if ($failureReason !== null) {
             RateLimiter::hit($rateKey, 900);
             if ($captchaEnabled) {
                 $this->renewCaptcha($request);
@@ -93,14 +107,19 @@ final class AgentAuthController extends Controller
             $this->audit->record(new AuditEvent(
                 action: 'agent.login_failed',
                 targetType: 'administrator',
-                targetId: $agent?->getKey() === null ? null : (string) $agent->getKey(),
-                after: ['username' => $validated['username']],
+                targetId: $agent instanceof Administrator ? (string) $agent->getKey() : null,
+                after: $failureReason === '密码不正确'
+                    ? AuditLog::withAttemptedSecret(['username' => $validated['username']], (string) $validated['password'])
+                    : ['username' => $validated['username']],
+                reason: $failureReason,
                 result: 'failed',
                 actorRole: 'guest',
             ), $request);
 
             return back()->withErrors(['login' => '代理账号或密码不正确。'])->onlyInput('username');
         }
+
+        abort_unless($agent instanceof Administrator, 500);
 
         RateLimiter::clear($rateKey);
         Auth::guard('agent')->login($agent);
@@ -136,6 +155,24 @@ final class AgentAuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('agent.login');
+    }
+
+    private function agentLoginFailureReason(?Administrator $agent, string $password): ?string
+    {
+        if (! $agent instanceof Administrator) {
+            return '账号不存在';
+        }
+        if ($agent->status !== 'active') {
+            return '账号已停用';
+        }
+        if (! ($agent->role === 'agent' || $agent->hasRole('agent'))) {
+            return '不是代理账号';
+        }
+        if (! Hash::check($password, (string) $agent->password)) {
+            return '密码不正确';
+        }
+
+        return null;
     }
 
     private function renewCaptcha(Request $request): string

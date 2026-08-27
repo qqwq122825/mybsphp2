@@ -6,6 +6,7 @@ use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
+use App\Models\AuditLog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -47,6 +48,14 @@ final class AdminAuthController extends Controller
         foreach ($keys as $key) {
             if (RateLimiter::tooManyAttempts($key, $maximum)) {
                 $seconds = RateLimiter::availableIn($key);
+                $this->audit->record(new AuditEvent(
+                    action: 'security.rate_limited',
+                    targetType: 'administrator',
+                    after: ['username' => $validated['username'], 'retry_after_seconds' => $seconds],
+                    reason: "后台登录尝试过多，请在 {$seconds} 秒后重试",
+                    result: 'failed',
+                    actorRole: 'guest',
+                ), $request);
 
                 return back()
                     ->withErrors(['login' => "尝试次数较多，请在 {$seconds} 秒后重试。"])
@@ -56,24 +65,10 @@ final class AdminAuthController extends Controller
 
         $administrator = Administrator::query()
             ->where('username', $validated['username'])
-            ->where('status', 'active')
             ->first();
+        $failureReason = $this->adminLoginFailureReason($administrator, $validated);
 
-        $valid = $administrator !== null
-            && Hash::check((string) $validated['password'], $administrator->password);
-
-        if (
-            $valid
-            && $administrator->secondary_password_required
-            && ! ($administrator->role === 'agent' || $administrator->hasRole('agent'))
-        ) {
-            $secondary = (string) ($validated['secondary_password'] ?? '');
-            $valid = $secondary !== ''
-                && is_string($administrator->secondary_password)
-                && Hash::check($secondary, $administrator->secondary_password);
-        }
-
-        if (! $valid || $administrator === null) {
+        if ($failureReason !== null) {
             foreach ($keys as $key) {
                 RateLimiter::hit($key, $decay);
             }
@@ -81,8 +76,9 @@ final class AdminAuthController extends Controller
             $this->audit->record(new AuditEvent(
                 action: 'admin.login_failed',
                 targetType: 'administrator',
-                targetId: $administrator === null ? null : (string) $administrator->getKey(),
-                after: ['username' => $validated['username']],
+                targetId: $administrator instanceof Administrator ? (string) $administrator->getKey() : null,
+                after: $this->failedLoginAfterData($validated, $failureReason),
+                reason: $failureReason,
                 result: 'failed',
                 actorRole: 'guest',
             ), $request);
@@ -96,6 +92,8 @@ final class AdminAuthController extends Controller
                 ->withErrors(['login' => '登录信息不正确。'])
                 ->onlyInput('username');
         }
+
+        abort_unless($administrator instanceof Administrator, 500);
 
         foreach ($keys as $key) {
             RateLimiter::clear($key);
@@ -138,6 +136,53 @@ final class AdminAuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/'.$adminPath);
+    }
+
+    /**
+     * @param  array{username: string, password: string, secondary_password?: string|null}  $validated
+     */
+    private function adminLoginFailureReason(?Administrator $administrator, array $validated): ?string
+    {
+        if (! $administrator instanceof Administrator) {
+            return '账号不存在';
+        }
+        if ($administrator->status !== 'active') {
+            return '账号已停用';
+        }
+        if (! Hash::check((string) $validated['password'], $administrator->password)) {
+            return '密码不正确';
+        }
+        if (
+            $administrator->secondary_password_required
+            && ! ($administrator->role === 'agent' || $administrator->hasRole('agent'))
+        ) {
+            $secondary = (string) ($validated['secondary_password'] ?? '');
+            if ($secondary === '') {
+                return '未填写二级密码';
+            }
+            if (! is_string($administrator->secondary_password) || ! Hash::check($secondary, $administrator->secondary_password)) {
+                return '二级密码不正确';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{username: string, password: string, secondary_password?: string|null}  $validated
+     * @return array<string, mixed>
+     */
+    private function failedLoginAfterData(array $validated, string $failureReason): array
+    {
+        $after = ['username' => $validated['username']];
+        if ($failureReason === '密码不正确') {
+            return AuditLog::withAttemptedSecret($after, (string) $validated['password']);
+        }
+        if ($failureReason === '二级密码不正确') {
+            return AuditLog::withAttemptedSecret($after, (string) ($validated['secondary_password'] ?? ''), 'secondary_password');
+        }
+
+        return $after;
     }
 
     /**

@@ -2,7 +2,13 @@
 
 <section {{ $attributes->class(['dashboard-panel', 'admin-table-shell', $panelClass]) }}>
     <header class="admin-table-shell-header">
-        <div><h2>{{ $title }}</h2>@if($subtitle)<small>{{ $subtitle }}</small>@endif</div>
+        <div>
+            <h2>{{ $title }}</h2>
+            @if($subtitle)<small>{{ $subtitle }}</small>@endif
+            @isset($headingMeta)
+                <div class="admin-table-shell-heading-meta">{{ $headingMeta }}</div>
+            @endisset
+        </div>
         <div class="admin-table-shell-heading-actions">
             @if($badge)<span class="admin-table-shell-badge">{{ $badge }}</span>@endif
             {{ $headingActions ?? '' }}

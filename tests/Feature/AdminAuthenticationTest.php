@@ -61,7 +61,11 @@ class AdminAuthenticationTest extends TestCase
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'admin.login_failed',
             'result' => 'failed',
+            'reason' => '密码不正确',
         ]);
+        $failedLogin = AuditLog::query()->where('action', 'admin.login_failed')->latest('id')->firstOrFail();
+        $this->assertNotSame('wrong-password', data_get($failedLogin->after_data, 'attempted_secret_ciphertext'));
+        $this->assertSame('wrong-password', $failedLogin->revealAttemptedLoginSecret());
 
         $this->post('/private-console/login', [
             'username' => 'admin',
@@ -97,7 +101,7 @@ class AdminAuthenticationTest extends TestCase
         $this->get('/private-console/system-logs/login')
             ->assertOk()
             ->assertSee('管理登录日志')
-            ->assertSee('admin.login')
+            ->assertSee('后台登录成功')
             ->assertSee('data-card-select-all', false)
             ->assertSee('name="log_ids[]"', false)
             ->assertSee('删除选定');
@@ -112,7 +116,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('data-table-density-toggle', false)
             ->assertSee('data-table-export', false)
             ->assertDontSee('<th>结果</th>', false);
-        $this->get('/private-console/system-logs/protection')->assertOk()->assertSee('系统安全防护日志')->assertSee('admin.login_failed');
+        $this->get('/private-console/system-logs/protection')->assertOk()->assertSee('系统安全防护日志')->assertSee('后台登录失败')->assertSee('密码不正确')->assertSee('查看尝试')->assertSee('data-attempted-username="admin"', false)->assertSee('data-attempted-secret="wrong-password"', false)->assertDontSee('admin.login_failed');
         $this->get('/private-console/system-logs/client-requests')
             ->assertOk()
             ->assertSee('客户端请求日志')
@@ -148,7 +152,10 @@ class AdminAuthenticationTest extends TestCase
         $this->get('/private-console/system-logs/protection')
             ->assertOk()
             ->assertSee('系统安全防护日志')
-            ->assertSee('admin.login_failed')
+            ->assertSee('后台登录失败')
+            ->assertSee('密码不正确')
+            ->assertSee('查看尝试')
+            ->assertDontSee('admin.login_failed')
             ->assertDontSee('DEVICE_MISMATCH')
             ->assertDontSee('203.0.113.8');
 

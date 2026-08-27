@@ -7,6 +7,7 @@
     $isCardMakingLog = $logType === 'card-making';
     $isClientRequestLog = $logType === 'client-requests';
     $isClientSimpleLog = $isClientRequestLog && $clientLogMode === 'simple';
+    $isProtectionLog = $logType === 'protection';
 @endphp
 <form id="system-log-maintenance-form" method="post" action="{{ route('admin.system-logs.maintenance', ['adminPath' => $adminPath, 'type' => $logType]) }}">
     @csrf
@@ -135,32 +136,35 @@
             @empty<tr><td class="empty-cell" colspan="7">当前暂无{{ $title }}数据，可先在系统信息设置中开启诊断开关。</td></tr>@endforelse
             </tbody>
             @else
-            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>编号</th><th>记录时间</th><th>登录ip</th><th>用户名/UID</th><th>信息</th>@unless($isCardMakingLog)<th>结果</th>@endunless</tr></thead>
+            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>编号</th><th>记录时间</th><th>登录ip</th><th>用户名/UID</th><th>信息</th>@unless($isCardMakingLog)<th>结果</th>@endunless @if($isProtectionLog)<th>处置</th>@endif</tr></thead>
             <tbody>
             @forelse($logs as $log)
                 <tr><td class="admin-select-column"><input type="checkbox" name="log_ids[]" value="{{ $log->id }}" form="system-log-maintenance-form" aria-label="选择日志 {{ $log->id }}" data-card-select></td><td>{{ $log->id }}</td><td>{{ $log->created_at?->format('Y-m-d H:i:s') }}</td><td>{{ $log->ip ?: '—' }}</td>
                     <td>{{ $log->actorAdministrator?->username ?: ($log->actor_user_id ?: ($log->actor_role_snapshot ?: '系统')) }}</td>
                     <td>
                         @if($isCardMakingLog)
-                            @php
-                                $quantity = (int) data_get($log->after_data, 'quantity', 0);
-                                $operatorId = $log->actor_user_id ?: '系统';
-                                $isAgentOperation = $log->actor_role_snapshot === 'agent' || str_starts_with($log->action, 'agent.');
-                                $operatorLabel = $isAgentOperation ? '代理UID' : '后台管理员UID';
-                                $makingMessage = match ($log->action) {
-                                    'card_batch.generated' => "后台制卡成功，后台管理员UID:{$operatorId}，{$quantity}张",
-                                    'agent.cards_purchased' => "代理制卡成功，代理UID:{$operatorId}，{$quantity}张",
-                                    default => ($log->reason ?: '充值卡维护完成')."，{$operatorLabel}:{$operatorId}",
-                                };
-                            @endphp
-                            {{ $makingMessage }}
+                            {{ $log->cardMakingSummary($cardMakingBatches->get($log->target_id)) }}
                         @else
-                            <strong>{{ $log->action }}</strong>{{ $log->reason ? '：'.$log->reason : '' }}
+                            <strong>{{ $log->displaySummary() }}</strong>
                         @endif
                     </td>
                     @unless($isCardMakingLog)<td><span class="log-result {{ $log->result === 'success' ? 'is-success' : 'is-danger' }}">{{ $log->result === 'success' ? '成功' : '拦截/失败' }}</span></td>@endunless
+                    @if($isProtectionLog)
+                        <td>
+                            @if($log->canRevealAttemptedLogin())
+                                <button type="button"
+                                        class="administrator-manage-button"
+                                        data-window-open="login-attempt-inspect"
+                                        data-attempted-username="{{ data_get($log->after_data, 'username', '') }}"
+                                        data-attempted-secret="{{ $log->revealAttemptedLoginSecret() }}"
+                                        data-attempted-field="{{ $log->attemptedLoginFieldLabel() }}">查看尝试</button>
+                            @else
+                                —
+                            @endif
+                        </td>
+                    @endif
                 </tr>
-            @empty<tr><td class="empty-cell" colspan="{{ $isCardMakingLog ? 6 : 7 }}">当前暂无{{ $title }}数据。</td></tr>@endforelse
+            @empty<tr><td class="empty-cell" colspan="{{ $isCardMakingLog ? 6 : ($isProtectionLog ? 8 : 7) }}">当前暂无{{ $title }}数据。</td></tr>@endforelse
             </tbody>
             @endif
         </table>
@@ -168,6 +172,37 @@
         <x-slot:footer><div class="pager">{{ $logs->links() }}</div></x-slot:footer>
     @endif
 </x-admin.table-shell>
+
+@if($isProtectionLog)
+<x-admin.window-dialog id="login-attempt-inspect" title="登录尝试内容" eyebrow="LOGIN ATTEMPT" :workspace="false" :maximized="false" class="risk-block-dialog">
+    <div class="administrator-create-rows">
+        <p class="administrator-create-note">仅用于核对是否有人在试密码，不会出现在列表里。</p>
+        <label class="administrator-create-row">
+            <strong>用户名</strong>
+            <code data-attempt-username>—</code>
+        </label>
+        <label class="administrator-create-row">
+            <strong data-attempt-field>密码</strong>
+            <code data-attempt-secret>—</code>
+        </label>
+        <div class="administrator-create-actions">
+            <button class="button button-secondary" type="button" data-window-action="close">关闭</button>
+        </div>
+    </div>
+</x-admin.window-dialog>
+<script>
+document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-window-open="login-attempt-inspect"]');
+    if (!(button instanceof HTMLButtonElement)) return;
+    const username = document.querySelector('[data-attempt-username]');
+    const secret = document.querySelector('[data-attempt-secret]');
+    const field = document.querySelector('[data-attempt-field]');
+    if (username instanceof HTMLElement) username.textContent = button.dataset.attemptedUsername || '—';
+    if (secret instanceof HTMLElement) secret.textContent = button.dataset.attemptedSecret || '—';
+    if (field instanceof HTMLElement) field.textContent = button.dataset.attemptedField || '密码';
+});
+</script>
+@endif
 
 @if($isClientRequestLog)
 <x-admin.window-dialog title="客户端请求详情" eyebrow="LOGIN.IC DIAGNOSTIC" :workspace="false" class="client-trace-dialog" data-client-trace-dialog>

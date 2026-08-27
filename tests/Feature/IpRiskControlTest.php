@@ -354,6 +354,8 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('封控对象')
                 ->assertSee('关联')
                 ->assertSee('data-window-open="add-risk-block"', false)
+                ->assertSee('risk-center-metrics', false)
+                ->assertSee('近 24 小时 <b>1</b> 次 · 设备 <b>1</b> · IP <b>1</b>', false)
                 ->assertSee('BLOCKED-DEVICE')
                 ->assertSee('2409:8a55:d336:d350:c5ac:6a09:45d4:572a')
                 ->assertSee('卡密不存在')

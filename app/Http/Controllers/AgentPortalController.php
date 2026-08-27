@@ -208,7 +208,13 @@ final class AgentPortalController extends Controller
             targetType: 'card_batch',
             targetId: (string) $result['batch']->public_id,
             applicationId: (int) $cardType->application_id,
-            after: ['quantity' => $quantity, 'total_cents' => $total, 'issue_mode' => 'immediate'],
+            after: [
+                'quantity' => $quantity,
+                'total_cents' => $total,
+                'issue_mode' => 'immediate',
+                'application_name' => $cardType->application?->name,
+                'card_type_name' => $cardType->name,
+            ],
             actorRole: 'agent',
         ), $request);
 
