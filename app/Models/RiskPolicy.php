@@ -17,6 +17,7 @@ class RiskPolicy extends Model
         'block_duration_minutes', 'low_action', 'decoy_value', 'block_http_status',
         'block_code', 'block_message', 'restart_grace_seconds', 'security_report_mode',
         'abnormal_exit_window_minutes', 'abnormal_exit_high_threshold',
+        'invalid_card_threshold', 'invalid_card_window_seconds',
     ];
 
     protected function casts(): array
@@ -31,6 +32,8 @@ class RiskPolicy extends Model
             'restart_grace_seconds' => 'integer',
             'abnormal_exit_window_minutes' => 'integer',
             'abnormal_exit_high_threshold' => 'integer',
+            'invalid_card_threshold' => 'integer',
+            'invalid_card_window_seconds' => 'integer',
         ];
     }
 

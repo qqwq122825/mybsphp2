@@ -236,6 +236,9 @@ final class LegacyGatewayController extends Controller
                     $errorResponse, $exception->errorCode,
                 );
             }
+            if ($exception instanceof CardActivationException) {
+                $risk->recordAuthFailureProbe($application, $request, $device, $exception->errorCode, 'legacy.'.$api);
+            }
 
             return $errorResponse;
         }

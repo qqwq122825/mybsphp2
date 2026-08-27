@@ -5,8 +5,11 @@ namespace App\Risk;
 use App\Applications\DailyVerificationCodec;
 use App\Http\ApiResponse;
 use App\Models\Application;
+use App\Models\ClientSecuritySubjectState;
+use App\Models\GlobalSecurityBlock;
 use App\Models\IpRiskState;
 use App\Models\RiskEvent;
+use App\Security\DeviceSecurityStateService;
 use App\Support\OperationalMode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,9 +18,13 @@ use Illuminate\Support\Str;
 
 final class IpRiskControlService
 {
+    /** @var list<string> */
+    public const CARD_PROBE_CODES = ['INVALID_CARD', 'EMPTY_CARD', 'INVALID_PARAMETERS'];
+
     public function __construct(
         private readonly DailyVerificationCodec $dailyCodec,
         private readonly OperationalMode $operationalMode,
+        private readonly DeviceSecurityStateService $deviceStates,
     ) {}
 
     public function evaluate(Application $application, Request $request, string $endpoint, string $deviceId = '', string $subjectProof = '', bool $restartEligible = false): RiskDecision
@@ -26,104 +33,130 @@ final class IpRiskControlService
         $ip = (string) ($request->ip() ?: '0.0.0.0');
         $ipHash = hash('sha256', $ip);
 
-        $deviceHash = trim($deviceId) !== '' ? hash('sha256', trim($deviceId)) : null;
-        $subjectHash = hash_hmac('sha256', $endpoint."\0".trim($deviceId)."\0".$subjectProof, (string) config('app.key'));
+        return DB::transaction(function () use ($application, $policy, $ip, $ipHash, $endpoint, $deviceId): RiskDecision {
+            $state = $this->lockIpState($application, $ip, $ipHash);
+            $globalIpBlocked = GlobalSecurityBlock::ipBlocked($ip);
+            $activeBlock = $state->permanently_blocked
+                || ($state->blocked_until !== null && $state->blocked_until->isFuture())
+                || $globalIpBlocked;
 
-        return DB::transaction(function () use ($application, $policy, $ip, $ipHash, $endpoint, $deviceId, $deviceHash, $subjectHash, $restartEligible): RiskDecision {
-            $state = IpRiskState::query()
-                ->where('application_id', $application->getKey())
-                ->where('ip_hash', $ipHash)
-                ->lockForUpdate()
-                ->first();
+            $this->touchState($state, $endpoint, $deviceId, false);
 
-            if (! $state instanceof IpRiskState) {
-                $state = IpRiskState::query()->create([
-                    'public_id' => (string) Str::ulid(),
-                    'application_id' => $application->getKey(),
-                    'ip' => $ip,
-                    'ip_hash' => $ipHash,
-                    'window_started_at' => now(),
-                ]);
-            }
-
-            $previousLevel = $state->level;
-
-            $activeManualBlock = $state->permanently_blocked
-                || ($state->blocked_until !== null && $state->blocked_until->isFuture());
-
-            if (! $policy->enabled && ! $activeManualBlock) {
-                $this->touchState($state, $endpoint, $deviceId, false);
-
-                return new RiskDecision('normal', 'allow', (int) $state->window_attempts, $policy, $state);
-            }
-
-            $now = now();
-            $cutoff = $now->getTimestamp() - $policy->window_seconds;
-            $recentAttempts = array_values(array_filter(
-                is_array($state->recent_attempt_timestamps) ? $state->recent_attempt_timestamps : [],
-                static fn (mixed $timestamp): bool => is_int($timestamp) && $timestamp > $cutoff,
-            ));
-            $withinGrace = $restartEligible
-                && (int) $policy->restart_grace_seconds > 0
-                && $recentAttempts !== []
-                && $state->last_attempt_succeeded === true
-                && $state->last_endpoint === $endpoint
-                && $state->last_device_hash !== null
-                && hash_equals((string) $state->last_device_hash, (string) $deviceHash)
-                && $state->last_subject_hash !== null
-                && hash_equals((string) $state->last_subject_hash, $subjectHash)
-                && $state->last_seen_at?->gte($now->copy()->subSeconds((int) $policy->restart_grace_seconds));
-            if (! $withinGrace) {
-                $recentAttempts[] = $now->getTimestamp();
-            }
-            $state->recent_attempt_timestamps = $recentAttempts;
-            $state->window_attempts = count($recentAttempts);
-            $state->window_started_at = $now->copy()->setTimestamp($recentAttempts[0]);
-            $state->total_attempts++;
-            $state->last_subject_hash = $subjectHash;
-            $state->last_attempt_succeeded = false;
-            $this->touchState($state, $endpoint, $deviceId);
-
-            $level = 'normal';
-            $action = 'allow';
-            $threshold = 0;
-            $reason = '窗口内请求正常';
-
-            if ($activeManualBlock || $state->window_attempts >= $policy->high_threshold) {
-                $level = 'high';
-                $action = 'block';
-                $threshold = $policy->high_threshold;
-                $reason = $activeManualBlock ? 'IP 位于封禁周期内' : '达到高级封控阈值';
-                if (! $state->permanently_blocked && ! $activeManualBlock) {
-                    $state->blocked_until = now()->addMinutes($policy->block_duration_minutes);
+            if ($activeBlock) {
+                $state->level = 'high';
+                if ($globalIpBlocked) {
+                    $state->permanently_blocked = true;
+                    $state->blocked_until = null;
+                    $state->note = $state->note ?: '命中全软件 IP 黑名单';
                 }
-            } elseif ($state->window_attempts >= $policy->low_threshold) {
-                $level = 'low';
-                $action = $policy->low_action === 'decoy' && filled($application->verificationData()) ? 'decoy' : 'observe';
-                $threshold = $policy->low_threshold;
-                $reason = $action === 'decoy' ? '达到低级封控阈值，替换验证数据' : '达到低级封控阈值，仅记录观察';
+                $state->save();
+
+                return new RiskDecision('high', 'block', (int) $state->window_attempts, $policy, $state);
             }
 
-            $state->level = $level;
+            if ($state->level !== 'normal' && $state->level !== 'high') {
+                $state->level = 'normal';
+            }
             $state->save();
 
-            if ($level !== 'normal' && $level !== $previousLevel) {
-                RiskEvent::query()->create([
-                    'public_id' => (string) Str::ulid(),
-                    'application_id' => $application->getKey(),
-                    'ip_risk_state_id' => $state->getKey(),
-                    'ip' => $ip,
-                    'level' => $level,
-                    'action' => $action,
-                    'endpoint' => $endpoint,
-                    'window_attempts' => $state->window_attempts,
-                    'threshold' => $threshold,
-                    'device_hash' => trim($deviceId) !== '' ? hash('sha256', trim($deviceId)) : null,
-                    'reason' => $reason,
-                ]);
+            return new RiskDecision((string) $state->level, 'allow', (int) $state->window_attempts, $policy, $state);
+        }, 3);
+    }
+
+    public function recordAuthFailureProbe(
+        Application $application,
+        Request $request,
+        string $deviceId,
+        string $errorCode,
+        string $endpoint = 'legacy.login.ic',
+    ): void {
+        if (! in_array($errorCode, self::CARD_PROBE_CODES, true)) {
+            return;
+        }
+
+        $policy = $application->riskPolicy()->firstOrCreate([], $this->defaults());
+        if (! $policy->enabled) {
+            return;
+        }
+
+        $ip = (string) ($request->ip() ?: '0.0.0.0');
+        $ipHash = hash('sha256', $ip);
+        $normalizedDevice = trim($deviceId);
+        $window = max(10, (int) ($policy->invalid_card_window_seconds ?: 60));
+        $threshold = max(2, (int) ($policy->invalid_card_threshold ?: 3));
+        $now = now()->getTimestamp();
+        $cutoff = $now - $window;
+
+        DB::transaction(function () use ($application, $policy, $ip, $ipHash, $normalizedDevice, $endpoint, $errorCode, $threshold, $now, $cutoff): void {
+            $state = $this->lockIpState($application, $ip, $ipHash);
+            $ipProbes = $this->pruneProbes($state->recent_card_probes, $cutoff);
+            $ipProbes[] = $now;
+            $state->recent_card_probes = $ipProbes;
+            $state->window_attempts = count($ipProbes);
+            $state->window_started_at = now()->copy()->setTimestamp($ipProbes[0]);
+            $state->total_attempts++;
+            $this->touchState($state, $endpoint, $normalizedDevice, false);
+
+            $deviceProbes = 0;
+            if ($normalizedDevice !== '') {
+                $deviceState = ClientSecuritySubjectState::query()
+                    ->where('application_id', $application->getKey())
+                    ->where('device_hash', hash('sha256', $normalizedDevice))
+                    ->lockForUpdate()
+                    ->first();
+                if (! $deviceState instanceof ClientSecuritySubjectState) {
+                    $deviceState = ClientSecuritySubjectState::query()->create([
+                        'application_id' => $application->getKey(),
+                        'device_hash' => hash('sha256', $normalizedDevice),
+                        'risk_score' => 0,
+                        'status' => 'observe',
+                        'last_event_at' => now(),
+                        'reason_code' => 'C0',
+                        'recent_card_probes' => [],
+                    ]);
+                }
+                $deviceProbeList = $this->pruneProbes($deviceState->recent_card_probes, $cutoff);
+                $deviceProbes = count($deviceProbeList) + 1;
+                $deviceProbeList[] = $now;
+                $deviceState->forceFill([
+                    'recent_card_probes' => $deviceProbeList,
+                    'last_event_at' => now(),
+                    'reason_code' => $deviceState->status === 'blocked' ? $deviceState->reason_code : 'C0',
+                ])->save();
             }
 
-            return new RiskDecision($level, $action, $state->window_attempts, $policy, $state);
+            $hitThreshold = count($ipProbes) >= $threshold || $deviceProbes >= $threshold;
+            if (! $hitThreshold) {
+                $state->save();
+
+                return;
+            }
+
+            $state->forceFill([
+                'level' => 'high',
+                'permanently_blocked' => true,
+                'blocked_until' => null,
+                'last_attempt_succeeded' => false,
+                'note' => '套卡探测 '.$errorCode.' 达到 '.$threshold.' 次 / '.$policy->invalid_card_window_seconds.' 秒',
+            ])->save();
+
+            if ($normalizedDevice !== '') {
+                $this->deviceStates->block($application, $normalizedDevice, 'C0');
+            }
+
+            RiskEvent::query()->create([
+                'public_id' => (string) Str::ulid(),
+                'application_id' => $application->getKey(),
+                'ip_risk_state_id' => $state->getKey(),
+                'ip' => $ip,
+                'level' => 'high',
+                'action' => 'block',
+                'endpoint' => $endpoint,
+                'window_attempts' => count($ipProbes),
+                'threshold' => $threshold,
+                'device_hash' => $normalizedDevice !== '' ? hash('sha256', $normalizedDevice) : null,
+                'reason' => '套卡探测命中：'.$errorCode.'，已拉黑当前设备与 IP',
+            ]);
         }, 3);
     }
 
@@ -262,7 +295,7 @@ final class IpRiskControlService
     {
         return [
             'enabled' => true,
-            'window_seconds' => 10,
+            'window_seconds' => 60,
             'low_threshold' => 6,
             'high_threshold' => 12,
             'block_duration_minutes' => 30,
@@ -274,7 +307,40 @@ final class IpRiskControlService
             'security_report_mode' => 'observe',
             'abnormal_exit_window_minutes' => 60,
             'abnormal_exit_high_threshold' => 8,
+            'invalid_card_threshold' => 3,
+            'invalid_card_window_seconds' => 60,
         ];
+    }
+
+    private function lockIpState(Application $application, string $ip, string $ipHash): IpRiskState
+    {
+        $state = IpRiskState::query()
+            ->where('application_id', $application->getKey())
+            ->where('ip_hash', $ipHash)
+            ->lockForUpdate()
+            ->first();
+
+        if ($state instanceof IpRiskState) {
+            return $state;
+        }
+
+        return IpRiskState::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'application_id' => $application->getKey(),
+            'ip' => $ip,
+            'ip_hash' => $ipHash,
+            'window_started_at' => now(),
+            'recent_card_probes' => [],
+        ]);
+    }
+
+    /** @param mixed $probes @return list<int> */
+    private function pruneProbes(mixed $probes, int $cutoff): array
+    {
+        return array_values(array_filter(
+            is_array($probes) ? $probes : [],
+            static fn (mixed $timestamp): bool => is_int($timestamp) && $timestamp > $cutoff,
+        ));
     }
 
     private function touchState(IpRiskState $state, string $endpoint, string $deviceId, bool $save = true): void

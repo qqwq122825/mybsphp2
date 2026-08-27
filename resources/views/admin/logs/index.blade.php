@@ -14,7 +14,7 @@
         <input type="hidden" name="view" value="{{ $clientLogMode }}">
     @endif
 </form>
-<x-admin.table-shell :title="$title" :subtitle="$isClientRequestLog ? ($isClientSimpleLog ? '日常自动记录；普通卡密错误与授权到期不进入此列表' : '仅在系统设置开启诊断后记录 login.ic') : ($isCardMakingLog ? null : '系统审计数据查询')" panel-class="bsphp-log-panel">
+<x-admin.table-shell :title="$title" :subtitle="$isClientRequestLog ? ($isClientSimpleLog ? '客户端登录失败与万能卡密事件；卡密不存在、空卡密、参数错误也会进入此列表' : '仅在系统设置开启诊断后记录 login.ic') : ($isCardMakingLog ? null : ($logType === 'protection' ? '后台登录失败、代理登录失败与系统封禁事件' : '系统审计数据查询'))" panel-class="bsphp-log-panel">
     <x-slot:search><x-admin.filter-bar button-label="⌕" :icon-only="true">
         @if($isClientRequestLog)
             <x-slot:hidden>

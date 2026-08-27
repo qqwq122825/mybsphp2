@@ -4,16 +4,24 @@ namespace App\Security;
 
 use App\Models\Application;
 use App\Models\ClientSecuritySubjectState;
+use App\Models\GlobalSecurityBlock;
 use Illuminate\Support\Facades\DB;
 
 final class DeviceSecurityStateService
 {
     public function isBlocked(Application $application, string $deviceId): bool
     {
-        if (trim($deviceId) === '') {
+        $normalized = trim($deviceId);
+        if ($normalized === '') {
             return false;
         }
-        $state = ClientSecuritySubjectState::query()->where('application_id', $application->getKey())->where('device_hash', $this->hash($deviceId))->first();
+        if (GlobalSecurityBlock::deviceBlocked($normalized)) {
+            return true;
+        }
+        $state = ClientSecuritySubjectState::query()
+            ->where('application_id', $application->getKey())
+            ->where('device_hash', $this->hash($normalized))
+            ->first();
 
         return $state?->status === 'blocked' && ($state->blocked_until === null || $state->blocked_until->isFuture());
     }

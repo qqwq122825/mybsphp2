@@ -61,6 +61,8 @@
                     <span>{{ $application->code }}-用户管理</span><i aria-hidden="true">×</i>
                 </span>
             @endif
+        @elseif (request()->routeIs('admin.risk-control.center'))
+            <span class="workspace-tab is-active" aria-current="page"><span>封控中心</span><i aria-hidden="true">×</i></span>
         @elseif (request()->routeIs('admin.risk-control.index'))
             <a class="workspace-tab" data-workspace-base-tab href="{{ route('admin.applications.index', ['adminPath' => $adminPath]) }}">
                 <span>软件管理</span><i aria-hidden="true">×</i>

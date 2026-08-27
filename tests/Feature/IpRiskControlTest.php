@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Applications\ApplicationCredentialService;
+use App\Applications\HybridPacketCipher;
 use App\Auth\SystemAccessSynchronizer;
 use App\Cards\CardCredentialHasher;
 use App\Install\InstallationManager;
@@ -20,22 +21,20 @@ use App\Models\SystemSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class IpRiskControlTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_production_login_silently_uses_decoy_then_disguises_high_control_as_server_failure(): void
+    public function test_successful_logins_do_not_trigger_ip_blocks(): void
     {
         $application = $this->application('REAL-VERIFICATION-VALUE');
         $application->riskPolicy()->create([
             'enabled' => true,
-            'window_seconds' => 60,
-            'low_threshold' => 2,
-            'high_threshold' => 3,
-            'block_duration_minutes' => 30,
-            'low_action' => 'decoy',
+            'invalid_card_threshold' => 3,
+            'invalid_card_window_seconds' => 60,
             'block_http_status' => 429,
             'block_code' => 'LOGIN_RATE_BLOCKED',
             'block_message' => '登录过于频繁。',
@@ -46,151 +45,194 @@ class IpRiskControlTest extends TestCase
         ])->assertCreated();
 
         $payload = ['username' => 'riskuser', 'password' => 'secret123', 'device_id' => 'RISK-DEVICE-001'];
-        $first = $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-            ->assertOk()->assertJsonMissingPath('data.payload');
-
-        $second = $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-            ->assertOk()->assertJsonMissingPath('data.risk_control');
-        $second->assertJsonMissingPath('data.payload');
-        $this->assertSame($first->json('data.account.expires_at'), $second->json('data.account.expires_at'));
-
-        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-            ->assertStatus(503)
-            ->assertHeaderMissing('Retry-After')
-            ->assertJsonPath('error.code', 'SERVER_UNAVAILABLE')
-            ->assertJsonPath('error.message', '服务器暂时故障，请稍后再试。')
-            ->assertJsonMissingPath('error.details');
-
-        $this->assertDatabaseHas('ip_risk_states', [
-            'application_id' => $application->getKey(), 'level' => 'high', 'window_attempts' => 3,
-        ]);
-        $this->assertDatabaseCount('risk_events', 2);
-    }
-
-    public function test_debug_mode_returns_plain_low_and_high_control_details(): void
-    {
-        SystemSetting::query()->create([
-            'key' => 'operational_mode', 'value' => 'debug', 'type' => 'string', 'group' => 'security',
-        ]);
-        $application = $this->application('DEBUG-VERIFICATION-VALUE');
-        $application->riskPolicy()->create([
-            'enabled' => true, 'window_seconds' => 60, 'low_threshold' => 2, 'high_threshold' => 3,
-            'block_duration_minutes' => 30, 'low_action' => 'decoy', 'block_http_status' => 429,
-            'block_code' => 'LOGIN_RATE_BLOCKED', 'block_message' => '登录过于频繁。',
-        ]);
-        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/register', [
-            'username' => 'debug-risk', 'password' => 'secret123', 'device_id' => 'DEBUG-RISK-DEVICE',
-        ])->assertCreated();
-        $payload = ['username' => 'debug-risk', 'password' => 'secret123', 'device_id' => 'DEBUG-RISK-DEVICE'];
-
-        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)->assertOk();
-        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-            ->assertOk()
-            ->assertJsonPath('data.risk_control.level', 'low')
-            ->assertJsonPath('data.risk_control.window_attempts', 2);
-        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-            ->assertStatus(429)
-            ->assertHeader('Retry-After')
-            ->assertJsonPath('error.code', 'LOGIN_RATE_BLOCKED')
-            ->assertJsonPath('error.details.control_level', 'high')
-            ->assertJsonPath('error.details.window_attempts', 3)
-            ->assertJsonPath('error.details.high_threshold', 3);
-    }
-
-    public function test_application_without_verification_data_uses_observation_at_low_level(): void
-    {
-        $application = $this->application('');
-        $application->riskPolicy()->create([
-            'enabled' => true, 'window_seconds' => 60, 'low_threshold' => 2, 'high_threshold' => 10,
-            'block_duration_minutes' => 30, 'low_action' => 'decoy', 'block_http_status' => 429,
-            'block_code' => 'ACCESS_TEMPORARILY_RESTRICTED', 'block_message' => '请求过于频繁。',
-        ]);
-        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/register', [
-            'username' => 'observer', 'password' => 'secret123', 'device_id' => 'OBSERVE-DEVICE',
-        ])->assertCreated();
-        $payload = ['username' => 'observer', 'password' => 'secret123', 'device_id' => 'OBSERVE-DEVICE'];
-        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)->assertOk();
-        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-            ->assertOk()->assertJsonMissingPath('data.payload');
-        $this->assertDatabaseHas('risk_events', ['application_id' => $application->getKey(), 'level' => 'low', 'action' => 'observe']);
-    }
-
-    public function test_active_session_restarts_are_deduplicated_but_failed_passwords_are_counted(): void
-    {
-        $application = $this->application('RESTART-VALUE');
-        $application->riskPolicy()->create([
-            'enabled' => true, 'window_seconds' => 10, 'restart_grace_seconds' => 4,
-            'low_threshold' => 5, 'high_threshold' => 7, 'block_duration_minutes' => 30,
-            'low_action' => 'observe', 'block_http_status' => 429,
-            'block_code' => 'ACCESS_TEMPORARILY_RESTRICTED', 'block_message' => '请求过于频繁。',
-        ]);
-        $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/register', [
-            'username' => 'restart-user', 'password' => 'secret123', 'device_id' => 'RESTART-DEVICE',
-        ])->assertCreated();
-        $payload = [
-            'username' => 'restart-user', 'password' => 'secret123', 'device_id' => 'RESTART-DEVICE',
-            'BSphpSeSsL' => str_repeat('r', 64),
-        ];
-        for ($i = 0; $i < 5; $i++) {
-            $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)->assertOk();
+        for ($i = 0; $i < 6; $i++) {
+            $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
+                ->assertOk()
+                ->assertJsonMissingPath('data.risk_control');
         }
-        $this->assertDatabaseHas('ip_risk_states', [
-            'application_id' => $application->getKey(), 'window_attempts' => 1, 'total_attempts' => 5,
+
+        $this->assertDatabaseMissing('ip_risk_states', [
+            'application_id' => $application->getKey(), 'level' => 'high',
+        ]);
+        $this->assertDatabaseCount('risk_events', 0);
+    }
+
+    public function test_three_invalid_card_probes_in_one_minute_block_device_and_ip(): void
+    {
+        [$application, $gateway] = $this->cardLoginApplication();
+        $application->riskPolicy()->create([
+            'enabled' => true,
+            'invalid_card_threshold' => 3,
+            'invalid_card_window_seconds' => 60,
+            'block_http_status' => 429,
+            'block_code' => 'CARD_PROBE_BLOCKED',
+            'block_message' => '套卡探测已拦截。',
+        ]);
+        $cipher = app(HybridPacketCipher::class);
+        $device = 'PROBE-DEVICE-001';
+
+        for ($i = 1; $i <= 2; $i++) {
+            $this->assertMaskedCardFailure($this->postJson($gateway, $cipher->sealRequestWithContext($application, http_build_query([
+                'api' => 'login.ic', 'icid' => 'FAKE-CARD-'.$i, 'key' => $device,
+                'appsafecode' => 'SAFE', 'BSphpSeSsL' => str_repeat((string) $i, 64),
+            ], '', '&', PHP_QUERY_RFC3986))['envelope']));
+        }
+        $this->assertDatabaseMissing('client_security_subject_states', [
+            'device_hash' => hash('sha256', $device), 'status' => 'blocked',
         ]);
 
-        for ($i = 0; $i < 4; $i++) {
-            $failed = $payload;
-            $failed['password'] = 'wrong-password-'.$i;
-            $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $failed)->assertStatus(401);
-        }
+        $this->assertMaskedCardFailure($this->postJson($gateway, $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => 'FAKE-CARD-3', 'key' => $device,
+            'appsafecode' => 'SAFE', 'BSphpSeSsL' => str_repeat('3', 64),
+        ], '', '&', PHP_QUERY_RFC3986))['envelope']));
+
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'application_id' => $application->getKey(),
+            'device_hash' => hash('sha256', $device),
+            'status' => 'blocked',
+            'reason_code' => 'C0',
+        ]);
         $this->assertDatabaseHas('ip_risk_states', [
-            'application_id' => $application->getKey(), 'window_attempts' => 5, 'total_attempts' => 9,
+            'application_id' => $application->getKey(),
+            'level' => 'high',
+            'permanently_blocked' => true,
+        ]);
+        $this->assertDatabaseHas('risk_events', [
+            'application_id' => $application->getKey(),
+            'level' => 'high',
+            'action' => 'block',
         ]);
     }
 
-    public function test_sliding_window_keeps_recent_requests_when_the_first_request_has_expired(): void
+    public function test_empty_and_malformed_card_errors_count_toward_probe_threshold(): void
     {
-        Carbon::setTestNow('2026-07-23 12:00:00');
+        [$application, $gateway] = $this->cardLoginApplication();
+        $application->riskPolicy()->create([
+            'enabled' => true,
+            'invalid_card_threshold' => 3,
+            'invalid_card_window_seconds' => 60,
+            'block_http_status' => 429,
+            'block_code' => 'CARD_PROBE_BLOCKED',
+            'block_message' => '套卡探测已拦截。',
+        ]);
+        $cipher = app(HybridPacketCipher::class);
+        $device = 'PROBE-EMPTY-DEVICE';
+
+        $this->postJson($gateway, $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => '', 'key' => $device, 'appsafecode' => 'SAFE',
+            'BSphpSeSsL' => str_repeat('a', 64),
+        ], '', '&', PHP_QUERY_RFC3986))['envelope'])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'EMPTY_CARD');
+
+        $this->postJson($gateway, $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => str_repeat('X', 65), 'key' => $device, 'appsafecode' => 'SAFE',
+            'BSphpSeSsL' => str_repeat('b', 64),
+        ], '', '&', PHP_QUERY_RFC3986))['envelope'])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'INVALID_PARAMETERS');
+
+        $this->assertMaskedCardFailure($this->postJson($gateway, $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => 'UNKNOWN-CARD', 'key' => $device, 'appsafecode' => 'SAFE',
+            'BSphpSeSsL' => str_repeat('c', 64),
+        ], '', '&', PHP_QUERY_RFC3986))['envelope']));
+
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'device_hash' => hash('sha256', $device), 'status' => 'blocked',
+        ]);
+        $this->assertDatabaseHas('ip_risk_states', [
+            'application_id' => $application->getKey(), 'permanently_blocked' => true,
+        ]);
+    }
+
+    public function test_probe_window_expiry_does_not_block_normal_retries(): void
+    {
+        Carbon::setTestNow('2026-08-28 12:00:00');
         try {
-            $application = $this->application('REAL-SLIDING-VALUE');
+            [$application, $gateway] = $this->cardLoginApplication();
             $application->riskPolicy()->create([
-                'enabled' => true, 'window_seconds' => 10, 'low_threshold' => 3, 'high_threshold' => 8,
-                'block_duration_minutes' => 30, 'low_action' => 'decoy', 'block_http_status' => 429,
-                'block_code' => 'ACCESS_TEMPORARILY_RESTRICTED', 'block_message' => '请求过于频繁。',
+                'enabled' => true,
+                'invalid_card_threshold' => 3,
+                'invalid_card_window_seconds' => 60,
+                'block_http_status' => 429,
+                'block_code' => 'CARD_PROBE_BLOCKED',
+                'block_message' => '套卡探测已拦截。',
             ]);
-            $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/register', [
-                'username' => 'slider', 'password' => 'secret123', 'device_id' => 'SLIDING-DEVICE',
-            ])->assertCreated();
-            $payload = ['username' => 'slider', 'password' => 'secret123', 'device_id' => 'SLIDING-DEVICE'];
-
-            $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-                ->assertOk()->assertJsonMissingPath('data.payload');
-
-            Carbon::setTestNow(now()->addSeconds(3));
-            $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-                ->assertOk()->assertJsonMissingPath('data.payload');
-
-            Carbon::setTestNow(now()->addSeconds(3));
-            $third = $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)->assertOk();
-            $third->assertJsonMissingPath('data.payload');
-
-            // 第 11 秒：第 0 秒请求移出，但第 3、6、11 秒仍是最近 10 秒内的 3 次。
-            Carbon::setTestNow(now()->addSeconds(5));
-            $fourth = $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)->assertOk();
-            $fourth->assertJsonMissingPath('data.payload');
-            $this->assertDatabaseHas('ip_risk_states', [
-                'application_id' => $application->getKey(), 'level' => 'low', 'window_attempts' => 3,
+            $cipher = app(HybridPacketCipher::class);
+            $device = 'PROBE-WINDOW-DEVICE';
+            foreach (['A', 'B'] as $suffix) {
+                $this->assertMaskedCardFailure($this->postJson($gateway, $cipher->sealRequestWithContext($application, http_build_query([
+                    'api' => 'login.ic', 'icid' => 'FAKE-'.$suffix, 'key' => $device,
+                    'appsafecode' => 'SAFE', 'BSphpSeSsL' => str_repeat($suffix, 64),
+                ], '', '&', PHP_QUERY_RFC3986))['envelope']));
+            }
+            Carbon::setTestNow(now()->addSeconds(61));
+            $this->assertMaskedCardFailure($this->postJson($gateway, $cipher->sealRequestWithContext($application, http_build_query([
+                'api' => 'login.ic', 'icid' => 'FAKE-C', 'key' => $device,
+                'appsafecode' => 'SAFE', 'BSphpSeSsL' => str_repeat('C', 64),
+            ], '', '&', PHP_QUERY_RFC3986))['envelope']));
+            $this->assertDatabaseMissing('client_security_subject_states', [
+                'device_hash' => hash('sha256', $device), 'status' => 'blocked',
             ]);
-
-            // 第 17 秒：窗口内只剩第 11、17 秒两次，自动恢复正常返回。
-            Carbon::setTestNow(now()->addSeconds(6));
-            $this->postJson('/api/v2/apps/'.$application->public_id.'/accounts/login', $payload)
-                ->assertOk()->assertJsonMissingPath('data.payload');
             $this->assertDatabaseHas('ip_risk_states', [
-                'application_id' => $application->getKey(), 'level' => 'normal', 'window_attempts' => 2,
+                'application_id' => $application->getKey(), 'permanently_blocked' => false,
             ]);
         } finally {
             Carbon::setTestNow();
+        }
+    }
+
+    public function test_manual_global_device_block_applies_to_all_applications(): void
+    {
+        app(SystemAccessSynchronizer::class)->sync();
+        $lockPath = storage_path('framework/testing/global-block.lock');
+        @unlink($lockPath);
+        config(['mybsphp.installed' => false, 'mybsphp.install_lock' => $lockPath]);
+        app(InstallationManager::class)->writeLock([
+            'admin_path' => 'private-console', 'app_name' => '风控测试后台', 'secondary_password_enabled' => false,
+        ]);
+        try {
+            $administrator = Administrator::query()->create([
+                'username' => 'global-admin', 'password' => 'secret', 'role' => 'super_admin', 'status' => 'active',
+            ]);
+            $administrator->roles()->attach(Role::query()->where('code', 'super_admin')->sole());
+            [$first] = $this->cardLoginApplication('100101');
+            [$second, $secondGateway] = $this->cardLoginApplication('100102');
+            $this->actingAs($administrator, 'admin');
+
+            $this->post('/private-console/risk-control/global-blocks', [
+                'device_serial' => 'GLOBAL-SERIAL-001',
+                'ip' => '203.0.113.88',
+                'note' => '人工全软件封禁',
+            ])->assertRedirect()->assertSessionHas('success');
+
+            $this->assertDatabaseHas('global_security_blocks', [
+                'subject_type' => 'device',
+                'subject_hash' => hash('sha256', 'GLOBAL-SERIAL-001'),
+                'subject_value' => 'GLOBAL-SERIAL-001',
+            ]);
+            $this->assertDatabaseHas('global_security_blocks', [
+                'subject_type' => 'ip',
+                'subject_value' => '203.0.113.88',
+            ]);
+            $this->assertDatabaseHas('client_security_subject_states', [
+                'application_id' => $first->getKey(),
+                'device_hash' => hash('sha256', 'GLOBAL-SERIAL-001'),
+                'status' => 'blocked',
+            ]);
+            $this->assertDatabaseHas('client_security_subject_states', [
+                'application_id' => $second->getKey(),
+                'device_hash' => hash('sha256', 'GLOBAL-SERIAL-001'),
+                'status' => 'blocked',
+            ]);
+
+            $cipher = app(HybridPacketCipher::class);
+            $this->assertMaskedCardFailure($this->postJson($secondGateway, $cipher->sealRequestWithContext($second, http_build_query([
+                'api' => 'login.ic', 'icid' => 'ANY-CARD-CODE', 'key' => 'GLOBAL-SERIAL-001',
+                'appsafecode' => 'SAFE', 'BSphpSeSsL' => str_repeat('g', 64),
+            ], '', '&', PHP_QUERY_RFC3986))['envelope']));
+        } finally {
+            @unlink($lockPath);
         }
     }
 
@@ -271,33 +313,33 @@ class IpRiskControlTest extends TestCase
                 ->assertOk()
                 ->assertSee($application->code.'-封控设置')
                 ->assertSee('data-workspace-bootstrap-title="'.$application->code.'-封控设置"', false)
-                ->assertSee('data-workspace-follow', false)
                 ->assertSee($application->name.' · 封控设置')
-                ->assertSee('请求频率封控')
-                ->assertSee('客户端蜜罐封控')
-                ->assertSee('心跳和安全上报不计入此处')
-                ->assertSee('最近 10 秒滚动窗口')
-                ->assertSee('请求 4 · 仍计 3 次')
+                ->assertSee('套卡探测')
+                ->assertSee('蜜罐策略')
+                ->assertSee('只统计卡密不存在、空卡密、乱输入')
+                ->assertSee('正常登录不计入')
                 ->assertDontSee('当前软件策略')
                 ->assertSee('上线运行：谨慎响应')
                 ->assertDontSee('返回软件配置')
                 ->assertDontSee('/private-console/applications/'.$application->public_id.'/edit', false)
-                ->assertSee('低级封控')
-                ->assertSee('高级封控')
-                ->assertSee('IP 封控')
-                ->assertSee('蜜罐封控')
-                ->assertDontSee('蜜罐事件与异常退出策略')
-                ->assertSee('风险 IP 列表')
-                ->assertSee('data-risk-action-trigger', false)
-                ->assertSee('data-risk-action-popover', false)
-                ->assertDontSee('<details class="risk-action-menu"', false);
-
-            $this->get('/private-console/risk-control?application='.$application->public_id.'&tab=honeypot')
-                ->assertOk()
+                ->assertSee('software-config-form', false)
+                ->assertSee('software-basic-row', false)
                 ->assertSee('蜜罐事件与异常退出策略')
+                ->assertSee('封控中心')
+                ->assertSee('/private-console/risk-control/center', false)
+                ->assertDontSee('主动添加封禁')
+                ->assertDontSee('设备黑名单')
+                ->assertDontSee('风险 IP 列表')
+                ->assertDontSee('BLOCKED-DEVICE')
+                ->assertDontSee('data-risk-action-trigger', false);
+
+            $this->get('/private-console/risk-control/center')
+                ->assertOk()
+                ->assertSee('封控中心')
+                ->assertSee('主动添加封禁')
                 ->assertSee('设备黑名单')
+                ->assertSee('风险 IP 列表')
                 ->assertSee('当前有 1 台设备处于黑名单')
-                ->assertSee('客户端序列号')
                 ->assertSee('设备序列号')
                 ->assertSee('BLOCKED-DEVICE')
                 ->assertSee('已关联绑定设备')
@@ -308,13 +350,20 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('使用新卡密时也会进入隐藏响应')
                 ->assertSee('客户端统一显示“卡密不存在”')
                 ->assertSee('按完整卡密查询真实原因')
+                ->assertSee('全软件拉黑')
+                ->assertSee('处置等级')
+                ->assertSee('观察')
+                ->assertSee('拉黑')
                 ->assertSee('全部恢复')
                 ->assertSee('仅解除设备')
                 ->assertSee('设备 + 卡密/账号')
                 ->assertSee('设备 + IP')
-                ->assertSee('确认解除')
+                ->assertSee('确认修改')
+                ->assertSee('name="status" aria-label="处置等级" data-native-select', false)
                 ->assertSee('name="release_scope" aria-label="解除范围" data-native-select', false)
-                ->assertDontSee('风险 IP 列表');
+                ->assertSee('data-risk-action-trigger', false)
+                ->assertSee('data-risk-action-popover', false)
+                ->assertDontSee('<details class="risk-action-menu"', false);
 
             $this->post('/private-console/risk-control/device-states/'.$deviceState->getKey().'/unblock', [
                 'release_scope' => 'device_only',
@@ -334,6 +383,13 @@ class IpRiskControlTest extends TestCase
             ]);
             $this->assertDatabaseHas('application_client_sessions', [
                 'id' => $securitySession->getKey(), 'status' => 'security_blocked',
+            ]);
+
+            $this->post('/private-console/risk-control/device-states/'.$deviceState->getKey().'/status', [
+                'status' => 'blocked',
+            ])->assertRedirect()->assertSessionHas('success');
+            $this->assertDatabaseHas('client_security_subject_states', [
+                'id' => $deviceState->getKey(), 'status' => 'blocked', 'reason_code' => 'ADMIN_BLOCK',
             ]);
 
             // 再次标记为黑名单后选择全部恢复，联动解除卡密和 IP。
@@ -365,16 +421,16 @@ class IpRiskControlTest extends TestCase
             $this->assertSame(0, data_get($securityEvent->evidence, 'effective_count'));
 
             $this->put('/private-console/risk-control/applications/'.$application->public_id.'/policy', [
-                'enabled' => '1', 'window_seconds' => 90, 'low_threshold' => 5, 'high_threshold' => 11,
-                'block_duration_minutes' => 120, 'low_action' => 'observe', 'decoy_value' => '',
-                'security_report_mode' => 'disabled',
+                'enabled' => '1',
+                'invalid_card_threshold' => 3,
+                'invalid_card_window_seconds' => 60,
                 'block_http_status' => 403, 'block_code' => 'RISK_BLOCKED', 'block_message' => '当前访问受限。',
             ])->assertRedirect()->assertSessionHas('success');
 
             $this->assertDatabaseHas('risk_policies', [
-                'application_id' => $application->getKey(), 'window_seconds' => 90,
-                'low_threshold' => 5, 'high_threshold' => 11, 'low_action' => 'observe',
-                'security_report_mode' => 'disabled',
+                'application_id' => $application->getKey(),
+                'invalid_card_threshold' => 3,
+                'invalid_card_window_seconds' => 60,
             ]);
             $this->put('/private-console/risk-control/applications/'.$application->public_id.'/security-policy', [
                 'security_report_mode' => 'enforce',
@@ -413,5 +469,35 @@ class IpRiskControlTest extends TestCase
         $application->legacyConfig()->create($application->legacyLoginDefaults());
 
         return $application;
+    }
+
+    /** @return array{0: Application, 1: string} */
+    private function cardLoginApplication(string $code = ''): array
+    {
+        $credentials = app(ApplicationCredentialService::class)->generate();
+        $application = Application::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'code' => $code !== '' ? $code : (string) random_int(800000, 899999),
+            'name' => '套卡探测软件',
+            'mode' => 'card_login',
+            'entitlement_kind' => 'duration',
+            'status' => 'active',
+            'payload_mode' => 'constant',
+            'payload_value_ciphertext' => '0x100000',
+            'client_secret_hash' => hash('sha256', $credentials['communication_key_ciphertext']),
+            'bind_device_enabled' => true,
+            'max_bound_devices' => 1,
+            'max_concurrent_sessions' => 1,
+            ...$credentials,
+        ]);
+        $application->legacyConfig()->create($application->legacyLoginDefaults());
+
+        return [$application, '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token];
+    }
+
+    private function assertMaskedCardFailure(TestResponse $response): void
+    {
+        $response->assertOk()->assertJsonPath('error.code', 'INVALID_CARD');
+        $response->assertJsonPath('error.message', '卡密不存在');
     }
 }

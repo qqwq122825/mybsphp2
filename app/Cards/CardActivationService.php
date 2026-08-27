@@ -32,6 +32,11 @@ final class CardActivationService
         string $sessionHandle = '',
     ): array {
         return DB::transaction(function () use ($requestedApplication, $code, $secret, $deviceId, $appsafecode, $sessionHandle): array {
+            $normalizedDevice = trim($deviceId);
+            if ($normalizedDevice !== '' && $this->deviceStates->isBlocked($requestedApplication, $normalizedDevice)) {
+                throw new CardActivationException('DEVICE_BLOCKED', '设备已进入安全封控。', 403);
+            }
+
             $card = Card::query()
                 ->with(['application', 'cardType'])
                 ->where('application_id', $requestedApplication->getKey())

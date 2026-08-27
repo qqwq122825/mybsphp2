@@ -1,6 +1,6 @@
 <nav aria-label="管理后台导航">
     @canany(['dashboard.view', 'online_users.view', 'risk.view', 'audit.view', 'administrators.view', 'administrators.create'])
-        <details class="nav-group" {{ request()->routeIs('admin.dashboard', 'admin.system-logs.*', 'admin.administrators.*') ? 'open' : '' }}>
+        <details class="nav-group" {{ request()->routeIs('admin.dashboard', 'admin.system-logs.*', 'admin.administrators.*', 'admin.risk-control.center') ? 'open' : '' }}>
             <summary title="控制台">
                 <span class="nav-group-label">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -16,6 +16,8 @@
                 @endcan
                 @can('online_users.view')<a href="#online">在线用户管理</a>@endcan
                 @can('risk.view')
+                    <a class="{{ request()->routeIs('admin.risk-control.center') ? 'is-active' : '' }}"
+                       href="{{ route('admin.risk-control.center', ['adminPath' => $adminPath]) }}">封控中心</a>
                 @endcan
                 @can('audit.view')
                     <details class="nav-subgroup" {{ request()->routeIs('admin.system-logs.*') ? 'open' : '' }}>

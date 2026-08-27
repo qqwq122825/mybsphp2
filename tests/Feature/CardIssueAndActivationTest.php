@@ -531,7 +531,7 @@ class CardIssueAndActivationTest extends TestCase
             'secret' => 'WRONG-SECRET',
             'device_id' => 'IOS-DEVICE-001',
         ]));
-        $this->assertDatabaseMissing('audit_logs', ['action' => 'client.auth_failure_masked']);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'client.auth_failure_masked']);
 
         $this->postJson('/__testing/card-activate', [
             'code' => $credential['code'],

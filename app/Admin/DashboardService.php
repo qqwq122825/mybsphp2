@@ -72,8 +72,8 @@ final class DashboardService
             'today_cards' => Card::query()->whereDate('activated_at', today())->count(),
             'today_consumption' => 0,
             'today_recharge' => 0,
-            'security_today' => AuditLog::query()->whereDate('created_at', today())->where('result', '!=', 'success')->count(),
-            'security_week' => AuditLog::query()->where('created_at', '>=', now()->subDays(7))->where('result', '!=', 'success')->count(),
+            'security_today' => AuditLog::query()->whereDate('created_at', today())->whereIn('action', ['admin.login_failed', 'agent.login_failed', 'security.blocked', 'security.rate_limited'])->count(),
+            'security_week' => AuditLog::query()->where('created_at', '>=', now()->subDays(7))->whereIn('action', ['admin.login_failed', 'agent.login_failed', 'security.blocked', 'security.rate_limited'])->count(),
             'api_today' => AuditLog::query()->whereDate('created_at', today())->where('action', 'like', 'api.%')->where('result', '!=', 'success')->count(),
             'api_week' => AuditLog::query()->where('created_at', '>=', now()->subDays(7))->where('action', 'like', 'api.%')->where('result', '!=', 'success')->count(),
         ];

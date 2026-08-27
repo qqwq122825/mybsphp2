@@ -2643,7 +2643,29 @@ select:not([multiple]):not([data-native-select]):focus {
 .software-basic-row-textarea { align-items: start; padding: 12px 0; }
 .software-basic-row-textarea > strong { padding-top: 12px; }
 .software-basic-row-textarea > small { padding-top: 12px; }
-.software-invite-time { width: 100%; }
+.software-invite-time,
+.software-basic-row > .honeypot-unit-input,
+.software-basic-row > .inline-unit-input { width: 100%; }
+.software-config-tabs.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.software-settings-heading .button { flex-shrink: 0; }
+.software-config-panel .form-submit-bar {
+    margin: 0 -22px 0;
+    padding: 12px 22px;
+    border: 0;
+    border-top: 1px solid #e6eaf1;
+    border-radius: 0;
+    background: #fbfcfe;
+    box-shadow: none;
+}
+.risk-center-form { overflow: visible; }
+.risk-center-panel { padding: 8px 22px 22px; }
+.risk-center-panel .dashboard-panel,
+.risk-center-panel .risk-table-panel {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
 .verification-basic-rows { padding-bottom: 16px !important; }
 .verification-basic-rows .software-basic-row { border-bottom: 0; }
 
@@ -6253,7 +6275,7 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 .honeypot-event-panel .risk-feed-list article .risk-feed-badge { height: 32px; min-height: 32px; max-height: 32px; padding: 0 11px; font-size: 13px; }
 .honeypot-device-panel { margin-top: 14px; }
 .honeypot-device-list { padding: 0 18px 16px; }
-.honeypot-device-list article { display: grid; grid-template-columns: minmax(210px,1.1fr) minmax(190px,.9fr) minmax(260px,1.15fr) 58px 184px; align-items: center; gap: 16px; min-height: 118px; padding: 18px 0; border-bottom: 1px solid #edf0f5; }
+.honeypot-device-list article { display: grid; grid-template-columns: minmax(210px,1.1fr) minmax(190px,.9fr) minmax(260px,1.15fr) 184px; align-items: center; gap: 16px; min-height: 118px; padding: 18px 0; border-bottom: 1px solid #edf0f5; }
 .honeypot-device-identity { display: grid; min-width: 0; gap: 3px; }
 .honeypot-device-identity small, .honeypot-device-credential small { color: #9a86aa; font-size: 8px; font-weight: 900; letter-spacing: .08em; }
 .honeypot-device-identity code, .honeypot-device-credential code { overflow-wrap: anywhere; color: #5d3d78; font-weight: 800; }
@@ -6267,6 +6289,18 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 .honeypot-device-release select { width: 100%; min-height: 38px; padding: 6px 30px 6px 11px; border: 1px solid #d8c8e7; border-radius: 8px; outline: 0; background-color: #fff; color: #65437f; font-size: 11px; font-weight: 750; cursor: pointer; }
 .honeypot-device-release select:focus { border-color: #a98ac4; box-shadow: 0 0 0 3px rgba(117,68,156,.08); }
 .honeypot-device-release button { width: 100%; min-height: 38px; font-size: 11px; font-weight: 800; }
+.honeypot-global-block-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 12px; align-items: end; padding: 0 18px 16px; }
+.honeypot-global-block-form label { display: grid; gap: 6px; }
+.honeypot-global-block-form span { color: #9a86aa; font-size: 8px; font-weight: 900; letter-spacing: .08em; }
+.honeypot-global-block-form input { min-height: 38px; padding: 0 11px; border: 1px solid #d8c8e7; border-radius: 8px; }
+.honeypot-global-block-form .button { min-height: 38px; white-space: nowrap; }
+.honeypot-global-block-error { margin: 0 18px 12px; color: #b43f52; font-size: 12px; }
+.honeypot-global-block-list { padding: 0 18px 16px; }
+.honeypot-global-block-list article { display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(160px, .8fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid #edf0f5; }
+.honeypot-global-block-list strong { color: #75449c; font-size: 11px; }
+.honeypot-global-block-list code { overflow-wrap: anywhere; color: #5d3d78; font-weight: 800; }
+.honeypot-global-block-list span { color: #8490a3; font-size: 10px; }
+.honeypot-global-block-list button { padding: 6px 10px; border: 1px solid #d8c8e7; border-radius: 7px; background: #fff; color: #75449c; cursor: pointer; }
 
 @media (max-width: 1100px) {
     .risk-layout { grid-template-columns: 1fr; }
@@ -6275,8 +6309,12 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
     .honeypot-policy-action { align-self: end; padding-top: 0; justify-items: stretch; }
     .honeypot-policy-action .button { width: 100%; }
     .honeypot-metric-grid { grid-template-columns: repeat(2,1fr); }
-    .honeypot-device-list article { grid-template-columns: minmax(190px,1fr) minmax(180px,1fr) minmax(210px,1fr) 58px; }
+    .honeypot-device-list article { grid-template-columns: minmax(190px,1fr) minmax(180px,1fr) minmax(210px,1fr) 184px; }
     .honeypot-device-list article form { grid-column: 4; }
+    .honeypot-global-block-form { grid-template-columns: 1fr 1fr; }
+    .honeypot-global-block-form .button { grid-column: 1 / -1; }
+    .honeypot-global-block-list article { grid-template-columns: 52px minmax(0,1fr) auto; }
+    .honeypot-global-block-list span { grid-column: 1 / -1; }
 }
 
 @media (max-width: 700px) {

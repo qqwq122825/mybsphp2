@@ -82,6 +82,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertDontSee('卡密管理')
             ->assertSee('账号管理')
             ->assertSee('系统配置')
+            ->assertSee('封控中心')
             ->assertDontSee('风险事件')
             ->assertSee('管理登录日志')
             ->assertSee('系统制卡日志')
@@ -117,7 +118,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('客户端请求日志')
             ->assertSee('详细请求')
             ->assertDontSee('客户端日志模式')
-            ->assertSee('普通卡密错误与授权到期不进入此列表');
+            ->assertSee('卡密不存在、空卡密、参数错误也会进入此列表');
 
         AuditLog::query()->create([
             'public_id' => (string) Str::ulid(),
@@ -143,6 +144,13 @@ class AdminAuthenticationTest extends TestCase
             'reason' => '设备对比测试',
             'result' => 'failed',
         ]);
+
+        $this->get('/private-console/system-logs/protection')
+            ->assertOk()
+            ->assertSee('系统安全防护日志')
+            ->assertSee('admin.login_failed')
+            ->assertDontSee('DEVICE_MISMATCH')
+            ->assertDontSee('203.0.113.8');
 
         $this->get('/private-console/system-logs/client-requests?view=detailed')
             ->assertOk()

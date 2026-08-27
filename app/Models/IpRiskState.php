@@ -10,7 +10,7 @@ class IpRiskState extends Model
 {
     protected $fillable = [
         'public_id', 'application_id', 'ip', 'ip_hash', 'level', 'window_attempts', 'recent_attempt_timestamps',
-        'total_attempts', 'window_started_at', 'last_seen_at', 'blocked_until',
+        'recent_card_probes', 'total_attempts', 'window_started_at', 'last_seen_at', 'blocked_until',
         'permanently_blocked', 'last_device_hash', 'last_subject_hash', 'last_endpoint', 'last_attempt_succeeded', 'note',
     ];
 
@@ -19,6 +19,7 @@ class IpRiskState extends Model
         return [
             'window_attempts' => 'integer',
             'recent_attempt_timestamps' => 'array',
+            'recent_card_probes' => 'array',
             'total_attempts' => 'integer',
             'window_started_at' => 'immutable_datetime',
             'last_seen_at' => 'immutable_datetime',

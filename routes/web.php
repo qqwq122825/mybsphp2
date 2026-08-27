@@ -88,6 +88,9 @@ Route::prefix('{adminPath}')
             Route::get('/risk-control', [AdminRiskControlController::class, 'index'])
                 ->middleware('can:'.AdminPermission::RiskEventsView->value)
                 ->name('admin.risk-control.index');
+            Route::get('/risk-control/center', [AdminRiskControlController::class, 'center'])
+                ->middleware('can:'.AdminPermission::RiskEventsView->value)
+                ->name('admin.risk-control.center');
             Route::put('/risk-control/applications/{application}/policy', [AdminRiskControlController::class, 'updatePolicy'])
                 ->middleware('can:'.AdminPermission::RiskEventsView->value)
                 ->name('admin.risk-control.policy.update');
@@ -100,6 +103,15 @@ Route::prefix('{adminPath}')
             Route::post('/risk-control/device-states/{deviceState}/unblock', [AdminRiskControlController::class, 'unblockDevice'])
                 ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
                 ->name('admin.risk-control.device-states.unblock');
+            Route::post('/risk-control/device-states/{deviceState}/status', [AdminRiskControlController::class, 'updateDeviceStatus'])
+                ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
+                ->name('admin.risk-control.device-states.status');
+            Route::post('/risk-control/global-blocks', [AdminRiskControlController::class, 'storeGlobalBlock'])
+                ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
+                ->name('admin.risk-control.global-blocks.store');
+            Route::delete('/risk-control/global-blocks/{globalBlock}', [AdminRiskControlController::class, 'destroyGlobalBlock'])
+                ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
+                ->name('admin.risk-control.global-blocks.destroy');
 
             Route::get('/administrators', [AdminAdministratorController::class, 'index'])
                 ->middleware('can:'.AdminPermission::AdministratorsView->value)

@@ -53,6 +53,15 @@ final class CardActivationController extends Controller
             if ($decision !== null) {
                 $risk->complete($decision, false);
             }
+            if ($card?->application) {
+                $risk->recordAuthFailureProbe(
+                    $card->application,
+                    $request,
+                    $validated['device_id'] ?? '',
+                    $exception->errorCode,
+                    'cards.login',
+                );
+            }
             $failure = $failureMasker->cardException(
                 $exception,
                 $request,

@@ -38,6 +38,18 @@ final class ClientAuthFailureMasker
         string $device = '',
     ): array {
         if (in_array($exception->errorCode, self::CARD_INPUT_ERRORS, true)) {
+            $this->recordFailure(
+                $exception->errorCode,
+                $exception->getMessage(),
+                $request,
+                $application,
+                $credential,
+                $device,
+                $exception->errorCode,
+                $exception->getMessage(),
+                $exception->status,
+            );
+
             return [
                 'code' => $exception->errorCode,
                 'message' => $exception->getMessage(),
@@ -68,8 +80,6 @@ final class ClientAuthFailureMasker
         string $credential = '',
         string $device = '',
     ): array {
-        $credentialContext = $this->credentialContext($application, $credential);
-
         Log::notice('client.card_auth_failure_masked', [
             'internal_code' => $internalCode,
             'internal_message' => $internalMessage,
@@ -78,37 +88,17 @@ final class ClientAuthFailureMasker
             'ip_hash' => hash('sha256', (string) ($request->ip() ?: '0.0.0.0')),
         ]);
 
-        if (! in_array($internalCode, ['INVALID_CARD', 'CARD_EXPIRED'], true)) {
-            try {
-                $this->audit->record(new AuditEvent(
-                    action: 'client.auth_failure_masked',
-                    targetType: 'application',
-                    targetId: $application?->public_id,
-                    applicationId: $application?->getKey(),
-                    before: [
-                        'application' => [
-                            'public_id' => $application?->public_id,
-                            'name' => $application?->name,
-                        ],
-                        ...$credentialContext,
-                        'device' => trim($device),
-                    ],
-                    after: [
-                        'diagnostic_code' => $internalCode,
-                        'internal_code' => $internalCode,
-                        'internal_message' => $internalMessage,
-                        'public_code' => 'INVALID_CARD',
-                        'public_message' => '卡密不存在',
-                        'http_status' => 200,
-                    ],
-                    reason: $internalCode,
-                    result: 'failed',
-                    actorRole: 'client',
-                ), $request);
-            } catch (\Throwable) {
-                // 审计存储旁路认证响应；认证结果仍按统一文案返回。
-            }
-        }
+        $this->recordFailure(
+            $internalCode,
+            $internalMessage,
+            $request,
+            $application,
+            $credential,
+            $device,
+            'INVALID_CARD',
+            '卡密不存在',
+            200,
+        );
 
         return [
             'code' => 'INVALID_CARD',
@@ -117,6 +107,48 @@ final class ClientAuthFailureMasker
             'details' => null,
             'masked' => true,
         ];
+    }
+
+    private function recordFailure(
+        string $internalCode,
+        string $internalMessage,
+        Request $request,
+        ?Application $application,
+        string $credential,
+        string $device,
+        string $publicCode,
+        string $publicMessage,
+        int $httpStatus,
+    ): void {
+        try {
+            $this->audit->record(new AuditEvent(
+                action: 'client.auth_failure_masked',
+                targetType: 'application',
+                targetId: $application?->public_id,
+                applicationId: $application?->getKey(),
+                before: [
+                    'application' => [
+                        'public_id' => $application?->public_id,
+                        'name' => $application?->name,
+                    ],
+                    ...$this->credentialContext($application, $credential),
+                    'device' => trim($device),
+                ],
+                after: [
+                    'diagnostic_code' => $internalCode,
+                    'internal_code' => $internalCode,
+                    'internal_message' => $internalMessage,
+                    'public_code' => $publicCode,
+                    'public_message' => $publicMessage,
+                    'http_status' => $httpStatus,
+                ],
+                reason: $internalCode,
+                result: 'failed',
+                actorRole: 'client',
+            ), $request);
+        } catch (\Throwable) {
+            // 审计存储旁路认证响应；认证结果仍按统一文案返回。
+        }
     }
 
     /** @return array<string, string> */

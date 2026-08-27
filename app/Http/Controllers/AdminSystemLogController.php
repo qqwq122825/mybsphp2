@@ -130,10 +130,12 @@ final class AdminSystemLogController extends Controller
                     ->orWhere('action', 'like', 'cards.%')
                     ->orWhere('target_type', 'card_batch');
             }),
-            'protection' => $query->where('action', '!=', 'client.auth_failure_masked')->where(function ($builder): void {
-                $builder->where('result', '!=', 'success')
-                    ->orWhereIn('action', ['admin.login_failed', 'security.blocked', 'security.rate_limited']);
-            }),
+            'protection' => $query->whereIn('action', [
+                'admin.login_failed',
+                'agent.login_failed',
+                'security.blocked',
+                'security.rate_limited',
+            ]),
             'client-requests' => $clientLogMode === 'detailed'
                 ? $query->where('action', 'client.card_login_trace')
                 : $query->whereIn('action', ['client.auth_failure_masked', 'client.universal_card_login']),
