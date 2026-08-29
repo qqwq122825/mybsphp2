@@ -427,6 +427,7 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertSame('INVALID_CARD', data_get($maskedLog->after_data, 'public_code'));
         $this->assertSame(200, data_get($maskedLog->after_data, 'http_status'));
         $this->assertSame($card->public_id, data_get($maskedLog->before_data, 'card_public_id'));
+        $this->assertSame($credential['code'], data_get($maskedLog->before_data, 'credential'));
         $this->assertSame('IOS-DEVICE-001', data_get($maskedLog->before_data, 'device'));
         $this->assertTrue($expiresAt->equalTo($card->fresh()->expires_at));
         $card->forceFill(['user_status' => 'active', 'user_frozen_at' => null])->save();

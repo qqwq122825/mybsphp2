@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\AuditLog;
+use App\Models\GlobalSecurityBlock;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
@@ -174,6 +175,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertOk()
             ->assertSee('响应摘要')
             ->assertSee('查看详情')
+            ->assertSee('快速拉黑')
             ->assertSee('客户端请求详情')
             ->assertSee('data-client-trace-detail', false)
             ->assertSee('DEVICE_MISMATCH')
@@ -190,6 +192,7 @@ class AdminAuthenticationTest extends TestCase
             'ip' => '203.0.113.24',
             'before_data' => [
                 'application' => ['public_id' => 'diagnostic-app', 'name' => '编号查询软件'],
+                'credential' => 'FULL-CARD-LOOKUP-001',
                 'credential_masked' => '•••••••••-001',
                 'credential_fingerprint' => substr(hash('sha256', 'FULL-CARD-LOOKUP-001'), 0, 16),
                 'device' => 'DIAGNOSTIC-DEVICE',
@@ -210,9 +213,34 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('编号查询软件')
             ->assertSee('DEVICE_BLOCKED')
             ->assertSee('卡密不存在')
+            ->assertSee('FULL-CARD-LOOKUP-001')
+            ->assertDontSee('•••••••••-001')
             ->assertSee('详细请求')
+            ->assertSee('快速拉黑')
             ->assertSee('data-client-trace-detail', false)
             ->assertSee('客户端请求详情');
+        $this->from('/private-console/system-logs/client-requests?view=simple')
+            ->post('/private-console/risk-control/global-blocks', [
+                'device_serial' => 'DIAGNOSTIC-DEVICE',
+                'ip' => '203.0.113.24',
+                'note' => '客户端请求日志快速拉黑',
+            ])
+            ->assertRedirect('/private-console/system-logs/client-requests?view=simple')
+            ->assertSessionHas('success');
+        $this->assertDatabaseHas('global_security_blocks', [
+            'subject_type' => 'device',
+            'subject_hash' => GlobalSecurityBlock::hashValue('DIAGNOSTIC-DEVICE'),
+            'subject_value' => 'DIAGNOSTIC-DEVICE',
+        ]);
+        $this->assertDatabaseHas('global_security_blocks', [
+            'subject_type' => 'ip',
+            'subject_hash' => GlobalSecurityBlock::hashValue('203.0.113.24'),
+            'subject_value' => '203.0.113.24',
+        ]);
+        $this->get('/private-console/system-logs/client-requests?view=simple')
+            ->assertOk()
+            ->assertSee('已封禁')
+            ->assertDontSee('快速拉黑');
         $this->get('/private-console/system-logs/client-requests?view=simple&keyword=FULL-CARD-LOOKUP-001')
             ->assertOk()
             ->assertSee('DEVICE_BLOCKED')

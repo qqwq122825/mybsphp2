@@ -41,7 +41,7 @@
     </x-slot:toolbar>
         <table class="{{ $isClientRequestLog ? 'client-trace-table' : '' }}">
             @if($isClientSimpleLog)
-            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>真实原因</th><th>客户端提示</th><th>设备</th><th>详细请求</th></tr></thead>
+            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>真实原因</th><th>客户端提示</th><th>设备</th><th>详细请求</th><th>处置</th></tr></thead>
             <tbody>
             @forelse($logs as $log)
                 @php
@@ -58,11 +58,21 @@
                     $requestPayload = base64_encode(json_encode($detailRequest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}');
                     $responsePayload = base64_encode(json_encode($detailResponse, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}');
                     $simpleSuccess = $log->result === 'success';
+                    $displayCredential = trim((string) data_get($detailRequest, 'credential', data_get($simpleRequest, 'credential', '')));
+                    if ($displayCredential === '') {
+                        $cardPublicId = trim((string) data_get($simpleRequest, 'card_public_id', data_get($detailRequest, 'card_public_id', '')));
+                        $displayCredential = $cardPublicId !== ''
+                            ? trim((string) $cardCodesByPublicId->get($cardPublicId, ''))
+                            : '';
+                    }
+                    if ($displayCredential === '') {
+                        $displayCredential = (string) data_get($simpleRequest, 'credential_masked', '—');
+                    }
                 @endphp
                 <tr>
                     <td class="admin-select-column"><input type="checkbox" name="log_ids[]" value="{{ $log->id }}" form="system-log-maintenance-form" aria-label="选择日志 {{ $log->id }}" data-card-select></td>
                     <td><strong>{{ $log->created_at?->format('m-d H:i:s') }}</strong><small class="client-trace-meta">{{ $log->ip ?: '—' }} · #{{ $log->id }}</small></td>
-                    <td><strong>{{ data_get($simpleRequest, 'application.name', '—') }}</strong><small class="client-trace-meta">{{ data_get($simpleRequest, 'credential_masked', '—') }}</small></td>
+                    <td><strong>{{ data_get($simpleRequest, 'application.name', '—') }}</strong><small class="client-trace-meta">{{ $displayCredential }}</small></td>
                     <td><strong>{{ data_get($simpleResult, 'internal_code', '未标注') }}</strong><small class="client-trace-meta">{{ data_get($simpleResult, 'internal_message', '未记录') }}</small></td>
                     <td><span class="log-result {{ $simpleSuccess ? 'is-success' : 'is-danger' }}">{{ data_get($simpleResult, 'public_message', $simpleSuccess ? '登录成功' : '卡密不存在') }}</span></td>
                     <td><code>{{ data_get($simpleRequest, 'device', '—') ?: '—' }}</code></td>
@@ -73,7 +83,7 @@
                                 data-created-at="{{ $detailLog->created_at?->format('Y-m-d H:i:s') }}"
                                 data-ip="{{ $detailLog->ip ?: '—' }}"
                                 data-application="{{ data_get($detailRequest, 'application.name', data_get($simpleRequest, 'application.name', '—')) }}"
-                                data-credential="{{ data_get($detailRequest, 'credential', data_get($detailRequest, 'credential_masked', data_get($simpleRequest, 'credential_masked', '—'))) }}"
+                                data-credential="{{ $displayCredential }}"
                                 data-request-device="{{ $requestDevice ?: '—' }}"
                                 data-bound-device="{{ $boundDevice ?: '未绑定' }}"
                                 data-returned-device="{{ $returnedDevice ?: '—' }}"
@@ -83,11 +93,12 @@
                                 data-result-tone="{{ $detailLog->result === 'success' ? 'success' : 'danger' }}"
                                 data-request-payload="{{ $requestPayload }}"
                                 data-response-payload="{{ $responsePayload }}">详细请求 <span aria-hidden="true">→</span></button></td>
+                    <td>@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice, 'blockIp' => (string) ($log->ip ?: '')])</td>
                 </tr>
-            @empty<tr><td class="empty-cell" colspan="7">当前没有需要客服介入的简要诊断记录。</td></tr>@endforelse
+            @empty<tr><td class="empty-cell" colspan="8">当前没有需要客服介入的简要诊断记录。</td></tr>@endforelse
             </tbody>
             @elseif($isClientRequestLog)
-            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>响应摘要</th><th>结果</th><th>详情</th></tr></thead>
+            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>响应摘要</th><th>结果</th><th>详情</th><th>处置</th></tr></thead>
             <tbody>
             @forelse($logs as $log)
                 @php
@@ -132,8 +143,9 @@
                                 data-result-tone="{{ $log->result === 'success' ? 'success' : 'danger' }}"
                                 data-request-payload="{{ $requestPayload }}"
                                 data-response-payload="{{ $responsePayload }}">查看详情 <span aria-hidden="true">→</span></button></td>
+                    <td>@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice, 'blockIp' => (string) ($log->ip ?: '')])</td>
                 </tr>
-            @empty<tr><td class="empty-cell" colspan="7">当前暂无{{ $title }}数据，可先在系统信息设置中开启诊断开关。</td></tr>@endforelse
+            @empty<tr><td class="empty-cell" colspan="8">当前暂无{{ $title }}数据，可先在系统信息设置中开启诊断开关。</td></tr>@endforelse
             </tbody>
             @else
             <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>编号</th><th>记录时间</th><th>登录ip</th><th>用户名/UID</th><th>信息</th>@unless($isCardMakingLog)<th>结果</th>@endunless @if($isProtectionLog)<th>处置</th>@endif</tr></thead>

@@ -51,6 +51,7 @@ final class AdminSystemLogController extends Controller
         $logs = $query->orderBy('id', $sort)->paginate(30)->withQueryString();
         $clientTraceDetails = collect();
         $cardMakingBatches = collect();
+        $cardCodesByPublicId = collect();
         if ($type === 'client-requests' && $clientLogMode === 'simple') {
             $requestIds = $logs->getCollection()
                 ->pluck('request_id')
@@ -65,6 +66,17 @@ final class AdminSystemLogController extends Controller
                     ->get()
                     ->unique('request_id')
                     ->keyBy('request_id');
+            }
+            $publicIds = $logs->getCollection()
+                ->map(fn (AuditLog $log): mixed => data_get($log->before_data, 'card_public_id'))
+                ->merge($clientTraceDetails->map(fn (AuditLog $log): mixed => data_get($log->before_data, 'card_public_id')))
+                ->filter(fn ($publicId): bool => is_string($publicId) && $publicId !== '')
+                ->unique()
+                ->values();
+            if ($publicIds->isNotEmpty()) {
+                $cardCodesByPublicId = Card::query()
+                    ->whereIn('public_id', $publicIds)
+                    ->pluck('code_ciphertext', 'public_id');
             }
         }
         if ($type === 'card-making') {
@@ -98,8 +110,12 @@ final class AdminSystemLogController extends Controller
             'logs' => $logs,
             'clientTraceDetails' => $clientTraceDetails,
             'cardMakingBatches' => $cardMakingBatches,
-            'blockedIpHashes' => $type === 'protection'
+            'cardCodesByPublicId' => $cardCodesByPublicId,
+            'blockedIpHashes' => in_array($type, ['protection', 'client-requests'], true)
                 ? GlobalSecurityBlock::query()->where('subject_type', 'ip')->pluck('subject_hash')
+                : collect(),
+            'blockedDeviceHashes' => $type === 'client-requests'
+                ? GlobalSecurityBlock::query()->where('subject_type', 'device')->pluck('subject_hash')
                 : collect(),
         ]);
     }

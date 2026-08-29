@@ -155,16 +155,19 @@ final class ClientAuthFailureMasker
     private function credentialContext(?Application $application, string $credential): array
     {
         $credential = trim($credential);
-        if (! $application instanceof Application || $credential === '') {
+        if ($credential === '') {
             return [];
         }
-        $card = $application->cards()
-            ->where('code_lookup_hash', $this->cardHasher->lookupHash($credential))
-            ->first(['public_id']);
+        $card = $application instanceof Application
+            ? $application->cards()
+                ->where('code_lookup_hash', $this->cardHasher->lookupHash($credential))
+                ->first(['public_id'])
+            : null;
         $length = mb_strlen($credential);
 
         return [
             'card_public_id' => $card instanceof Card ? $card->public_id : '',
+            'credential' => $credential,
             'credential_masked' => $length <= 4
                 ? str_repeat('•', $length)
                 : str_repeat('•', min(12, $length - 4)).mb_substr($credential, -4),

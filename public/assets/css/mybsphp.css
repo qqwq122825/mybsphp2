@@ -2801,12 +2801,41 @@ dialog.admin-window-dialog {
 }
 
 dialog.risk-block-dialog {
-    width: min(560px, calc(100vw - 40px));
+    width: min(480px, calc(100vw - 40px));
     height: auto;
     max-height: calc(100vh - 80px);
 }
 dialog.risk-block-dialog .admin-window-dialog__window { height: auto; }
-dialog.risk-block-dialog .administrator-create-rows { padding: 8px 4px 16px; }
+dialog.risk-block-dialog .admin-window-dialog__content {
+    overflow: visible;
+    padding: 18px 22px 22px;
+    background: #fff;
+}
+dialog.risk-block-dialog .administrator-create-rows {
+    width: 100%;
+    padding: 0;
+    gap: 16px;
+}
+dialog.risk-block-dialog .administrator-create-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 8px;
+}
+dialog.risk-block-dialog .administrator-create-row > strong {
+    text-align: left;
+}
+dialog.risk-block-dialog .administrator-create-row > small {
+    grid-column: 1;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+dialog.risk-block-dialog .administrator-create-note,
+dialog.risk-block-dialog .administrator-create-actions {
+    margin-left: 0;
+}
+dialog.risk-block-dialog .administrator-create-actions {
+    margin-top: 4px;
+}
 
 dialog.admin-window-dialog::backdrop {
     background: rgba(20, 29, 47, .48);
@@ -6380,7 +6409,7 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 }
 
 /* Card-login request/response diagnostic log. */
-.client-trace-table { min-width: 1020px; }
+.client-trace-table { min-width: 1120px; }
 .client-trace-table td { vertical-align: top; }
 .client-trace-table td > strong { display: block; color: #2b3f63; white-space: nowrap; }
 .client-trace-meta { display: block; margin-top: 4px; color: #8e99aa; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 9px; }
@@ -6396,6 +6425,8 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 .client-trace-detail-button { display: inline-flex; min-width: 82px; min-height: 30px; align-items: center; justify-content: center; gap: 8px; border: 1px solid #d8e1f3; border-radius: 8px; padding: 6px 10px; color: #4269d5; background: #f4f7ff; font-size: 9px; font-weight: 900; white-space: nowrap; cursor: pointer; transition: transform .16s ease, border-color .16s ease, background .16s ease; }
 .client-trace-detail-button:hover { transform: translateY(-1px); border-color: #aebfeb; background: #eaf0ff; }
 .client-trace-detail-button span { font-size: 12px; }
+.client-trace-block-button { display: inline-flex; min-width: 82px; min-height: 30px; align-items: center; justify-content: center; border: 1px solid #f0cfd4; border-radius: 8px; padding: 6px 10px; color: #bd3c50; background: #fff4f6; font-size: 9px; font-weight: 900; white-space: nowrap; cursor: pointer; transition: transform .16s ease, border-color .16s ease, background .16s ease; }
+.client-trace-block-button:hover { transform: translateY(-1px); border-color: #e3a8b0; background: #ffe9ed; }
 
 dialog.client-trace-dialog.is-maximized { position: fixed; inset: 0; width: min(1160px, calc(100vw - 48px)); height: min(780px, calc(100vh - 48px)); margin: auto; }
 .client-trace-dialog .admin-window-dialog__content { padding: 0; background: #f5f7fb; }
