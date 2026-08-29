@@ -4449,6 +4449,9 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 .admin-sidebar .nav-children .nav-subgroup a { min-height:40px; padding:0 10px 0 58px; border-radius:10px; color:#565e6d; font-size:13px; font-weight:650; }
 .admin-sidebar .nav-children .nav-subgroup a:hover { color:#2876ea; background:#edf3fd; }
 .admin-sidebar .nav-children .nav-subgroup a.is-active { color:#2e7fec; background:#deebfb; }
+.admin-sidebar .nav-children .nav-subgroup-nested { margin:0 8px 0 44px; }
+.admin-sidebar .nav-children .nav-subgroup-nested > summary { min-height:40px; padding:0 10px 0 14px; font-size:13px; font-weight:650; }
+.admin-sidebar .nav-children .nav-subgroup-nested a { min-height:38px; padding:0 10px 0 28px; font-size:12px; }
 .dashboard-page.is-sidebar-collapsed .admin-sidebar { overflow:visible; }
 .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group > summary { padding:0; border-radius:12px; }
 .nav-direct-link { min-height:52px; display:flex; align-items:center; gap:11px; padding:0 14px; border-radius:12px; color:#454d5e; }

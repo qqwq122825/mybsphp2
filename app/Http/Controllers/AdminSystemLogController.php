@@ -28,7 +28,7 @@ final class AdminSystemLogController extends Controller
 
     public function index(Request $request, string $adminPath, string $type): View
     {
-        validator(['type' => $type], ['type' => ['required', Rule::in(['login', 'card-making', 'protection', 'client-requests'])]])->validate();
+        validator(['type' => $type], ['type' => ['required', Rule::in(['login', 'card-making', 'protection', 'client-requests', 'blocklist-requests'])]])->validate();
 
         $keyword = trim((string) $request->query('keyword', ''));
         $sort = $request->query('sort') === 'oldest' ? 'asc' : 'desc';
@@ -38,7 +38,7 @@ final class AdminSystemLogController extends Controller
         $query = $this->queryForType($type, $clientLogMode)->with('actorAdministrator');
 
         if ($keyword !== '') {
-            if ($type === 'client-requests') {
+            if (in_array($type, ['client-requests', 'blocklist-requests'], true)) {
                 $this->applyClientRequestSearch($query, $keyword, $clientLogMode);
             } else {
                 $this->applyKeywordSearch($query, $keyword);
@@ -52,7 +52,7 @@ final class AdminSystemLogController extends Controller
         $clientTraceDetails = collect();
         $cardMakingBatches = collect();
         $cardCodesByPublicId = collect();
-        if ($type === 'client-requests' && $clientLogMode === 'simple') {
+        if (in_array($type, ['client-requests', 'blocklist-requests'], true) && $clientLogMode === 'simple') {
             $requestIds = $logs->getCollection()
                 ->pluck('request_id')
                 ->filter(fn ($requestId): bool => is_string($requestId) && $requestId !== '')
@@ -106,15 +106,16 @@ final class AdminSystemLogController extends Controller
                 'card-making' => '代理制卡日志',
                 'protection' => '系统安全防护日志',
                 'client-requests' => '客户端请求日志',
+                'blocklist-requests' => '黑名单请求日志',
             },
             'logs' => $logs,
             'clientTraceDetails' => $clientTraceDetails,
             'cardMakingBatches' => $cardMakingBatches,
             'cardCodesByPublicId' => $cardCodesByPublicId,
-            'blockedIpHashes' => in_array($type, ['protection', 'client-requests'], true)
+            'blockedIpHashes' => in_array($type, ['protection', 'client-requests', 'blocklist-requests'], true)
                 ? GlobalSecurityBlock::query()->where('subject_type', 'ip')->pluck('subject_hash')
                 : collect(),
-            'blockedDeviceHashes' => $type === 'client-requests'
+            'blockedDeviceHashes' => in_array($type, ['client-requests', 'blocklist-requests'], true)
                 ? GlobalSecurityBlock::query()->where('subject_type', 'device')->pluck('subject_hash')
                 : collect(),
         ]);
@@ -122,7 +123,7 @@ final class AdminSystemLogController extends Controller
 
     public function maintenance(Request $request, string $adminPath, string $type): RedirectResponse
     {
-        validator(['type' => $type], ['type' => ['required', Rule::in(['login', 'card-making', 'protection', 'client-requests'])]])->validate();
+        validator(['type' => $type], ['type' => ['required', Rule::in(['login', 'card-making', 'protection', 'client-requests', 'blocklist-requests'])]])->validate();
         $validated = $request->validate([
             'action' => ['required', Rule::in(['delete_selected', 'delete_older_7', 'delete_older_50', 'clear'])],
             'view' => ['nullable', Rule::in(['simple', 'detailed'])],
@@ -176,6 +177,7 @@ final class AdminSystemLogController extends Controller
             'client-requests' => $clientLogMode === 'detailed'
                 ? $query->where('action', 'client.card_login_trace')
                 : $query->whereIn('action', ['client.auth_failure_masked', 'client.universal_card_login']),
+            'blocklist-requests' => $query->where('action', 'client.blocklist_hit'),
         };
     }
 

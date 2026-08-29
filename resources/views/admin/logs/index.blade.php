@@ -6,7 +6,9 @@
 @php
     $isCardMakingLog = $logType === 'card-making';
     $isClientRequestLog = $logType === 'client-requests';
-    $isClientSimpleLog = $isClientRequestLog && $clientLogMode === 'simple';
+    $isBlocklistRequestLog = $logType === 'blocklist-requests';
+    $isClientSimpleLog = ($isClientRequestLog && $clientLogMode === 'simple') || $isBlocklistRequestLog;
+    $isClientStyleLog = $isClientRequestLog || $isBlocklistRequestLog;
     $isProtectionLog = $logType === 'protection';
 @endphp
 <form id="system-log-maintenance-form" method="post" action="{{ route('admin.system-logs.maintenance', ['adminPath' => $adminPath, 'type' => $logType]) }}">
@@ -15,15 +17,15 @@
         <input type="hidden" name="view" value="{{ $clientLogMode }}">
     @endif
 </form>
-<x-admin.table-shell :title="$title" :subtitle="$isClientRequestLog ? ($isClientSimpleLog ? '客户端登录失败与万能卡密事件；卡密不存在、空卡密、参数错误也会进入此列表' : '仅在系统设置开启诊断后记录 login.ic') : ($isCardMakingLog ? null : ($logType === 'protection' ? '后台登录失败、代理登录失败与系统封禁事件' : '系统审计数据查询'))" panel-class="bsphp-log-panel">
+<x-admin.table-shell :title="$title" :subtitle="$isBlocklistRequestLog ? '设备和 IP 已拉黑后仍继续登录的请求；客户端仍显示卡密不存在' : ($isClientRequestLog ? ($isClientSimpleLog ? '客户端登录失败与万能卡密事件；卡密不存在、空卡密、参数错误也会进入此列表' : '仅在系统设置开启诊断后记录 login.ic') : ($isCardMakingLog ? null : ($logType === 'protection' ? '后台登录失败、代理登录失败与系统封禁事件' : '系统审计数据查询')))" panel-class="bsphp-log-panel">
     <x-slot:search><x-admin.filter-bar button-label="⌕" :icon-only="true">
         @if($isClientRequestLog)
             <x-slot:hidden>
                 <input type="hidden" name="view" value="{{ $clientLogMode }}">
             </x-slot:hidden>
         @endif
-        <x-slot:field><select aria-label="搜索字段"><option>{{ $isClientRequestLog ? '卡密 / 设备 / 错误码 / IP' : ($isCardMakingLog ? '用户' : '用户 / IP / 信息') }}</option></select></x-slot:field>
-        <x-slot:keyword><input name="keyword" value="{{ request('keyword') }}" placeholder="{{ $isClientRequestLog ? '输入完整卡密、设备或错误码' : '请输入' }}"></x-slot:keyword>
+        <x-slot:field><select aria-label="搜索字段"><option>{{ $isClientStyleLog ? '卡密 / 设备 / 错误码 / IP' : ($isCardMakingLog ? '用户' : '用户 / IP / 信息') }}</option></select></x-slot:field>
+        <x-slot:keyword><input name="keyword" value="{{ request('keyword') }}" placeholder="{{ $isClientStyleLog ? '输入完整卡密、设备或错误码' : '请输入' }}"></x-slot:keyword>
         <x-slot:sort><select name="sort"><option value="latest" @selected(request('sort','latest')==='latest')>正序</option><option value="oldest" @selected(request('sort')==='oldest')>倒序</option></select></x-slot:sort>
     </x-admin.filter-bar></x-slot:search>
     <x-slot:toolbar>
@@ -39,7 +41,7 @@
             <button type="button" onclick="window.print()" aria-label="打印" title="打印"><span aria-hidden="true">▤</span></button>
         </div>
     </x-slot:toolbar>
-        <table class="{{ $isClientRequestLog ? 'client-trace-table' : '' }}">
+        <table class="{{ $isClientStyleLog ? 'client-trace-table' : '' }}">
             @if($isClientSimpleLog)
             <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>真实原因</th><th>客户端提示</th><th>设备</th><th>详细请求</th><th>处置</th></tr></thead>
             <tbody>
@@ -95,7 +97,7 @@
                                 data-response-payload="{{ $responsePayload }}">详细请求 <span aria-hidden="true">→</span></button></td>
                     <td>@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice, 'blockIp' => (string) ($log->ip ?: '')])</td>
                 </tr>
-            @empty<tr><td class="empty-cell" colspan="8">当前没有需要客服介入的简要诊断记录。</td></tr>@endforelse
+            @empty<tr><td class="empty-cell" colspan="8">{{ $isBlocklistRequestLog ? '当前没有黑名单命中记录。设备和 IP 拉黑后仍继续登录会出现在这里。' : '当前没有需要客服介入的简要诊断记录。' }}</td></tr>@endforelse
             </tbody>
             @elseif($isClientRequestLog)
             <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>响应摘要</th><th>结果</th><th>详情</th><th>处置</th></tr></thead>
@@ -187,7 +189,7 @@
     @endif
 </x-admin.table-shell>
 
-@if($isClientRequestLog)
+@if($isClientStyleLog)
 <x-admin.window-dialog title="客户端请求详情" eyebrow="LOGIN.IC DIAGNOSTIC" :workspace="false" class="client-trace-dialog" data-client-trace-dialog>
     <div class="client-trace-dialog-body">
         <section class="client-trace-dialog-summary">

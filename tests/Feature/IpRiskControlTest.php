@@ -10,6 +10,7 @@ use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
 use App\Models\ApplicationClientSession;
+use App\Models\AuditLog;
 use App\Models\Card;
 use App\Models\CardBatch;
 use App\Models\CardType;
@@ -117,6 +118,10 @@ class IpRiskControlTest extends TestCase
             'api' => 'login.ic', 'icid' => 'OTHER-APP-CARD', 'key' => $device,
             'appsafecode' => 'SAFE', 'BSphpSeSsL' => str_repeat('9', 64),
         ], '', '&', PHP_QUERY_RFC3986))['envelope']));
+        $this->assertDatabaseHas('audit_logs', ['action' => 'client.blocklist_hit']);
+        $hit = AuditLog::query()->where('action', 'client.blocklist_hit')->latest('id')->firstOrFail();
+        $this->assertSame('DEVICE_BLOCKED', data_get($hit->after_data, 'internal_code'));
+        $this->assertSame('OTHER-APP-CARD', data_get($hit->before_data, 'credential'));
     }
 
     public function test_empty_and_malformed_card_errors_count_toward_probe_threshold(): void

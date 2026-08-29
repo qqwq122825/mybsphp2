@@ -104,6 +104,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('系统制卡日志')
             ->assertSee('系统安全防护日志')
             ->assertSee('客户端请求日志')
+            ->assertSee('黑名单请求日志')
             ->assertDontSee('诊断编号查询')
             ->assertDontSee('用户反馈')
             ->assertDontSee('邮件设置')
@@ -135,6 +136,10 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('详细请求')
             ->assertDontSee('客户端日志模式')
             ->assertSee('卡密不存在、空卡密、参数错误也会进入此列表');
+        $this->get('/private-console/system-logs/blocklist-requests')
+            ->assertOk()
+            ->assertSee('黑名单请求日志')
+            ->assertSee('设备和 IP 已拉黑后仍继续登录的请求');
 
         AuditLog::query()->create([
             'public_id' => (string) Str::ulid(),
@@ -198,20 +203,20 @@ class AdminAuthenticationTest extends TestCase
                 'device' => 'DIAGNOSTIC-DEVICE',
             ],
             'after_data' => [
-                'internal_code' => 'DEVICE_BLOCKED',
-                'internal_message' => '设备已进入安全封控。',
+                'internal_code' => 'CARD_EXPIRED',
+                'internal_message' => '该卡密已经到期。',
                 'public_code' => 'INVALID_CARD',
                 'public_message' => '卡密不存在',
                 'http_status' => 200,
             ],
-            'reason' => 'DEVICE_BLOCKED',
+            'reason' => 'CARD_EXPIRED',
             'result' => 'failed',
         ]);
 
         $this->get('/private-console/system-logs/client-requests?view=simple')
             ->assertOk()
             ->assertSee('编号查询软件')
-            ->assertSee('DEVICE_BLOCKED')
+            ->assertSee('CARD_EXPIRED')
             ->assertSee('卡密不存在')
             ->assertSee('FULL-CARD-LOOKUP-001')
             ->assertDontSee('•••••••••-001')
@@ -246,8 +251,40 @@ class AdminAuthenticationTest extends TestCase
             ->assertDontSee('client-trace-block-button', false);
         $this->get('/private-console/system-logs/client-requests?view=simple&keyword=FULL-CARD-LOOKUP-001')
             ->assertOk()
-            ->assertSee('DEVICE_BLOCKED')
+            ->assertSee('CARD_EXPIRED')
             ->assertSee('DIAGNOSTIC-DEVICE');
+
+        AuditLog::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'actor_role_snapshot' => 'client',
+            'action' => 'client.blocklist_hit',
+            'target_type' => 'application',
+            'target_id' => 'diagnostic-app',
+            'request_id' => (string) Str::ulid(),
+            'ip' => '203.0.113.24',
+            'before_data' => [
+                'application' => ['public_id' => 'diagnostic-app', 'name' => '编号查询软件'],
+                'credential' => 'FULL-CARD-LOOKUP-001',
+                'device' => 'DIAGNOSTIC-DEVICE',
+            ],
+            'after_data' => [
+                'internal_code' => 'DEVICE_BLOCKED',
+                'internal_message' => '设备已拉黑，登录 IP 也在黑名单。',
+                'public_code' => 'INVALID_CARD',
+                'public_message' => '卡密不存在',
+                'http_status' => 200,
+            ],
+            'reason' => 'DEVICE_BLOCKED',
+            'result' => 'failed',
+        ]);
+        $this->get('/private-console/system-logs/blocklist-requests')
+            ->assertOk()
+            ->assertSee('DEVICE_BLOCKED')
+            ->assertSee('设备已拉黑，登录 IP 也在黑名单。')
+            ->assertDontSee('CARD_EXPIRED');
+        $this->get('/private-console/system-logs/client-requests?view=simple')
+            ->assertOk()
+            ->assertDontSee('设备已拉黑，登录 IP 也在黑名单。');
 
         $this->post('/private-console/logout')
             ->assertRedirect('/private-console');

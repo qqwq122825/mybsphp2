@@ -8,6 +8,7 @@ use App\Cards\CardActivationException;
 use App\Cards\CardCredentialHasher;
 use App\Models\Application;
 use App\Models\Card;
+use App\Models\GlobalSecurityBlock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -17,6 +18,9 @@ final class ClientAuthFailureMasker
         private readonly AuditLogger $audit,
         private readonly CardCredentialHasher $cardHasher,
     ) {}
+
+    /** @var list<string> */
+    private const BLOCKLIST_CODES = ['DEVICE_BLOCKED', 'IP_BLOCKED', 'RISK_BLOCKED'];
 
     /** @var list<string> */
     private const CARD_INPUT_ERRORS = [
@@ -109,6 +113,26 @@ final class ClientAuthFailureMasker
         ];
     }
 
+    public function recordIpBlockHit(
+        Request $request,
+        Application $application,
+        string $credential,
+        string $device,
+    ): void {
+        $deviceBlocked = GlobalSecurityBlock::deviceBlocked($device);
+        $this->recordFailure(
+            $deviceBlocked ? 'DEVICE_BLOCKED' : 'IP_BLOCKED',
+            $deviceBlocked ? '设备已拉黑，登录 IP 也在黑名单。' : 'IP 已在黑名单。',
+            $request,
+            $application,
+            $credential,
+            $device,
+            'INVALID_CARD',
+            '卡密不存在',
+            200,
+        );
+    }
+
     private function recordFailure(
         string $internalCode,
         string $internalMessage,
@@ -120,9 +144,12 @@ final class ClientAuthFailureMasker
         string $publicMessage,
         int $httpStatus,
     ): void {
+        $action = in_array($internalCode, self::BLOCKLIST_CODES, true)
+            ? 'client.blocklist_hit'
+            : 'client.auth_failure_masked';
         try {
             $this->audit->record(new AuditEvent(
-                action: 'client.auth_failure_masked',
+                action: $action,
                 targetType: 'application',
                 targetId: $application?->public_id,
                 applicationId: $application?->getKey(),

@@ -122,6 +122,7 @@ final class LegacyGatewayController extends Controller
             $riskDecision = $risk->evaluate($application, $request, 'legacy.'.$api, $device, $code."\0".$secret, preg_match('/^[A-Za-z0-9_-]{64}$/', $sessionHandle) === 1);
             if ($riskDecision->shouldBlock()) {
                 $risk->recordAuthFailureProbe($application, $request, $device, 'IP_BLOCKED', 'legacy.'.$api);
+                $failureMasker->recordIpBlockHit($request, $application, $code, $device);
                 $blockedResponse = $risk->blockedResponse($riskDecision, $request);
                 if ($traceCardLogin) {
                     $cardLoginTrace->recordJson(

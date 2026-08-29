@@ -41,6 +41,12 @@ final class CardActivationController extends Controller
                 'IP_BLOCKED',
                 'cards.login',
             );
+            $failureMasker->recordIpBlockHit(
+                $request,
+                $card->application,
+                $validated['code'],
+                $validated['device_id'] ?? '',
+            );
 
             return $risk->blockedResponse($decision, $request);
         }
