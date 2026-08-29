@@ -37,6 +37,7 @@ final class CardLoginTraceService
         string $requestNonce,
         bool $compactWire,
         string $legacyResponse,
+        bool $universal = false,
     ): void {
         $fields = explode('|', $legacyResponse);
         $returnedDevice = (string) ($fields[8] ?? '');
@@ -68,6 +69,7 @@ final class CardLoginTraceService
                 'request_device_matches_response' => $returnedDevice !== '' && hash_equals($returnedDevice, trim($device)),
             ],
             true,
+            $universal,
         );
     }
 
@@ -87,6 +89,7 @@ final class CardLoginTraceService
         bool $compactWire,
         JsonResponse $response,
         ?string $internalCode = null,
+        bool $universal = false,
     ): void {
         $body = $response->getData(true);
         $body = is_array($body) ? $body : [];
@@ -110,6 +113,7 @@ final class CardLoginTraceService
                 'json_response' => $this->redactor->redact($body),
             ],
             false,
+            $universal,
         );
     }
 
@@ -130,8 +134,9 @@ final class CardLoginTraceService
         bool $compactWire,
         array $responseData,
         bool $success,
+        bool $universal = false,
     ): void {
-        if (! $this->shouldRecord($success)) {
+        if (! $this->shouldRecord($success, $universal)) {
             return;
         }
 
@@ -177,26 +182,61 @@ final class CardLoginTraceService
                 result: $success ? 'success' : 'failed',
                 actorRole: 'client',
             ), $request);
+
+            if ($success && ! $universal && $this->currentMode() === 'all') {
+                $this->audit->record(new AuditEvent(
+                    action: 'client.card_login_success',
+                    targetType: 'application',
+                    targetId: $application->public_id,
+                    applicationId: $application->getKey(),
+                    before: [
+                        'application' => [
+                            'public_id' => $application->public_id,
+                            'name' => $application->name,
+                        ],
+                        'credential' => $credential,
+                        'device' => trim($device),
+                    ],
+                    after: [
+                        'internal_code' => 'LOGIN_OK',
+                        'internal_message' => '卡密登录成功',
+                        'public_code' => 'OK',
+                        'public_message' => '登录成功',
+                        'http_status' => 200,
+                    ],
+                    reason: 'LOGIN_OK',
+                    result: 'success',
+                    actorRole: 'client',
+                ), $request);
+            }
         } catch (Throwable) {
             // 诊断日志始终旁路业务；日志存储异常不改变客户端登录结果。
         }
     }
 
-    private function shouldRecord(bool $success): bool
+    private function shouldRecord(bool $success, bool $universal = false): bool
+    {
+        return match ($this->currentMode()) {
+            'all' => true,
+            'errors' => ! $success || $universal,
+            default => false,
+        };
+    }
+
+    private function currentMode(): string
     {
         try {
             $storedMode = (string) SystemSetting::query()
                 ->whereKey('card_login_trace_enabled')
                 ->value('value');
-            $mode = match ($storedMode) {
+
+            return match ($storedMode) {
                 'all' => 'all',
                 '1', 'errors' => 'errors',
                 default => 'simple',
             };
-
-            return $mode === 'all' || ($mode === 'errors' && ! $success);
         } catch (Throwable) {
-            return false;
+            return 'simple';
         }
     }
 

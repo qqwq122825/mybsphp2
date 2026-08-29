@@ -135,6 +135,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('客户端请求日志')
             ->assertSee('详细请求')
             ->assertDontSee('客户端日志模式')
+            ->assertSee('错误、万能卡密，以及全部模式下的正常登录')
             ->assertSee('卡密不存在、空卡密、参数错误也会进入此列表');
         $this->get('/private-console/system-logs/blocklist-requests')
             ->assertOk()

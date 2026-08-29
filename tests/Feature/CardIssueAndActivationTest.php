@@ -74,6 +74,8 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertStringNotContainsString($testUniversalCard, json_encode([
             $loginLog->before_data, $loginLog->after_data,
         ], JSON_THROW_ON_ERROR));
+        $this->assertSame(1, AuditLog::query()->where('action', 'client.card_login_trace')->count());
+        $this->assertDatabaseMissing('audit_logs', ['action' => 'client.card_login_success']);
 
         $heartbeat = $cipher->sealRequestWithContext($application, http_build_query([
             'api' => 'timeout.ic', 'BSphpSeSsL' => $handle, 'key' => 'MASTER-DEVICE-01',
@@ -180,6 +182,11 @@ class CardIssueAndActivationTest extends TestCase
         $this->postJson($gateway, $first['envelope'])->assertOk();
 
         $successLog = AuditLog::query()->where('action', 'client.card_login_trace')->sole();
+        $successSummary = AuditLog::query()->where('action', 'client.card_login_success')->sole();
+        $this->assertSame($successLog->request_id, $successSummary->request_id);
+        $this->assertSame('LOGIN_OK', data_get($successSummary->after_data, 'internal_code'));
+        $this->assertSame('卡密登录成功', data_get($successSummary->after_data, 'internal_message'));
+        $this->assertSame('TRACE-DEVICE-A', data_get($successSummary->before_data, 'device'));
         $this->assertSame('TRACE-DEVICE-A', data_get($successLog->before_data, 'device'));
         $this->assertSame('v2-object', data_get($successLog->before_data, 'wire_format'));
         $this->assertSame('[REDACTED]', data_get($successLog->before_data, 'parameters.appsafecode'));
@@ -239,6 +246,7 @@ class CardIssueAndActivationTest extends TestCase
         ], '', '&', PHP_QUERY_RFC3986));
         $this->postJson($gateway, $third['envelope'])->assertOk();
         $this->assertSame(3, AuditLog::query()->where('action', 'client.card_login_trace')->count());
+        $this->assertSame(1, AuditLog::query()->where('action', 'client.card_login_success')->count());
 
         $diagnosticFailure = $cipher->sealRequestWithContext($application, http_build_query([
             'api' => 'login.ic', 'icid' => 'UNKNOWN-CARD-CODE-123', 'key' => 'TRACE-ERROR-DEVICE',
@@ -258,6 +266,39 @@ class CardIssueAndActivationTest extends TestCase
         ], '', '&', PHP_QUERY_RFC3986));
         $this->assertMaskedCardFailure($this->postJson($gateway, $simpleFailure['envelope']));
         $this->assertSame(4, AuditLog::query()->where('action', 'client.card_login_trace')->count());
+        $this->assertSame(
+            'INVALID_CARD',
+            data_get(AuditLog::query()->where('action', 'client.auth_failure_masked')->latest('id')->firstOrFail()->after_data, 'internal_code'),
+        );
+
+        $testUniversalCard = 'TEST-DIAG-UNIVERSAL-001';
+        SystemSetting::query()->create([
+            'key' => 'universal_card_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'security',
+        ]);
+        SystemSetting::query()->create([
+            'key' => 'universal_card_code_hash', 'value' => hash('sha256', $testUniversalCard),
+            'type' => 'string', 'group' => 'security',
+        ]);
+
+        SystemSetting::query()->whereKey('card_login_trace_enabled')->update(['value' => 'errors']);
+        $diagnosticUniversal = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $testUniversalCard, 'key' => 'TRACE-UNIVERSAL-DEVICE',
+            'appsafecode' => 'TRACE-SAFE-U', 'BSphpSeSsL' => str_repeat('p', 64),
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->postJson($gateway, $diagnosticUniversal['envelope'])->assertOk();
+        $this->assertSame(5, AuditLog::query()->where('action', 'client.card_login_trace')->count());
+        $this->assertSame(1, AuditLog::query()->where('action', 'client.universal_card_login')->count());
+        $this->assertSame(1, AuditLog::query()->where('action', 'client.card_login_success')->count());
+
+        SystemSetting::query()->whereKey('card_login_trace_enabled')->update(['value' => 'simple']);
+        $simpleUniversal = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $testUniversalCard, 'key' => 'TRACE-UNIVERSAL-DEVICE-2',
+            'appsafecode' => 'TRACE-SAFE-V', 'BSphpSeSsL' => str_repeat('o', 64),
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->postJson($gateway, $simpleUniversal['envelope'])->assertOk();
+        $this->assertSame(5, AuditLog::query()->where('action', 'client.card_login_trace')->count());
+        $this->assertSame(2, AuditLog::query()->where('action', 'client.universal_card_login')->count());
+        $this->assertSame(1, AuditLog::query()->where('action', 'client.card_login_success')->count());
     }
 
     public function test_generated_card_can_be_manually_issued_and_activated_once(): void

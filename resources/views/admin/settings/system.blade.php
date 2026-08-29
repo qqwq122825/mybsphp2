@@ -96,22 +96,22 @@
                 <strong>卡密登录请求日志</strong>
                 <select name="card_login_trace_enabled" required>
                     <option value="simple" @selected($cardLoginTraceMode === 'simple')>简单模式（关闭详细记录）</option>
-                    <option value="errors" @selected($cardLoginTraceMode === 'errors')>诊断模式（只记录错误）</option>
-                    <option value="all" @selected($cardLoginTraceMode === 'all')>全部模式（记录每次请求）</option>
+                    <option value="errors" @selected($cardLoginTraceMode === 'errors')>诊断模式（报错与万能卡密）</option>
+                    <option value="all" @selected($cardLoginTraceMode === 'all')>全部模式（含正常登录）</option>
                 </select>
-                <small>简单模式只保留日常简要事件；诊断模式详细记录错误请求；全部模式详细记录每次 login.ic。</small>
+                <small>简单模式关闭详细日志，仍计入错误和万能卡密；诊断模式详细记录所有报错和万能卡密；全部模式额外包含正常登录的详细日志。</small>
             </label>
 
             <div class="system-settings-mode-note is-{{ $cardLoginTraceMode === 'simple' ? 'production' : 'debug' }}">
                 <strong>{{ match ($cardLoginTraceMode) {
-                    'errors' => '卡密登录诊断模式：只记录错误',
-                    'all' => '卡密登录全部模式：记录每次请求',
+                    'errors' => '卡密登录诊断模式：报错与万能卡密',
+                    'all' => '卡密登录全部模式：含正常登录',
                     default => '卡密登录简单模式：已关闭详细记录',
                 } }}</strong>
                 <p>{{ match ($cardLoginTraceMode) {
-                    'errors' => '只写入失败、拦截及风控错误的详细请求，用于排查问题并控制日志增长。',
-                    'all' => '写入所有成功与失败的 login.ic 详细请求，数据量最大。',
-                    default => '仅保留万能卡密等日常简要事件，不写入 client.card_login_trace 详细日志。',
+                    'errors' => '写入所有报错、拦截和万能卡密的详细请求；普通成功登录不记详细日志。',
+                    'all' => '写入每次 login.ic 的详细请求，含正常登录；简要列表也会出现成功登录。数据量最大。',
+                    default => '关闭详细日志，仍计入错误和万能卡密的简要记录。普通成功登录不进入列表。',
                 } }}</p>
             </div>
 

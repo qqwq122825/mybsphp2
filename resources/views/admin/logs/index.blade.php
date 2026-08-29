@@ -17,7 +17,7 @@
         <input type="hidden" name="view" value="{{ $clientLogMode }}">
     @endif
 </form>
-<x-admin.table-shell :title="$title" :subtitle="$isBlocklistRequestLog ? '设备和 IP 已拉黑后仍继续登录的请求；客户端仍显示卡密不存在' : ($isClientRequestLog ? ($isClientSimpleLog ? '客户端登录失败与万能卡密事件；卡密不存在、空卡密、参数错误也会进入此列表' : '仅在系统设置开启诊断后记录 login.ic') : ($isCardMakingLog ? null : ($logType === 'protection' ? '后台登录失败、代理登录失败与系统封禁事件' : '系统审计数据查询')))" panel-class="bsphp-log-panel">
+<x-admin.table-shell :title="$title" :subtitle="$isBlocklistRequestLog ? '设备和 IP 已拉黑后仍继续登录的请求；客户端仍显示卡密不存在' : ($isClientRequestLog ? ($isClientSimpleLog ? '错误、万能卡密，以及全部模式下的正常登录；卡密不存在、空卡密、参数错误也会进入此列表' : '详细请求由系统设置控制：简单模式关闭，诊断模式记报错与万能卡密，全部模式含正常登录') : ($isCardMakingLog ? null : ($logType === 'protection' ? '后台登录失败、代理登录失败与系统封禁事件' : '系统审计数据查询')))" panel-class="bsphp-log-panel">
     <x-slot:search><x-admin.filter-bar button-label="⌕" :icon-only="true">
         @if($isClientRequestLog)
             <x-slot:hidden>

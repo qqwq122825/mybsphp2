@@ -26,13 +26,8 @@
                             <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'login' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'login']) }}">管理登录日志</a>
                             <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'card-making' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'card-making']) }}">系统制卡日志</a>
                             <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'protection' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'protection']) }}">系统安全防护日志</a>
-                            <details class="nav-subgroup nav-subgroup-nested" {{ in_array(request()->route('type'), ['client-requests', 'blocklist-requests'], true) ? 'open' : '' }}>
-                                <summary>客户端请求日志<i aria-hidden="true"></i></summary>
-                                <div>
-                                    <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'client-requests' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'client-requests']) }}">请求日志</a>
-                                    <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'blocklist-requests' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'blocklist-requests']) }}">黑名单请求日志</a>
-                                </div>
-                            </details>
+                            <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'client-requests' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'client-requests']) }}">客户端请求日志</a>
+                            <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'blocklist-requests' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'blocklist-requests']) }}">黑名单请求日志</a>
                         </div>
                     </details>
                 @endcan

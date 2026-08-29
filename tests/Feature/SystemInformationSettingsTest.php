@@ -75,8 +75,8 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('暂停提示')
             ->assertSee('卡密登录请求日志')
             ->assertSee('简单模式（关闭详细记录）')
-            ->assertSee('诊断模式（只记录错误）')
-            ->assertSee('全部模式（记录每次请求）')
+            ->assertSee('诊断模式（报错与万能卡密）')
+            ->assertSee('全部模式（含正常登录）')
             ->assertSee('是否启用万能卡密')
             ->assertSee('万能卡密')
             ->assertSee('value="jfkdls1314520"', false)
@@ -134,7 +134,7 @@ class SystemInformationSettingsTest extends TestCase
             ->assertSee('new-control-center')
             ->assertSee('partner-gateway')
             ->assertSee('调试信息正在开放')
-            ->assertSee('卡密登录全部模式：记录每次请求')
+            ->assertSee('卡密登录全部模式：含正常登录')
             ->assertSee('value="TEST-NEW-UNIVERSAL-CARD"', false)
             ->assertSee('服务升级维护中，请稍后重新连接。');
 

@@ -117,6 +117,7 @@ final class LegacyGatewayController extends Controller
         ];
         $traceCardLogin = $application->mode === 'card_login' && $api === 'login.ic';
 
+        $usedUniversal = $traceCardLogin && $universalCard->matches($code);
         $riskDecision = null;
         if (in_array($api, ['login.ic', 'login.lg'], true)) {
             $riskDecision = $risk->evaluate($application, $request, 'legacy.'.$api, $device, $code."\0".$secret, preg_match('/^[A-Za-z0-9_-]{64}$/', $sessionHandle) === 1);
@@ -128,7 +129,7 @@ final class LegacyGatewayController extends Controller
                     $cardLoginTrace->recordJson(
                         $application, $request, $parameters, $traceParameterNames,
                         $code, $device, $sessionHandle, $opened['request_nonce'], $compactWire,
-                        $blockedResponse, 'RISK_BLOCKED',
+                        $blockedResponse, 'RISK_BLOCKED', $usedUniversal,
                     );
                 }
 
@@ -203,7 +204,7 @@ final class LegacyGatewayController extends Controller
                 if (mb_strlen($code) > 64 || mb_strlen($secret) > 64) {
                     throw new CardActivationException('INVALID_PARAMETERS', '卡密参数格式错误。', 422);
                 }
-                $result = $universalCard->matches($code)
+                $result = $usedUniversal
                     ? $universalCard->login($application, $device, $appsafecode, $sessionHandle, $request)
                     : $activation->activate($application, $code, $secret, $device, $appsafecode, $sessionHandle);
             }
@@ -235,7 +236,7 @@ final class LegacyGatewayController extends Controller
                 $cardLoginTrace->recordJson(
                     $application, $request, $parameters, $traceParameterNames,
                     $code, $device, $sessionHandle, $opened['request_nonce'], $compactWire,
-                    $errorResponse, $exception->errorCode,
+                    $errorResponse, $exception->errorCode, $usedUniversal,
                 );
             }
             if ($exception instanceof CardActivationException) {
@@ -281,7 +282,7 @@ final class LegacyGatewayController extends Controller
                         $cardLoginTrace->recordJson(
                             $application, $request, $parameters, $traceParameterNames,
                             $code, $device, $sessionHandle, $opened['request_nonce'], $compactWire,
-                            $launchBlockedResponse, 'T1_BLOCKED',
+                            $launchBlockedResponse, 'T1_BLOCKED', $usedUniversal,
                         );
                     }
 
@@ -308,6 +309,7 @@ final class LegacyGatewayController extends Controller
                 $application, $request, $parameters, $traceParameterNames,
                 $code, $device, $sessionHandle, $opened['request_nonce'], $compactWire,
                 (string) $result['legacy_response'],
+                $usedUniversal,
             );
         }
 
