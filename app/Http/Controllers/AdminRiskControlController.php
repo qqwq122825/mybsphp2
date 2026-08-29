@@ -145,9 +145,17 @@ final class AdminRiskControlController extends Controller
             'block_message' => ['required', 'string', 'max:255'],
             'invalid_card_threshold' => ['required', 'integer', 'min:2', 'max:100'],
             'invalid_card_window_seconds' => ['required', 'integer', 'min:10', 'max:86400'],
+            'probe_count_missing_device' => ['nullable', 'boolean'],
+            'probe_count_unknown_api' => ['nullable', 'boolean'],
         ]);
         $current = $application->riskPolicy;
         $validated['enabled'] = $request->boolean('enabled');
+        $validated['probe_count_missing_device'] = $request->exists('probe_count_missing_device')
+            ? $request->boolean('probe_count_missing_device')
+            : (bool) ($current?->probe_count_missing_device ?? true);
+        $validated['probe_count_unknown_api'] = $request->exists('probe_count_unknown_api')
+            ? $request->boolean('probe_count_unknown_api')
+            : (bool) ($current?->probe_count_unknown_api ?? true);
         $validated['window_seconds'] ??= (int) ($current?->window_seconds ?? 60);
         $validated['restart_grace_seconds'] ??= (int) ($current?->restart_grace_seconds ?? 8);
         $validated['security_report_mode'] ??= (string) ($current?->security_report_mode ?? 'observe');

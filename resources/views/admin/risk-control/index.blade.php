@@ -9,7 +9,7 @@
     </section>
 @else
     @php
-        $probeError = collect(['enabled', 'invalid_card_threshold', 'invalid_card_window_seconds', 'block_http_status', 'block_code', 'block_message'])
+        $probeError = collect(['enabled', 'invalid_card_threshold', 'invalid_card_window_seconds', 'probe_count_missing_device', 'probe_count_unknown_api', 'block_http_status', 'block_code', 'block_message'])
             ->contains(fn (string $field): bool => $errors->has($field));
         $honeypotError = collect(['security_report_mode', 'abnormal_exit_window_minutes', 'abnormal_exit_high_threshold'])
             ->contains(fn (string $field): bool => $errors->has($field));
@@ -18,6 +18,8 @@
         $probeThreshold = max(2, (int) old('invalid_card_threshold', $policy->invalid_card_threshold ?? 3));
         $probeWindow = max(10, (int) old('invalid_card_window_seconds', $policy->invalid_card_window_seconds ?? 60));
         $probeWarns = $probeThreshold - 1;
+        $countMissingDevice = (string) old('probe_count_missing_device', ($policy->probe_count_missing_device ?? true) ? '1' : '0');
+        $countUnknownApi = (string) old('probe_count_unknown_api', ($policy->probe_count_unknown_api ?? true) ? '1' : '0');
     @endphp
     <div class="software-config-form" data-config-form data-default-config-tab="{{ $defaultConfigTab }}">
         <header class="software-settings-heading">
@@ -48,7 +50,14 @@
                     <div class="panel-body software-basic-rows">
                         <p class="risk-probe-rule-note">
                             <strong>当前规则</strong>
-                            {{ $probeWindow }} 秒内只统计卡密不存在、空卡密、乱输入，正常登录不计入。
+                            {{ $probeWindow }} 秒内统计卡密不存在、空卡密、乱输入、已到期、已被其他设备绑定、已冻结、用户已冻结、已作废或已用尽；正常登录不计入。
+                            已拉黑的设备换新 IP、已拉黑的 IP 换新设备，也按同一次数计入，够了就把对面那一头拉黑。
+                            @if($countMissingDevice === '1' || $countUnknownApi === '1')
+                                当前还计入{{ $countMissingDevice === '1' ? '未带设备号' : '' }}{{ $countMissingDevice === '1' && $countUnknownApi === '1' ? '、' : '' }}{{ $countUnknownApi === '1' ? '乱打接口名' : '' }}，可在下方开关。
+                            @else
+                                未带设备号、乱打接口名当前不计入，可在下方打开。
+                            @endif
+                            正常玩家不会在窗口内多次尝试，只有破解才会这样。
                             前 {{ $probeWarns }} 次只提示「卡密不存在」；第 {{ $probeThreshold }} 次还在尝试就拉黑当前设备和 IP。
                             拉黑后再登录仍显示卡密不存在。
                         </p>
@@ -67,7 +76,7 @@
                                        value="{{ old('invalid_card_window_seconds', $policy->invalid_card_window_seconds ?? 60) }}">
                                 <em>秒</em>
                             </div>
-                            <small>只统计卡密不存在、空卡密、乱输入；正常登录不计入。例如 60 秒。</small>
+                            <small>固定计入不存在、空卡密、乱输入、到期、绑机不符、冻结、作废；已拉黑后换新 IP 或新设备也计入。例如 60 秒。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>错误次数阈值</strong>
@@ -77,6 +86,22 @@
                                 <em>次</em>
                             </div>
                             <small>填 3 表示前 2 次只提示卡密不存在，第 3 次再试就拉黑设备和 IP。</small>
+                        </label>
+                        <label class="software-basic-row">
+                            <strong>未带设备号计入</strong>
+                            <select name="probe_count_missing_device">
+                                <option value="1" @selected($countMissingDevice === '1')>计入</option>
+                                <option value="0" @selected($countMissingDevice === '0')>不计入</option>
+                            </select>
+                            <small>客户端没带设备特征码。正式客户端一般都会带；关闭后只拦其它规则。</small>
+                        </label>
+                        <label class="software-basic-row">
+                            <strong>乱打接口名计入</strong>
+                            <select name="probe_count_unknown_api">
+                                <option value="1" @selected($countUnknownApi === '1')>计入</option>
+                                <option value="0" @selected($countUnknownApi === '0')>不计入</option>
+                            </select>
+                            <small>不是正常登录接口名。旧客户端调试也可能碰到，误伤时关掉即可。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>当前运行模式</strong>

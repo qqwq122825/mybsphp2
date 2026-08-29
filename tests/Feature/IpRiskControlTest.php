@@ -15,6 +15,7 @@ use App\Models\CardBatch;
 use App\Models\CardType;
 use App\Models\ClientSecurityEvent;
 use App\Models\ClientSecuritySubjectState;
+use App\Models\GlobalSecurityBlock;
 use App\Models\IpRiskState;
 use App\Models\Role;
 use App\Models\SystemSetting;
@@ -156,6 +157,185 @@ class IpRiskControlTest extends TestCase
         ]);
         $this->assertDatabaseHas('ip_risk_states', [
             'application_id' => $application->getKey(), 'permanently_blocked' => true,
+        ]);
+    }
+
+    public function test_expired_and_device_mismatch_errors_count_toward_probe_threshold(): void
+    {
+        [$application, $gateway] = $this->cardLoginApplication();
+        $application->riskPolicy()->create([
+            'enabled' => true,
+            'invalid_card_threshold' => 3,
+            'invalid_card_window_seconds' => 60,
+            'block_http_status' => 429,
+            'block_code' => 'CARD_PROBE_BLOCKED',
+            'block_message' => '套卡探测已拦截。',
+        ]);
+        $cipher = app(HybridPacketCipher::class);
+        $device = 'PROBE-MIXED-DEVICE';
+        $this->makeLoginCard($application, 'EXPIRED-PROBE-CARD-0001', [
+            'status' => 'expired',
+            'expires_at' => now()->subMinute(),
+        ]);
+        $this->makeLoginCard($application, 'BOUND-PROBE-CARD-0002', [
+            'status' => 'active',
+            'bound_device_ciphertext' => 'OTHER-BOUND-DEVICE',
+            'bound_device_mask' => 'OTHE••••VICE',
+        ]);
+
+        $this->assertMaskedCardFailure($this->postJson($gateway, $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => 'EXPIRED-PROBE-CARD-0001', 'key' => $device,
+            'appsafecode' => 'SAFE', 'BSphpSeSsL' => str_repeat('1', 64),
+        ], '', '&', PHP_QUERY_RFC3986))['envelope']));
+        $this->assertMaskedCardFailure($this->postJson($gateway, $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => 'BOUND-PROBE-CARD-0002', 'key' => $device,
+            'appsafecode' => 'SAFE', 'BSphpSeSsL' => str_repeat('2', 64),
+        ], '', '&', PHP_QUERY_RFC3986))['envelope']));
+        $this->assertDatabaseMissing('client_security_subject_states', [
+            'device_hash' => hash('sha256', $device), 'status' => 'blocked',
+        ]);
+
+        $this->assertMaskedCardFailure($this->postJson($gateway, $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => 'FAKE-PROBE-CARD-0003', 'key' => $device,
+            'appsafecode' => 'SAFE', 'BSphpSeSsL' => str_repeat('3', 64),
+        ], '', '&', PHP_QUERY_RFC3986))['envelope']));
+
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'device_hash' => hash('sha256', $device), 'status' => 'blocked',
+        ]);
+        $this->assertDatabaseHas('ip_risk_states', [
+            'application_id' => $application->getKey(), 'permanently_blocked' => true,
+        ]);
+    }
+
+    public function test_frozen_revoked_and_user_frozen_errors_count_toward_probe_threshold(): void
+    {
+        [$application, $gateway] = $this->cardLoginApplication();
+        $this->enableCardProbe($application);
+        $device = 'PROBE-FROZEN-DEVICE';
+        $this->makeLoginCard($application, 'FROZEN-PROBE-CARD-0001', [
+            'status' => 'frozen',
+            'card_is_frozen' => true,
+        ]);
+        $this->makeLoginCard($application, 'USER-FROZEN-PROBE-0002', [
+            'status' => 'active',
+            'user_status' => 'frozen',
+            'user_frozen_at' => now(),
+        ]);
+        $this->makeLoginCard($application, 'REVOKED-PROBE-CARD-0003', [
+            'status' => 'revoked',
+            'revoked_at' => now(),
+        ]);
+
+        $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FROZEN-PROBE-CARD-0001', $device, '1'));
+        $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'USER-FROZEN-PROBE-0002', $device, '2'));
+        $this->assertDatabaseMissing('client_security_subject_states', [
+            'device_hash' => hash('sha256', $device), 'status' => 'blocked',
+        ]);
+        $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'REVOKED-PROBE-CARD-0003', $device, '3'));
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'device_hash' => hash('sha256', $device), 'status' => 'blocked',
+        ]);
+        $this->assertDatabaseHas('global_security_blocks', [
+            'subject_type' => 'ip',
+        ]);
+    }
+
+    public function test_missing_device_and_unknown_api_follow_probe_toggles(): void
+    {
+        [$application, $gateway] = $this->cardLoginApplication();
+        $this->enableCardProbe($application, [
+            'probe_count_missing_device' => false,
+            'probe_count_unknown_api' => false,
+        ]);
+        $this->makeLoginCard($application, 'REAL-PROBE-CARD-0001');
+        $device = 'PROBE-OPTIONAL-DEVICE';
+
+        for ($i = 1; $i <= 3; $i++) {
+            $this->postLegacyCardLogin($application, $gateway, 'REAL-PROBE-CARD-0001', '', (string) $i)
+                ->assertStatus(422)
+                ->assertJsonPath('error.code', 'DEVICE_REQUIRED');
+            $this->postLegacyCardLogin($application, $gateway, 'ANY-CARD', $device, chr(96 + $i), 'not.an.api')
+                ->assertStatus(404)
+                ->assertJsonPath('error.code', 'UNKNOWN_API');
+        }
+        $this->assertDatabaseMissing('ip_risk_states', [
+            'application_id' => $application->getKey(), 'permanently_blocked' => true,
+        ]);
+        $this->assertDatabaseMissing('client_security_subject_states', [
+            'device_hash' => hash('sha256', $device), 'status' => 'blocked',
+        ]);
+
+        $application->riskPolicy()->update([
+            'probe_count_missing_device' => true,
+            'probe_count_unknown_api' => true,
+        ]);
+        $this->postLegacyCardLogin($application, $gateway, 'REAL-PROBE-CARD-0001', '', '4')
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'DEVICE_REQUIRED');
+        $this->postLegacyCardLogin($application, $gateway, 'REAL-PROBE-CARD-0001', '', '5')
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'DEVICE_REQUIRED');
+        $this->postLegacyCardLogin($application, $gateway, 'REAL-PROBE-CARD-0001', '', '6')
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'DEVICE_REQUIRED');
+        $this->assertDatabaseHas('ip_risk_states', [
+            'application_id' => $application->getKey(), 'permanently_blocked' => true,
+        ]);
+    }
+
+    public function test_blocked_device_from_a_new_ip_is_counted_until_that_ip_is_blocked(): void
+    {
+        [$application, $gateway] = $this->cardLoginApplication();
+        $this->enableCardProbe($application);
+        $device = 'PROBE-SWAP-IP-DEVICE';
+        foreach (['1', '2', '3'] as $seed) {
+            $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FAKE-HOME-'.$seed, $device, $seed));
+        }
+        $this->assertDatabaseHas('global_security_blocks', [
+            'subject_type' => 'device', 'subject_hash' => hash('sha256', $device),
+        ]);
+        $this->assertDatabaseHas('global_security_blocks', [
+            'subject_type' => 'ip', 'subject_value' => '127.0.0.1',
+        ]);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.88']);
+        $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FAKE-NEW-1', $device, '4'));
+        $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FAKE-NEW-2', $device, '5'));
+        $this->assertDatabaseMissing('global_security_blocks', [
+            'subject_type' => 'ip', 'subject_hash' => hash('sha256', '198.51.100.88'),
+        ]);
+        $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FAKE-NEW-3', $device, '6'));
+        $this->assertDatabaseHas('global_security_blocks', [
+            'subject_type' => 'ip', 'subject_hash' => hash('sha256', '198.51.100.88'),
+            'subject_value' => '198.51.100.88',
+        ]);
+    }
+
+    public function test_blocked_ip_keeps_counting_until_a_new_device_is_blocked(): void
+    {
+        [$application, $gateway] = $this->cardLoginApplication();
+        $this->enableCardProbe($application);
+        $firstDevice = 'PROBE-SWAP-DEVICE-A';
+        $secondDevice = 'PROBE-SWAP-DEVICE-B';
+        foreach (['1', '2', '3'] as $seed) {
+            $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FAKE-A-'.$seed, $firstDevice, $seed));
+        }
+        $this->assertDatabaseHas('global_security_blocks', [
+            'subject_type' => 'device', 'subject_hash' => hash('sha256', $firstDevice),
+        ]);
+
+        $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FAKE-B-1', $secondDevice, '4'));
+        $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FAKE-B-2', $secondDevice, '5'));
+        $this->assertDatabaseMissing('client_security_subject_states', [
+            'device_hash' => hash('sha256', $secondDevice), 'status' => 'blocked',
+        ]);
+        $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FAKE-B-3', $secondDevice, '6'));
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'device_hash' => hash('sha256', $secondDevice), 'status' => 'blocked',
+        ]);
+        $this->assertDatabaseHas('global_security_blocks', [
+            'subject_type' => 'device', 'subject_hash' => hash('sha256', $secondDevice),
         ]);
     }
 
@@ -392,12 +572,16 @@ class IpRiskControlTest extends TestCase
                 ->assertSee($application->name.' · 封控设置')
                 ->assertSee('套卡探测')
                 ->assertSee('蜜罐策略')
-                ->assertSee('只统计卡密不存在、空卡密、乱输入')
+                ->assertSee('已冻结、用户已冻结、已作废或已用尽')
                 ->assertSee('正常登录不计入')
+                ->assertSee('正常玩家不会在窗口内多次尝试，只有破解才会这样')
                 ->assertSee('当前规则')
                 ->assertSee('前 2 次只提示「卡密不存在」')
                 ->assertSee('第 3 次还在尝试就拉黑当前设备和 IP')
                 ->assertSee('填 3 表示前 2 次只提示卡密不存在，第 3 次再试就拉黑设备和 IP')
+                ->assertSee('未带设备号计入')
+                ->assertSee('乱打接口名计入')
+                ->assertSee('已拉黑的设备换新 IP')
                 ->assertDontSee('当前软件策略')
                 ->assertSee('上线运行：谨慎响应')
                 ->assertDontSee('返回软件配置')
@@ -497,6 +681,8 @@ class IpRiskControlTest extends TestCase
                 'enabled' => '1',
                 'invalid_card_threshold' => 3,
                 'invalid_card_window_seconds' => 60,
+                'probe_count_missing_device' => '0',
+                'probe_count_unknown_api' => '1',
                 'block_http_status' => 403, 'block_code' => 'RISK_BLOCKED', 'block_message' => '当前访问受限。',
             ])->assertRedirect()->assertSessionHas('success');
 
@@ -504,6 +690,8 @@ class IpRiskControlTest extends TestCase
                 'application_id' => $application->getKey(),
                 'invalid_card_threshold' => 3,
                 'invalid_card_window_seconds' => 60,
+                'probe_count_missing_device' => false,
+                'probe_count_unknown_api' => true,
             ]);
             $this->put('/private-console/risk-control/applications/'.$application->public_id.'/security-policy', [
                 'security_report_mode' => 'enforce',
@@ -566,6 +754,81 @@ class IpRiskControlTest extends TestCase
         $application->legacyConfig()->create($application->legacyLoginDefaults());
 
         return [$application, '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token];
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function enableCardProbe(Application $application, array $overrides = []): void
+    {
+        $application->riskPolicy()->create(array_replace([
+            'enabled' => true,
+            'invalid_card_threshold' => 3,
+            'invalid_card_window_seconds' => 60,
+            'block_http_status' => 429,
+            'block_code' => 'CARD_PROBE_BLOCKED',
+            'block_message' => '套卡探测已拦截。',
+        ], $overrides));
+    }
+
+    private function postLegacyCardLogin(
+        Application $application,
+        string $gateway,
+        string $code,
+        string $device,
+        string $sessionSeed,
+        string $api = 'login.ic',
+    ): TestResponse {
+        $cipher = app(HybridPacketCipher::class);
+
+        return $this->postJson($gateway, $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => $api,
+            'icid' => $code,
+            'key' => $device,
+            'appsafecode' => 'SAFE',
+            'BSphpSeSsL' => str_repeat($sessionSeed, 64),
+        ], '', '&', PHP_QUERY_RFC3986))['envelope']);
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function makeLoginCard(Application $application, string $code, array $overrides = []): Card
+    {
+        $cardType = CardType::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'application_id' => $application->getKey(),
+            'name' => '探测登录卡',
+            'code' => 'probe-'.Str::lower(Str::random(8)),
+            'purpose' => 'login_credential',
+            'benefit_kind' => 'duration',
+            'duration_seconds' => 86400,
+            'duration_value' => 1,
+            'duration_unit' => 'day',
+            'code_length' => 24,
+            'secret_length' => 0,
+            'status' => 'active',
+        ]);
+        $batch = CardBatch::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'card_type_id' => $cardType->getKey(),
+            'batch_no' => 'PROBE-'.Str::upper(Str::random(10)),
+            'source' => 'generated',
+            'planned_quantity' => 1,
+            'actual_quantity' => 1,
+            'status' => 'ready',
+        ]);
+
+        return Card::query()->create(array_replace([
+            'public_id' => (string) Str::ulid(),
+            'batch_id' => $batch->getKey(),
+            'card_type_id' => $cardType->getKey(),
+            'application_id' => $application->getKey(),
+            'code_lookup_hash' => app(CardCredentialHasher::class)->lookupHash($code),
+            'code_ciphertext' => $code,
+            'code_last4' => substr($code, -4),
+            'status' => 'active',
+            'card_is_frozen' => false,
+            'user_status' => 'active',
+            'activated_at' => now()->subDay(),
+            'expires_at' => now()->addDay(),
+        ], $overrides));
     }
 
     private function assertMaskedCardFailure(TestResponse $response): void

@@ -9,6 +9,7 @@ use App\Models\ClientSecuritySubjectState;
 use App\Models\GlobalSecurityBlock;
 use App\Models\IpRiskState;
 use App\Models\RiskEvent;
+use App\Models\RiskPolicy;
 use App\Security\DeviceSecurityStateService;
 use App\Support\OperationalMode;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +20,24 @@ use Illuminate\Support\Str;
 final class IpRiskControlService
 {
     /** @var list<string> */
-    public const CARD_PROBE_CODES = ['INVALID_CARD', 'EMPTY_CARD', 'INVALID_PARAMETERS'];
+    public const CARD_PROBE_CODES = [
+        'INVALID_CARD',
+        'EMPTY_CARD',
+        'INVALID_PARAMETERS',
+        'CARD_EXPIRED',
+        'DEVICE_MISMATCH',
+        'CARD_FROZEN',
+        'USER_FROZEN',
+        'CARD_UNAVAILABLE',
+        'DEVICE_BLOCKED',
+        'IP_BLOCKED',
+    ];
+
+    /** @var array<string, string> */
+    public const OPTIONAL_PROBE_CODES = [
+        'DEVICE_REQUIRED' => 'probe_count_missing_device',
+        'UNKNOWN_API' => 'probe_count_unknown_api',
+    ];
 
     public function __construct(
         private readonly DailyVerificationCodec $dailyCodec,
@@ -70,12 +88,8 @@ final class IpRiskControlService
         string $errorCode,
         string $endpoint = 'legacy.login.ic',
     ): void {
-        if (! in_array($errorCode, self::CARD_PROBE_CODES, true)) {
-            return;
-        }
-
         $policy = $application->riskPolicy()->firstOrCreate([], $this->defaults());
-        if (! $policy->enabled) {
+        if (! $policy->enabled || ! $this->countsTowardProbe($errorCode, $policy)) {
             return;
         }
 
@@ -89,6 +103,8 @@ final class IpRiskControlService
 
         DB::transaction(function () use ($application, $policy, $ip, $ipHash, $normalizedDevice, $endpoint, $errorCode, $threshold, $now, $cutoff): void {
             $state = $this->lockIpState($application, $ip, $ipHash);
+            $ipAlreadyBlocked = $this->ipIsBlocked($state, $ip);
+            $deviceAlreadyBlocked = $normalizedDevice !== '' && $this->deviceStates->isBlocked($application, $normalizedDevice);
             $ipProbes = $this->pruneProbes($state->recent_card_probes, $cutoff);
             $ipProbes[] = $now;
             $state->recent_card_probes = $ipProbes;
@@ -125,26 +141,37 @@ final class IpRiskControlService
                 ])->save();
             }
 
-            $hitThreshold = count($ipProbes) >= $threshold || $deviceProbes >= $threshold;
-            if (! $hitThreshold) {
+            $ipHit = count($ipProbes) >= $threshold;
+            $deviceHit = $deviceProbes >= $threshold;
+            $shouldBlockIp = ! $ipAlreadyBlocked && ($ipHit || ($deviceHit && ! $deviceAlreadyBlocked));
+            $shouldBlockDevice = $normalizedDevice !== '' && ! $deviceAlreadyBlocked
+                && ($deviceHit || ($ipHit && ! $ipAlreadyBlocked));
+            if (! $shouldBlockIp && ! $shouldBlockDevice) {
                 $state->save();
 
                 return;
             }
 
-            $state->forceFill([
-                'level' => 'high',
-                'permanently_blocked' => true,
-                'blocked_until' => null,
-                'last_attempt_succeeded' => false,
-                'note' => '套卡探测 '.$errorCode.' 达到 '.$threshold.' 次 / '.$policy->invalid_card_window_seconds.' 秒',
-            ])->save();
-            GlobalSecurityBlock::rememberIp($ip, 'C0', 'IP 已拉黑，全软件登录显示卡密不存在');
+            if ($shouldBlockIp) {
+                $state->forceFill([
+                    'level' => 'high',
+                    'permanently_blocked' => true,
+                    'blocked_until' => null,
+                    'last_attempt_succeeded' => false,
+                    'note' => '套卡探测 '.$errorCode.' 达到 '.$threshold.' 次 / '.$policy->invalid_card_window_seconds.' 秒',
+                ]);
+                GlobalSecurityBlock::rememberIp($ip, 'C0', 'IP 已拉黑，全软件登录显示卡密不存在');
+            }
+            $state->save();
 
-            if ($normalizedDevice !== '') {
+            if ($shouldBlockDevice) {
                 $this->deviceStates->block($application, $normalizedDevice, 'C0');
             }
 
+            $blockedParts = array_values(array_filter([
+                $shouldBlockDevice ? '设备' : null,
+                $shouldBlockIp ? 'IP' : null,
+            ]));
             RiskEvent::query()->create([
                 'public_id' => (string) Str::ulid(),
                 'application_id' => $application->getKey(),
@@ -156,7 +183,7 @@ final class IpRiskControlService
                 'window_attempts' => count($ipProbes),
                 'threshold' => $threshold,
                 'device_hash' => $normalizedDevice !== '' ? hash('sha256', $normalizedDevice) : null,
-                'reason' => '套卡探测命中：'.$errorCode.'，已拉黑当前设备与 IP',
+                'reason' => '套卡探测命中：'.$errorCode.'，已拉黑当前'.implode('与', $blockedParts),
             ]);
         }, 3);
     }
@@ -314,7 +341,26 @@ final class IpRiskControlService
             'abnormal_exit_high_threshold' => 8,
             'invalid_card_threshold' => 3,
             'invalid_card_window_seconds' => 60,
+            'probe_count_missing_device' => true,
+            'probe_count_unknown_api' => true,
         ];
+    }
+
+    private function countsTowardProbe(string $errorCode, RiskPolicy $policy): bool
+    {
+        if (in_array($errorCode, self::CARD_PROBE_CODES, true)) {
+            return true;
+        }
+        $column = self::OPTIONAL_PROBE_CODES[$errorCode] ?? null;
+
+        return $column !== null && (bool) $policy->{$column};
+    }
+
+    private function ipIsBlocked(IpRiskState $state, string $ip): bool
+    {
+        return $state->permanently_blocked
+            || ($state->blocked_until !== null && $state->blocked_until->isFuture())
+            || GlobalSecurityBlock::ipBlocked($ip);
     }
 
     private function lockIpState(Application $application, string $ip, string $ipHash): IpRiskState

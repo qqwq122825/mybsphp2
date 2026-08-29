@@ -33,7 +33,15 @@ final class CardActivationController extends Controller
         $decision = $card instanceof Card
             ? $risk->evaluate($card->application, $request, 'cards.login', $validated['device_id'] ?? '', $validated['code']."\0".($validated['secret'] ?? ''), isset($validated['BSphpSeSsL']))
             : null;
-        if ($decision?->shouldBlock()) {
+        if ($decision?->shouldBlock() && $card instanceof Card) {
+            $risk->recordAuthFailureProbe(
+                $card->application,
+                $request,
+                $validated['device_id'] ?? '',
+                'IP_BLOCKED',
+                'cards.login',
+            );
+
             return $risk->blockedResponse($decision, $request);
         }
 

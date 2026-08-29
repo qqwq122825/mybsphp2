@@ -18,6 +18,7 @@ class RiskPolicy extends Model
         'block_code', 'block_message', 'restart_grace_seconds', 'security_report_mode',
         'abnormal_exit_window_minutes', 'abnormal_exit_high_threshold',
         'invalid_card_threshold', 'invalid_card_window_seconds',
+        'probe_count_missing_device', 'probe_count_unknown_api',
     ];
 
     protected function casts(): array
@@ -34,6 +35,8 @@ class RiskPolicy extends Model
             'abnormal_exit_high_threshold' => 'integer',
             'invalid_card_threshold' => 'integer',
             'invalid_card_window_seconds' => 'integer',
+            'probe_count_missing_device' => 'boolean',
+            'probe_count_unknown_api' => 'boolean',
         ];
     }
 
