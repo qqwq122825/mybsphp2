@@ -15,6 +15,9 @@
             ->contains(fn (string $field): bool => $errors->has($field));
         $defaultConfigTab = $honeypotError ? 'honeypot' : ($probeError ? 'probe' : (request('tab') === 'honeypot' ? 'honeypot' : 'probe'));
         $enabledValue = (string) old('enabled', $policy->enabled ? '1' : '0');
+        $probeThreshold = max(2, (int) old('invalid_card_threshold', $policy->invalid_card_threshold ?? 3));
+        $probeWindow = max(10, (int) old('invalid_card_window_seconds', $policy->invalid_card_window_seconds ?? 60));
+        $probeWarns = $probeThreshold - 1;
     @endphp
     <div class="software-config-form" data-config-form data-default-config-tab="{{ $defaultConfigTab }}">
         <header class="software-settings-heading">
@@ -43,6 +46,12 @@
                 @method('PUT')
                 <section class="dashboard-panel form-panel form-panel-wide">
                     <div class="panel-body software-basic-rows">
+                        <p class="risk-probe-rule-note">
+                            <strong>当前规则</strong>
+                            {{ $probeWindow }} 秒内只统计卡密不存在、空卡密、乱输入，正常登录不计入。
+                            前 {{ $probeWarns }} 次只提示「卡密不存在」；第 {{ $probeThreshold }} 次还在尝试就拉黑当前设备和 IP。
+                            拉黑后再登录仍显示卡密不存在。
+                        </p>
                         <label class="software-basic-row">
                             <strong>套卡探测开关</strong>
                             <select name="enabled">
@@ -58,7 +67,7 @@
                                        value="{{ old('invalid_card_window_seconds', $policy->invalid_card_window_seconds ?? 60) }}">
                                 <em>秒</em>
                             </div>
-                            <small>例如 60 秒 = 1 分钟。只统计卡密不存在、空卡密、乱输入；正常登录不计入。</small>
+                            <small>只统计卡密不存在、空卡密、乱输入；正常登录不计入。例如 60 秒。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>错误次数阈值</strong>
@@ -67,7 +76,7 @@
                                        value="{{ old('invalid_card_threshold', $policy->invalid_card_threshold ?? 3) }}">
                                 <em>次</em>
                             </div>
-                            <small>窗口内达到次数后拉黑当前设备与 IP。推荐基线：1 分钟 3 次。</small>
+                            <small>填 3 表示前 2 次只提示卡密不存在，第 3 次再试就拉黑设备和 IP。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>当前运行模式</strong>

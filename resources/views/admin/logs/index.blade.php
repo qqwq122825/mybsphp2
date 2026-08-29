@@ -73,7 +73,7 @@
                     <td class="admin-select-column"><input type="checkbox" name="log_ids[]" value="{{ $log->id }}" form="system-log-maintenance-form" aria-label="选择日志 {{ $log->id }}" data-card-select></td>
                     <td><strong>{{ $log->created_at?->format('m-d H:i:s') }}</strong><small class="client-trace-meta">{{ $log->ip ?: '—' }} · #{{ $log->id }}</small></td>
                     <td><strong>{{ data_get($simpleRequest, 'application.name', '—') }}</strong><small class="client-trace-meta">{{ $displayCredential }}</small></td>
-                    <td><strong>{{ data_get($simpleResult, 'internal_code', '未标注') }}</strong><small class="client-trace-meta">{{ data_get($simpleResult, 'internal_message', '未记录') }}</small></td>
+                    <td class="client-trace-reason"><strong>{{ data_get($simpleResult, 'internal_message', '未记录') }}</strong><small class="client-trace-meta">{{ data_get($simpleResult, 'internal_code', '未标注') }}</small></td>
                     <td><span class="log-result {{ $simpleSuccess ? 'is-success' : 'is-danger' }}">{{ data_get($simpleResult, 'public_message', $simpleSuccess ? '登录成功' : '卡密不存在') }}</span></td>
                     <td><code>{{ data_get($simpleRequest, 'device', '—') ?: '—' }}</code></td>
                     <td><button type="button"

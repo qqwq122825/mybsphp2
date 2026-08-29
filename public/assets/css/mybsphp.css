@@ -2640,6 +2640,21 @@ select:not([multiple]):not([data-native-select]):focus {
 .software-basic-row > input[readonly] { color: #6d778b; background: #f7f8fa; }
 .software-basic-row > textarea { min-height: 82px; padding-top: 11px; padding-bottom: 11px; resize: vertical; }
 .software-basic-row > small { min-width: 0; color: #8b94a7; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.risk-probe-rule-note {
+    grid-column: 1 / -1;
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #f5f7fb;
+    color: #4a5568;
+    font-size: 13px;
+    line-height: 1.7;
+}
+.risk-probe-rule-note > strong {
+    display: block;
+    margin-bottom: 2px;
+    color: #26314a;
+}
 .software-basic-row-textarea { align-items: start; padding: 12px 0; }
 .software-basic-row-textarea > strong { padding-top: 12px; }
 .software-basic-row-textarea > small { padding-top: 12px; }
@@ -6412,6 +6427,8 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
 .client-trace-table { min-width: 1120px; }
 .client-trace-table td { vertical-align: top; }
 .client-trace-table td > strong { display: block; color: #2b3f63; white-space: nowrap; }
+.client-trace-reason { min-width: 168px; }
+.client-trace-reason > strong { white-space: normal; overflow-wrap: anywhere; }
 .client-trace-meta { display: block; margin-top: 4px; color: #8e99aa; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 9px; }
 .client-trace-device { min-width: 220px; }
 .client-trace-device > span { display: grid; grid-template-columns: 34px minmax(0,1fr); align-items: start; gap: 5px; margin-bottom: 4px; }
