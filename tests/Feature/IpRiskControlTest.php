@@ -224,6 +224,7 @@ class IpRiskControlTest extends TestCase
                 'subject_type' => 'device',
                 'subject_hash' => hash('sha256', 'GLOBAL-SERIAL-001'),
                 'subject_value' => 'GLOBAL-SERIAL-001',
+                'reason' => 'ADMIN_BLOCK',
             ]);
             $this->assertDatabaseHas('global_security_blocks', [
                 'subject_type' => 'ip',
@@ -245,6 +246,67 @@ class IpRiskControlTest extends TestCase
                 'api' => 'login.ic', 'icid' => 'ANY-CARD-CODE', 'key' => 'GLOBAL-SERIAL-001',
                 'appsafecode' => 'SAFE', 'BSphpSeSsL' => str_repeat('g', 64),
             ], '', '&', PHP_QUERY_RFC3986))['envelope']));
+        } finally {
+            @unlink($lockPath);
+        }
+    }
+
+    public function test_quick_block_keeps_an_existing_device_and_adds_the_ip(): void
+    {
+        app(SystemAccessSynchronizer::class)->sync();
+        $lockPath = storage_path('framework/testing/quick-block.lock');
+        @unlink($lockPath);
+        config(['mybsphp.installed' => false, 'mybsphp.install_lock' => $lockPath]);
+        app(InstallationManager::class)->writeLock([
+            'admin_path' => 'private-console', 'app_name' => '风控测试后台', 'secondary_password_enabled' => false,
+        ]);
+        try {
+            $administrator = Administrator::query()->create([
+                'username' => 'quick-block-admin', 'password' => 'secret', 'role' => 'super_admin', 'status' => 'active',
+            ]);
+            $administrator->roles()->attach(Role::query()->where('code', 'super_admin')->sole());
+            $this->application('QUICK');
+            $this->actingAs($administrator, 'admin');
+
+            $this->post('/private-console/risk-control/global-blocks', [
+                'device_serial' => 'PM4QG9NVT4',
+                'note' => '事先手动添加',
+            ])->assertRedirect()->assertSessionHas('success', '已拉黑，任意软件登录将显示卡密不存在。');
+
+            $this->from('/private-console/system-logs/client-requests')
+                ->post('/private-console/risk-control/global-blocks', [
+                    'device_serial' => 'PM4QG9NVT4',
+                    'ip' => '101.228.113.114',
+                    'source' => 'quick',
+                    'note' => '客户端请求日志快速拉黑',
+                ])
+                ->assertRedirect('/private-console/system-logs/client-requests')
+                ->assertSessionHas('success', '设备已在黑名单中，IP 已进入黑名单。任意软件登录将显示卡密不存在。');
+
+            $this->assertDatabaseHas('global_security_blocks', [
+                'subject_type' => 'device',
+                'subject_value' => 'PM4QG9NVT4',
+                'reason' => 'ADMIN_BLOCK',
+                'note' => '事先手动添加',
+            ]);
+            $this->assertDatabaseHas('global_security_blocks', [
+                'subject_type' => 'ip',
+                'subject_value' => '101.228.113.114',
+                'reason' => 'QUICK_BLOCK',
+            ]);
+            $this->assertDatabaseHas('ip_risk_states', [
+                'ip' => '101.228.113.114',
+                'last_device_hash' => hash('sha256', 'PM4QG9NVT4'),
+                'permanently_blocked' => true,
+            ]);
+
+            $this->get('/private-console/risk-control/center')
+                ->assertOk()
+                ->assertSee('手动添加')
+                ->assertSee('快速拉黑')
+                ->assertSee('当时设备 PM4QG9NVT4')
+                ->assertSee('PM4QG9NVT4')
+                ->assertSee('101.228.113.114');
         } finally {
             @unlink($lockPath);
         }

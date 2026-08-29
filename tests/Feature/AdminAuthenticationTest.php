@@ -223,24 +223,27 @@ class AdminAuthenticationTest extends TestCase
             ->post('/private-console/risk-control/global-blocks', [
                 'device_serial' => 'DIAGNOSTIC-DEVICE',
                 'ip' => '203.0.113.24',
+                'source' => 'quick',
                 'note' => '客户端请求日志快速拉黑',
             ])
             ->assertRedirect('/private-console/system-logs/client-requests?view=simple')
-            ->assertSessionHas('success');
+            ->assertSessionHas('success', '已快速拉黑该设备和 IP，任意软件登录将显示卡密不存在。');
         $this->assertDatabaseHas('global_security_blocks', [
             'subject_type' => 'device',
             'subject_hash' => GlobalSecurityBlock::hashValue('DIAGNOSTIC-DEVICE'),
             'subject_value' => 'DIAGNOSTIC-DEVICE',
+            'reason' => 'QUICK_BLOCK',
         ]);
         $this->assertDatabaseHas('global_security_blocks', [
             'subject_type' => 'ip',
             'subject_hash' => GlobalSecurityBlock::hashValue('203.0.113.24'),
             'subject_value' => '203.0.113.24',
+            'reason' => 'QUICK_BLOCK',
         ]);
         $this->get('/private-console/system-logs/client-requests?view=simple')
             ->assertOk()
             ->assertSee('已封禁')
-            ->assertDontSee('快速拉黑');
+            ->assertDontSee('client-trace-block-button', false);
         $this->get('/private-console/system-logs/client-requests?view=simple&keyword=FULL-CARD-LOOKUP-001')
             ->assertOk()
             ->assertSee('DEVICE_BLOCKED')

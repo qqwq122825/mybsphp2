@@ -396,25 +396,34 @@ final class AdminRiskControlController extends Controller
             'device_serial' => ['nullable', 'string', 'max:160', 'required_without:ip'],
             'ip' => ['nullable', 'ip', 'required_without:device_serial'],
             'note' => ['nullable', 'string', 'max:500'],
+            'source' => ['nullable', Rule::in(['manual', 'quick'])],
         ]);
         $deviceSerial = trim((string) ($validated['device_serial'] ?? ''));
         $ip = trim((string) ($validated['ip'] ?? ''));
+        $source = ($validated['source'] ?? 'manual') === 'quick' ? 'quick' : 'manual';
+        $reason = $source === 'quick' ? 'QUICK_BLOCK' : 'ADMIN_BLOCK';
+        $note = $source === 'quick'
+            ? (filled($validated['note'] ?? null) ? (string) $validated['note'] : '客户端请求日志快速拉黑')
+            : ($validated['note'] ?? null);
         $administrator = Auth::guard('admin')->user();
         abort_unless($administrator instanceof Administrator, 401);
 
         $created = [];
+        $deviceExisted = false;
+        $ipExisted = false;
+        $deviceHash = $deviceSerial !== '' ? GlobalSecurityBlock::hashValue($deviceSerial) : '';
         if ($deviceSerial !== '') {
-            $block = GlobalSecurityBlock::query()->updateOrCreate(
-                ['subject_type' => 'device', 'subject_hash' => GlobalSecurityBlock::hashValue($deviceSerial)],
+            $block = GlobalSecurityBlock::query()->firstOrCreate(
+                ['subject_type' => 'device', 'subject_hash' => $deviceHash],
                 [
                     'subject_value' => $deviceSerial,
-                    'reason' => 'ADMIN_BLOCK',
-                    'note' => $validated['note'] ?? null,
+                    'reason' => $reason,
+                    'note' => $note,
                     'administrator_id' => $administrator->getKey(),
                 ],
             );
+            $deviceExisted = ! $block->wasRecentlyCreated;
             $created[] = 'device:'.$block->getKey();
-            $deviceHash = GlobalSecurityBlock::hashValue($deviceSerial);
             foreach (Application::query()->pluck('id') as $applicationId) {
                 ClientSecuritySubjectState::query()->updateOrCreate(
                     ['application_id' => $applicationId, 'device_hash' => $deviceHash],
@@ -422,22 +431,23 @@ final class AdminRiskControlController extends Controller
                         'status' => 'blocked',
                         'blocked_until' => null,
                         'risk_score' => 100,
-                        'reason_code' => 'GLOBAL_BLOCK',
+                        'reason_code' => $source === 'quick' ? 'QUICK_BLOCK' : 'GLOBAL_BLOCK',
                         'last_event_at' => now(),
                     ],
                 );
             }
         }
         if ($ip !== '') {
-            $block = GlobalSecurityBlock::query()->updateOrCreate(
+            $block = GlobalSecurityBlock::query()->firstOrCreate(
                 ['subject_type' => 'ip', 'subject_hash' => GlobalSecurityBlock::hashValue($ip)],
                 [
                     'subject_value' => $ip,
-                    'reason' => 'ADMIN_BLOCK',
-                    'note' => $validated['note'] ?? null,
+                    'reason' => $reason,
+                    'note' => $note,
                     'administrator_id' => $administrator->getKey(),
                 ],
             );
+            $ipExisted = ! $block->wasRecentlyCreated;
             $created[] = 'ip:'.$block->getKey();
             foreach (Application::query()->pluck('id') as $applicationId) {
                 $state = IpRiskState::query()->firstOrCreate(
@@ -455,6 +465,7 @@ final class AdminRiskControlController extends Controller
                     'blocked_until' => null,
                     'note' => '全软件 IP 黑名单',
                     'last_seen_at' => now(),
+                    ...($deviceHash !== '' ? ['last_device_hash' => $deviceHash] : []),
                 ])->save();
             }
         }
@@ -465,11 +476,11 @@ final class AdminRiskControlController extends Controller
             'global_security_block',
             implode(',', $created),
             0,
-            ['device_serial' => $deviceSerial, 'ip' => $ip, 'note' => $validated['note'] ?? null],
-            '后台主动添加全软件封禁',
+            ['device_serial' => $deviceSerial, 'ip' => $ip, 'note' => $note, 'source' => $source],
+            $source === 'quick' ? '客户端请求日志快速拉黑' : '后台主动添加全软件封禁',
         );
 
-        return back()->with('success', '已拉黑，任意软件登录将显示卡密不存在。');
+        return back()->with('success', $this->globalBlockSuccessMessage($deviceSerial, $ip, $deviceExisted, $ipExisted, $source));
     }
 
     public function destroyGlobalBlock(Request $request, string $adminPath, GlobalSecurityBlock $globalBlock): RedirectResponse
@@ -726,11 +737,50 @@ final class AdminRiskControlController extends Controller
     private function blockReasonLabel(string $reason, ?string $note): string
     {
         return match (true) {
+            $reason === 'QUICK_BLOCK' || str_contains((string) $note, '快速拉黑') => '快速拉黑',
             in_array($reason, ['ADMIN_BLOCK', 'GLOBAL_BLOCK'], true) => '手动添加',
             $reason === 'C0' || str_contains((string) $note, '套卡探测') => '套卡探测',
             in_array($reason, ['D0', 'D1', 'R0', 'S0', 'T1'], true) || str_contains((string) $note, '客户端安全') => '蜜罐事件',
             default => $note ?: ($reason !== '' ? $reason : '封控'),
         };
+    }
+
+    private function globalBlockSuccessMessage(
+        string $deviceSerial,
+        string $ip,
+        bool $deviceExisted,
+        bool $ipExisted,
+        string $source,
+    ): string {
+        $hasDevice = $deviceSerial !== '';
+        $hasIp = $ip !== '';
+        if ($source === 'quick') {
+            if ($hasDevice && $hasIp && $deviceExisted && ! $ipExisted) {
+                return '设备已在黑名单中，IP 已进入黑名单。任意软件登录将显示卡密不存在。';
+            }
+            if ($hasDevice && $hasIp && ! $deviceExisted && $ipExisted) {
+                return 'IP 已在黑名单中，设备已拉黑。任意软件登录将显示卡密不存在。';
+            }
+            if ($hasDevice && $hasIp && $deviceExisted && $ipExisted) {
+                return '该设备和 IP 已在黑名单中。';
+            }
+            if ($hasDevice && $deviceExisted) {
+                return '设备已在黑名单中。';
+            }
+            if ($hasIp && $ipExisted) {
+                return 'IP 已在黑名单中。';
+            }
+            if ($hasDevice && $hasIp) {
+                return '已快速拉黑该设备和 IP，任意软件登录将显示卡密不存在。';
+            }
+            if ($hasDevice) {
+                return '已快速拉黑该设备，任意软件登录将显示卡密不存在。';
+            }
+
+            return '已快速拉黑该 IP，任意软件登录将显示卡密不存在。';
+        }
+
+        return '已拉黑，任意软件登录将显示卡密不存在。';
     }
 
     /** @param array<string, mixed> $after */

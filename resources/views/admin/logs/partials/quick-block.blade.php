@@ -24,6 +24,7 @@
             @if ($blockIp !== '')
                 <input type="hidden" name="ip" value="{{ $blockIp }}">
             @endif
+            <input type="hidden" name="source" value="quick">
             <input type="hidden" name="note" value="客户端请求日志快速拉黑">
             <button type="submit" class="client-trace-block-button" onclick="return confirm('确定拉黑该请求的设备和 IP 吗？拉黑后任意软件登录显示卡密不存在。')">快速拉黑</button>
         </form>
