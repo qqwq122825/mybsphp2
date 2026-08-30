@@ -487,11 +487,33 @@ class IpRiskControlTest extends TestCase
 
             $this->get('/private-console/risk-control/center')
                 ->assertOk()
-                ->assertSee('手动添加')
                 ->assertSee('快速拉黑')
-                ->assertSee('当时设备 PM4QG9NVT4')
                 ->assertSee('PM4QG9NVT4')
-                ->assertSee('101.228.113.114');
+                ->assertSee('101.228.113.114')
+                ->assertSee('拉黑以设备为主')
+                ->assertSee('确定解除该设备及其关联 IP 吗？')
+                ->assertDontSee('当时设备')
+                ->assertDontSee('当时 IP');
+
+            $deviceBlock = GlobalSecurityBlock::query()
+                ->where('subject_type', 'device')
+                ->where('subject_value', 'PM4QG9NVT4')
+                ->sole();
+            $this->post('/private-console/risk-control/center/release', [
+                'block_keys' => ['global:'.$deviceBlock->getKey()],
+            ])->assertRedirect()->assertSessionHas('success', '已解除选定的封控。');
+            $this->assertDatabaseMissing('global_security_blocks', [
+                'subject_type' => 'device',
+                'subject_value' => 'PM4QG9NVT4',
+            ]);
+            $this->assertDatabaseMissing('global_security_blocks', [
+                'subject_type' => 'ip',
+                'subject_value' => '101.228.113.114',
+            ]);
+            $this->assertDatabaseHas('ip_risk_states', [
+                'ip' => '101.228.113.114',
+                'permanently_blocked' => false,
+            ]);
         } finally {
             @unlink($lockPath);
         }

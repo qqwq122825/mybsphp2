@@ -43,7 +43,7 @@
     </x-slot:toolbar>
         <table class="{{ $isClientStyleLog ? 'client-trace-table' : '' }}">
             @if($isClientSimpleLog)
-            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>真实原因</th><th>客户端提示</th><th>设备</th><th>详细请求</th><th>处置</th></tr></thead>
+            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>真实原因</th><th>客户端提示</th><th>设备</th><th>详细请求</th>@unless($isBlocklistRequestLog)<th>处置</th>@endunless</tr></thead>
             <tbody>
             @forelse($logs as $log)
                 @php
@@ -95,9 +95,11 @@
                                 data-result-tone="{{ $detailLog->result === 'success' ? 'success' : 'danger' }}"
                                 data-request-payload="{{ $requestPayload }}"
                                 data-response-payload="{{ $responsePayload }}">详细请求 <span aria-hidden="true">→</span></button></td>
+                    @unless($isBlocklistRequestLog)
                     <td>@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice, 'blockIp' => (string) ($log->ip ?: '')])</td>
+                    @endunless
                 </tr>
-            @empty<tr><td class="empty-cell" colspan="8">{{ $isBlocklistRequestLog ? '当前没有黑名单命中记录。设备和 IP 拉黑后仍继续登录会出现在这里。' : '当前没有需要客服介入的简要诊断记录。' }}</td></tr>@endforelse
+            @empty<tr><td class="empty-cell" colspan="{{ $isBlocklistRequestLog ? 7 : 8 }}">{{ $isBlocklistRequestLog ? '当前没有黑名单命中记录。设备和 IP 拉黑后仍继续登录会出现在这里。' : '当前没有需要客服介入的简要诊断记录。' }}</td></tr>@endforelse
             </tbody>
             @elseif($isClientRequestLog)
             <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>响应摘要</th><th>结果</th><th>详情</th><th>处置</th></tr></thead>

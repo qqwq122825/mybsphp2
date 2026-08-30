@@ -112,10 +112,10 @@ final class AdminSystemLogController extends Controller
             'clientTraceDetails' => $clientTraceDetails,
             'cardMakingBatches' => $cardMakingBatches,
             'cardCodesByPublicId' => $cardCodesByPublicId,
-            'blockedIpHashes' => in_array($type, ['protection', 'client-requests', 'blocklist-requests'], true)
+            'blockedIpHashes' => in_array($type, ['protection', 'client-requests'], true)
                 ? GlobalSecurityBlock::query()->where('subject_type', 'ip')->pluck('subject_hash')
                 : collect(),
-            'blockedDeviceHashes' => in_array($type, ['client-requests', 'blocklist-requests'], true)
+            'blockedDeviceHashes' => $type === 'client-requests'
                 ? GlobalSecurityBlock::query()->where('subject_type', 'device')->pluck('subject_hash')
                 : collect(),
         ]);

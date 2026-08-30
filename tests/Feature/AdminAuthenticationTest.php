@@ -140,7 +140,9 @@ class AdminAuthenticationTest extends TestCase
         $this->get('/private-console/system-logs/blocklist-requests')
             ->assertOk()
             ->assertSee('黑名单请求日志')
-            ->assertSee('设备和 IP 已拉黑后仍继续登录的请求');
+            ->assertSee('设备和 IP 已拉黑后仍继续登录的请求')
+            ->assertDontSee('快速拉黑')
+            ->assertDontSee('>处置</th>', false);
 
         AuditLog::query()->create([
             'public_id' => (string) Str::ulid(),
@@ -282,7 +284,9 @@ class AdminAuthenticationTest extends TestCase
             ->assertOk()
             ->assertSee('DEVICE_BLOCKED')
             ->assertSee('设备已拉黑，登录 IP 也在黑名单。')
-            ->assertDontSee('CARD_EXPIRED');
+            ->assertDontSee('CARD_EXPIRED')
+            ->assertDontSee('快速拉黑')
+            ->assertDontSee('已封禁');
         $this->get('/private-console/system-logs/client-requests?view=simple')
             ->assertOk()
             ->assertDontSee('设备已拉黑，登录 IP 也在黑名单。');

@@ -7,7 +7,7 @@
     @csrf
 </form>
 
-<x-admin.table-shell title="封控中心" subtitle="设备或 IP 拉黑后，任意软件登录都显示卡密不存在。" panel-class="bsphp-log-panel">
+<x-admin.table-shell title="封控中心" subtitle="拉黑以设备为主，关联 IP 显示在同一行。解除设备时关联 IP 一并释放；只封 IP 时仍单独一行。任意软件登录都显示卡密不存在。" panel-class="bsphp-log-panel">
     <x-slot:headingMeta>
         <p class="risk-center-metrics">近 24 小时 <b>{{ $metrics['events_24h'] }}</b> 次 · 设备 <b>{{ $metrics['blocked_devices'] }}</b> · IP <b>{{ $metrics['blocked_ips'] }}</b></p>
     </x-slot:headingMeta>
@@ -36,7 +36,7 @@
     </x-slot:search>
     <x-slot:toolbar>
         <div>
-            <button type="submit" form="risk-center-release-form" onclick="return confirm('确定解除选中的封控吗？')">解除选定</button>
+            <button type="submit" form="risk-center-release-form" onclick="return confirm('确定解除选中的封控吗？设备行会同时释放关联 IP。')">解除选定</button>
         </div>
         <div class="admin-table-utility-tools">
             <button type="button" data-table-density-toggle aria-label="切换表格密度" title="切换表格密度"><span aria-hidden="true">▥</span></button>
@@ -68,7 +68,7 @@
                 <td>{{ $block['reason'] }}</td>
                 <td>{{ $block['at']?->format('Y-m-d H:i:s') ?: '—' }}</td>
                 <td>
-                    <button type="submit" form="risk-center-release-form" name="block_keys[]" value="{{ $block['key'] }}" onclick="return confirm('确定解除该封控吗？')">解除</button>
+                    <button type="submit" form="risk-center-release-form" name="block_keys[]" value="{{ $block['key'] }}" onclick="return confirm('{{ $block['kind'] === 'device' ? '确定解除该设备及其关联 IP 吗？' : '确定解除该 IP 吗？' }}')">解除</button>
                 </td>
             </tr>
         @empty
@@ -89,7 +89,7 @@
     <form method="post" action="{{ route('admin.risk-control.global-blocks.store', ['adminPath' => $adminPath]) }}">
         @csrf
         <div class="administrator-create-rows">
-            <p class="administrator-create-note">可只填设备、只填 IP，或两个都填。拉黑后任意软件登录都显示卡密不存在。</p>
+            <p class="administrator-create-note">可只填设备、只填 IP，或两个都填。设备和 IP 会显示在同一行；解除设备时关联 IP 一并释放。拉黑后任意软件登录都显示卡密不存在。</p>
             <label class="administrator-create-row">
                 <strong>设备序列号</strong>
                 <input name="device_serial" value="{{ old('device_serial') }}" placeholder="例如 D2QDT96KLH" maxlength="160">

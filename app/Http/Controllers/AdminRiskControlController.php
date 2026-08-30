@@ -65,8 +65,12 @@ final class AdminRiskControlController extends Controller
         $sort = (string) $request->query('sort', 'latest') === 'oldest' ? 'oldest' : 'latest';
 
         $rows = $this->centerBlockRows();
-        if ($subjectType !== 'all') {
-            $rows = $rows->where('kind', $subjectType)->values();
+        if ($subjectType === 'device') {
+            $rows = $rows->where('kind', 'device')->values();
+        } elseif ($subjectType === 'ip') {
+            $rows = $rows->filter(function (array $row): bool {
+                return $row['kind'] === 'ip' || filled($row['related'] ?? null);
+            })->values();
         }
         if ($keyword !== '') {
             $needle = mb_strtolower($keyword);
@@ -476,6 +480,11 @@ final class AdminRiskControlController extends Controller
                     ...($deviceHash !== '' ? ['last_device_hash' => $deviceHash] : []),
                 ])->save();
             }
+            if ($deviceHash !== '') {
+                IpRiskState::query()
+                    ->where('ip_hash', GlobalSecurityBlock::hashValue($ip))
+                    ->update(['last_device_hash' => $deviceHash]);
+            }
         }
 
         $this->recordAdminAction(
@@ -504,6 +513,7 @@ final class AdminRiskControlController extends Controller
                     'reason_code' => 'ADMIN_RESET',
                     'updated_at' => now(),
                 ]);
+            $this->releaseLinkedIps((string) $globalBlock->subject_hash);
         }
         if ($globalBlock->subject_type === 'ip') {
             IpRiskState::query()
@@ -526,10 +536,12 @@ final class AdminRiskControlController extends Controller
             $snapshot['subject_hash'],
             0,
             $snapshot,
-            '解除设备或 IP 封控',
+            $snapshot['subject_type'] === 'device' ? '解除设备封控并释放关联 IP' : '解除 IP 封控',
         );
 
-        return back()->with('success', '已解除该封控。');
+        return back()->with('success', $snapshot['subject_type'] === 'device'
+            ? '已解除该设备及其关联 IP。'
+            : '已解除该 IP 封控。');
     }
 
     /**
@@ -617,8 +629,9 @@ final class AdminRiskControlController extends Controller
     private function centerBlockRows(): Collection
     {
         $global = GlobalSecurityBlock::query()->latest()->get();
-        $deviceHashes = $global->where('subject_type', 'device')->pluck('subject_hash');
-        $ipHashes = $global->where('subject_type', 'ip')->pluck('subject_hash');
+        $globalDevices = $global->where('subject_type', 'device')->values();
+        $globalIps = $global->where('subject_type', 'ip')->values();
+        $globalDeviceHashes = $globalDevices->pluck('subject_hash');
 
         $blockedDevices = ClientSecuritySubjectState::query()
             ->where('status', 'blocked')
@@ -638,77 +651,195 @@ final class AdminRiskControlController extends Controller
             ->unique('ip_hash')
             ->values();
 
+        $ipIndex = $this->blockedIpIndex($globalIps, $blockedIps);
         $rows = collect();
-        foreach ($global as $block) {
-            $related = null;
-            if ($block->subject_type === 'device') {
-                $related = $details[$block->subject_hash]['ip'] ?? IpRiskState::query()
-                    ->where('last_device_hash', $block->subject_hash)
-                    ->latest('last_seen_at')
-                    ->value('ip');
-                $related = $related ? '当时 IP '.$related : null;
-            } else {
-                $deviceHash = IpRiskState::query()->where('ip_hash', $block->subject_hash)->latest('last_seen_at')->value('last_device_hash');
-                $relatedDevice = $deviceHash ? ($details[$deviceHash]['identifier'] ?? GlobalSecurityBlock::query()
-                    ->where('subject_type', 'device')
-                    ->where('subject_hash', $deviceHash)
-                    ->value('subject_value')) : null;
-                $related = $relatedDevice ? '当时设备 '.$relatedDevice : null;
-            }
-            $at = $block->updated_at ?? $block->created_at;
+        $nestedIpHashes = collect();
+
+        foreach ($globalDevices as $block) {
+            $linked = $ipIndex['by_device']->get((string) $block->subject_hash, collect());
+            $nestedIpHashes = $nestedIpHashes->merge($linked->pluck('hash'));
+            $at = $this->latestAt($block->updated_at ?? $block->created_at, $linked->pluck('at'));
+            $reason = $this->newestReasonLabel((string) $block->reason, $block->note, $block->updated_at ?? $block->created_at, $linked);
             $rows->push([
                 'key' => 'global:'.$block->getKey(),
-                'kind' => $block->subject_type,
+                'kind' => 'device',
                 'value' => (string) $block->subject_value,
-                'related' => $related,
-                'reason' => $this->blockReasonLabel((string) $block->reason, $block->note),
+                'related' => $linked->pluck('ip')->filter()->unique()->implode('、') ?: null,
+                'reason' => $reason,
                 'at' => $at,
                 'timestamp' => $at?->getTimestamp() ?? 0,
             ]);
         }
 
         foreach ($blockedDevices as $deviceState) {
-            if ($deviceHashes->contains($deviceState->device_hash)) {
+            if ($globalDeviceHashes->contains($deviceState->device_hash)) {
                 continue;
             }
+            $linked = $ipIndex['by_device']->get((string) $deviceState->device_hash, collect());
+            $nestedIpHashes = $nestedIpHashes->merge($linked->pluck('hash'));
             $detail = $details[$deviceState->device_hash] ?? [];
             $identifier = $detail['identifier'] ?? null;
             $hashSummary = substr($deviceState->device_hash, 0, 12).'…'.substr($deviceState->device_hash, -8);
-            $relatedIp = $detail['ip'] ?? null;
-            $at = $deviceState->last_event_at ?? $deviceState->updated_at;
+            $at = $this->latestAt($deviceState->last_event_at ?? $deviceState->updated_at, $linked->pluck('at'));
+            $reason = $this->newestReasonLabel((string) $deviceState->reason_code, null, $deviceState->last_event_at ?? $deviceState->updated_at, $linked);
             $rows->push([
                 'key' => 'device:'.$deviceState->getKey(),
                 'kind' => 'device',
                 'value' => $identifier ?: $hashSummary,
-                'related' => $relatedIp ? '当时 IP '.$relatedIp : null,
-                'reason' => $this->blockReasonLabel((string) $deviceState->reason_code, null),
+                'related' => $linked->pluck('ip')->filter()->unique()->implode('、') ?: null,
+                'reason' => $reason,
                 'at' => $at,
                 'timestamp' => $at?->getTimestamp() ?? 0,
             ]);
         }
 
-        foreach ($blockedIps as $state) {
-            if ($ipHashes->contains($state->ip_hash)) {
+        foreach ($ipIndex['by_hash'] as $item) {
+            if ($nestedIpHashes->contains($item['hash'])) {
                 continue;
             }
             $relatedDevice = null;
-            if (is_string($state->last_device_hash) && $state->last_device_hash !== '') {
-                $relatedDevice = $details[$state->last_device_hash]['identifier']
-                    ?? GlobalSecurityBlock::query()->where('subject_type', 'device')->where('subject_hash', $state->last_device_hash)->value('subject_value');
+            if (is_string($item['device_hash'] ?? null) && $item['device_hash'] !== '') {
+                $relatedDevice = $details[$item['device_hash']]['identifier']
+                    ?? $globalDevices->firstWhere('subject_hash', $item['device_hash'])?->subject_value;
             }
-            $at = $state->last_seen_at ?? $state->updated_at;
+            $at = $item['at'];
             $rows->push([
-                'key' => 'ip:'.$state->getKey(),
+                'key' => $item['key'],
                 'kind' => 'ip',
-                'value' => (string) $state->ip,
-                'related' => $relatedDevice ? '当时设备 '.$relatedDevice : null,
-                'reason' => $this->blockReasonLabel((string) ($state->note ?: $state->level), $state->note),
+                'value' => (string) $item['ip'],
+                'related' => $relatedDevice ?: null,
+                'reason' => $this->blockReasonLabel((string) $item['reason'], $item['note']),
                 'at' => $at,
-                'timestamp' => $at?->getTimestamp() ?? 0,
+                'timestamp' => $item['timestamp'],
             ]);
         }
 
         return $rows->values();
+    }
+
+    /**
+     * @param  Collection<int, GlobalSecurityBlock>  $globalIps
+     * @param  Collection<int, IpRiskState>  $blockedIps
+     * @return array{by_hash: Collection<string, array<string, mixed>>, by_device: Collection<string, Collection<int, array<string, mixed>>>}
+     */
+    private function blockedIpIndex(Collection $globalIps, Collection $blockedIps): array
+    {
+        $ipHashes = $globalIps->pluck('subject_hash')->merge($blockedIps->pluck('ip_hash'))->unique()->filter()->values();
+        $deviceOf = [];
+        if ($ipHashes->isNotEmpty()) {
+            foreach (IpRiskState::query()
+                ->whereIn('ip_hash', $ipHashes)
+                ->whereNotNull('last_device_hash')
+                ->where('last_device_hash', '!=', '')
+                ->orderByDesc('last_seen_at')
+                ->get(['ip_hash', 'last_device_hash']) as $link) {
+                if (! isset($deviceOf[$link->ip_hash])) {
+                    $deviceOf[(string) $link->ip_hash] = (string) $link->last_device_hash;
+                }
+            }
+        }
+
+        $byHash = collect();
+        foreach ($globalIps as $block) {
+            $hash = (string) $block->subject_hash;
+            $at = $block->updated_at ?? $block->created_at;
+            $byHash[$hash] = [
+                'key' => 'global:'.$block->getKey(),
+                'hash' => $hash,
+                'ip' => (string) $block->subject_value,
+                'device_hash' => $deviceOf[$hash] ?? null,
+                'reason' => (string) $block->reason,
+                'note' => $block->note,
+                'at' => $at,
+                'timestamp' => $at?->getTimestamp() ?? 0,
+            ];
+        }
+        foreach ($blockedIps as $state) {
+            $hash = (string) $state->ip_hash;
+            if ($byHash->has($hash)) {
+                continue;
+            }
+            $at = $state->last_seen_at ?? $state->updated_at;
+            $byHash[$hash] = [
+                'key' => 'ip:'.$state->getKey(),
+                'hash' => $hash,
+                'ip' => (string) $state->ip,
+                'device_hash' => $deviceOf[$hash] ?? (trim((string) $state->last_device_hash) !== '' ? (string) $state->last_device_hash : null),
+                'reason' => (string) ($state->note ?: $state->level),
+                'note' => $state->note,
+                'at' => $at,
+                'timestamp' => $at?->getTimestamp() ?? 0,
+            ];
+        }
+
+        return [
+            'by_hash' => $byHash,
+            'by_device' => $byHash
+                ->filter(fn (array $item): bool => is_string($item['device_hash'] ?? null) && $item['device_hash'] !== '')
+                ->groupBy('device_hash'),
+        ];
+    }
+
+    private function latestAt(mixed $primary, Collection $others): mixed
+    {
+        return collect([$primary])->merge($others)->filter()->sortByDesc(
+            fn (mixed $value): int => $value instanceof \Carbon\CarbonInterface ? $value->getTimestamp() : 0,
+        )->first();
+    }
+
+    private function newestReasonLabel(string $reason, ?string $note, mixed $at, Collection $linked): string
+    {
+        $newest = [
+            'reason' => $reason,
+            'note' => $note,
+            'timestamp' => $at instanceof \Carbon\CarbonInterface ? $at->getTimestamp() : 0,
+        ];
+        foreach ($linked as $item) {
+            if ((int) ($item['timestamp'] ?? 0) >= $newest['timestamp']) {
+                $newest = [
+                    'reason' => (string) ($item['reason'] ?? ''),
+                    'note' => $item['note'] ?? null,
+                    'timestamp' => (int) ($item['timestamp'] ?? 0),
+                ];
+            }
+        }
+
+        return $this->blockReasonLabel($newest['reason'], is_string($newest['note'] ?? null) ? $newest['note'] : null);
+    }
+
+    private function releaseLinkedIps(string $deviceHash): void
+    {
+        $deviceHash = trim($deviceHash);
+        if ($deviceHash === '') {
+            return;
+        }
+        $ipHashes = IpRiskState::query()
+            ->where('last_device_hash', $deviceHash)
+            ->pluck('ip_hash')
+            ->filter()
+            ->unique()
+            ->values();
+        if ($ipHashes->isEmpty()) {
+            return;
+        }
+        IpRiskState::query()
+            ->whereIn('ip_hash', $ipHashes)
+            ->where(function ($query): void {
+                $query->where('permanently_blocked', true)->orWhere('blocked_until', '>', now());
+            })
+            ->update([
+                'level' => 'normal',
+                'permanently_blocked' => false,
+                'blocked_until' => null,
+                'window_attempts' => 0,
+                'recent_card_probes' => '[]',
+                'note' => '随设备解除封控',
+                'updated_at' => now(),
+            ]);
+        GlobalSecurityBlock::query()
+            ->where('subject_type', 'ip')
+            ->whereIn('subject_hash', $ipHashes)
+            ->delete();
     }
 
     private function releaseCenterRow(string $key): void
@@ -726,8 +857,9 @@ final class AdminRiskControlController extends Controller
             $deviceState = ClientSecuritySubjectState::query()->find($id);
             if ($deviceState instanceof ClientSecuritySubjectState) {
                 $request = request();
-                $request->merge(['status' => 'observe', 'release_scope' => 'device_only']);
+                $request->merge(['status' => 'observe', 'release_scope' => 'device_ip']);
                 $this->updateDeviceStatus($request, (string) $request->route('adminPath'), $deviceState);
+                $this->releaseLinkedIps((string) $deviceState->device_hash);
             }
 
             return;
