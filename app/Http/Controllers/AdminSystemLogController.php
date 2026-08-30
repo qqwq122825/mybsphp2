@@ -176,7 +176,7 @@ final class AdminSystemLogController extends Controller
             ]),
             'client-requests' => $clientLogMode === 'detailed'
                 ? $query->where('action', 'client.card_login_trace')
-                : $query->whereIn('action', ['client.auth_failure_masked', 'client.universal_card_login', 'client.card_login_success']),
+                : $query->whereIn('action', ['client.auth_failure_masked', 'client.security_auto_block', 'client.universal_card_login', 'client.card_login_success']),
             'blocklist-requests' => $query->where('action', 'client.blocklist_hit'),
         };
     }

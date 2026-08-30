@@ -15,6 +15,7 @@ final class ClientSecurityReportService
     public function __construct(
         private readonly DeviceSecurityStateService $deviceStates,
         private readonly IpRiskControlService $ipRisk,
+        private readonly CanaryIntegrityHintService $canaryHints,
     ) {}
 
     private const EVENTS = [
@@ -65,13 +66,15 @@ final class ClientSecurityReportService
             if ($session->status !== 'active') {
                 throw new InvalidArgumentException('SECURITY_REPORT_INVALID');
             }
-            [$severity, $action] = self::EVENTS[$eventCode];
-            if ($mode !== 'enforce') {
-                $action = 'observe';
-            }
+            [$severity, $mappedAction] = self::EVENTS[$eventCode];
+            $evidenceArray = is_array($evidence) ? $evidence : [];
+            $classified = $this->canaryHints->classifyReport($eventCode, $evidenceArray);
+            $action = $this->canaryHints->shouldFreezeReport($eventCode, $mappedAction, $mode, $evidenceArray)
+                ? 'freeze'
+                : 'observe';
             ClientSecurityEvent::query()->create(['public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(), 'application_client_session_id' => $session->getKey(), 'card_id' => $session->card_id, 'application_account_id' => $session->application_account_id, 'event_id' => $eventId, 'event_code' => $eventCode, 'severity' => $severity, 'ip_hash' => hash('sha256', $ip), 'device_hash' => hash('sha256', trim($device)), 'evidence' => $evidence, 'action' => $action, 'created_at' => now()]);
             if ($action === 'freeze') {
-                $this->deviceStates->block($application, $device, $eventCode);
+                $this->deviceStates->block($application, $device, $eventCode, $classified['note']);
                 $this->ipRisk->blockForClientSecurityEvent(
                     $application,
                     $ip,

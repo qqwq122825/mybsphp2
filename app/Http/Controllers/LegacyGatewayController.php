@@ -14,6 +14,7 @@ use App\Diagnostics\CardLoginTraceService;
 use App\Http\ApiResponse;
 use App\Models\Application;
 use App\Risk\IpRiskControlService;
+use App\Security\CanaryIntegrityHintService;
 use App\Security\ClientAuthFailureMasker;
 use App\Security\ClientLaunchTelemetryService;
 use App\Security\ClientSecurityReportService;
@@ -39,6 +40,7 @@ final class LegacyGatewayController extends Controller
         IpRiskControlService $risk,
         ClientLaunchTelemetryService $launchTelemetry,
         ClientSecurityReportService $securityReports,
+        CanaryIntegrityHintService $canaryHints,
         CardLoginTraceService $cardLoginTrace,
         ClientAuthFailureMasker $failureMasker,
     ): JsonResponse {
@@ -138,6 +140,24 @@ final class LegacyGatewayController extends Controller
         }
 
         try {
+            if (in_array($api, ['login.ic', 'login.lg'], true)) {
+                $hintDecision = $canaryHints->inspectLogin(
+                    $application,
+                    $device,
+                    $this->firstParameter($parameters, ['ih']),
+                    (string) ($request->ip() ?: '0.0.0.0'),
+                );
+                if ($hintDecision['should_block']) {
+                    if ($application->mode === 'account_recharge') {
+                        throw new AccountAuthException('INVALID_CREDENTIALS', '账号或密码错误。', 401);
+                    }
+                    throw new CardActivationException(
+                        $hintDecision['internal_code'],
+                        $hintDecision['internal_message'],
+                        403,
+                    );
+                }
+            }
             if ($api === 'BSphpSeSsL.in') {
                 $result = ['legacy_response' => $clientSessions->issueHandle($sessionHandle)];
             } elseif ($api === 'security.report') {

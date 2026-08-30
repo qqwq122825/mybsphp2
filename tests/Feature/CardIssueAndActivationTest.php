@@ -1075,6 +1075,220 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertDatabaseCount('application_client_sessions', 2);
     }
 
+    public function test_login_ih_decoy_confirm_blocks_device_in_enforce_mode_with_clear_reason(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->updateOrCreate([], [
+            ...app(IpRiskControlService::class)->defaults(),
+            'security_report_mode' => 'enforce',
+        ]);
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $hint = json_encode([
+            'v' => 1, 'o' => 2, 'c' => 1, 'dc' => 1, 's' => [1, 5], 'ls' => 5, 'lk' => 'imp', 'lo' => 0,
+        ], JSON_THROW_ON_ERROR);
+        $request = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic',
+            'icid' => $credential['code'],
+            'key' => 'IH-DECOY-DEVICE',
+            'BSphpSeSsL' => str_repeat('h', 64),
+            'appsafecode' => 'LOGIN-SAFE',
+            'ih' => $hint,
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $this->assertMaskedCardFailure($this->postJson(
+            '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token,
+            $request['envelope'],
+        ));
+        $this->assertDatabaseMissing('application_client_sessions', [
+            'token_hash' => hash('sha256', str_repeat('h', 64)),
+        ]);
+        $this->assertDatabaseHas('client_security_events', [
+            'application_id' => $application->getKey(),
+            'event_code' => 'D0',
+            'action' => 'freeze',
+        ]);
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'application_id' => $application->getKey(),
+            'device_hash' => hash('sha256', 'IH-DECOY-DEVICE'),
+            'status' => 'blocked',
+            'reason_code' => 'D0',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'client.security_auto_block',
+            'result' => 'failed',
+        ]);
+        $blockLog = AuditLog::query()->where('action', 'client.security_auto_block')->latest('id')->firstOrFail();
+        $this->assertStringContainsString('登录 ih：诱饵槽确认', (string) $blockLog->reason);
+        $this->assertStringContainsString('槽 1,5', (string) data_get($blockLog->after_data, 'internal_message'));
+        $this->assertSame('卡密不存在', data_get($blockLog->after_data, 'public_message'));
+        $this->assertSame('INVALID_CARD', data_get($blockLog->after_data, 'public_code'));
+
+        $retry = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic',
+            'icid' => $credential['code'],
+            'key' => 'IH-DECOY-DEVICE',
+            'BSphpSeSsL' => str_repeat('i', 64),
+            'appsafecode' => 'LOGIN-SAFE',
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->assertMaskedCardFailure($this->postJson(
+            '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token,
+            $retry['envelope'],
+        ));
+    }
+
+    public function test_login_ih_real_slot_is_observed_and_does_not_block(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->updateOrCreate([], [
+            ...app(IpRiskControlService::class)->defaults(),
+            'security_report_mode' => 'enforce',
+        ]);
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $request = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic',
+            'icid' => $credential['code'],
+            'key' => 'IH-REAL-DEVICE',
+            'BSphpSeSsL' => str_repeat('j', 64),
+            'appsafecode' => 'LOGIN-SAFE',
+            'ih' => json_encode([
+                'v' => 1, 'o' => 2, 'c' => 1, 'dc' => 0, 's' => [9], 'ls' => 9, 'lk' => 'code', 'lo' => 1,
+            ], JSON_THROW_ON_ERROR),
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $this->postJson('/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token, $request['envelope'])
+            ->assertOk();
+        $this->assertDatabaseHas('application_client_sessions', [
+            'token_hash' => hash('sha256', str_repeat('j', 64)),
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseHas('client_security_events', [
+            'application_id' => $application->getKey(),
+            'event_code' => 'I0',
+            'action' => 'observe',
+        ]);
+        $this->assertDatabaseHas('client_security_subject_states', [
+            'application_id' => $application->getKey(),
+            'device_hash' => hash('sha256', 'IH-REAL-DEVICE'),
+            'status' => 'observe',
+            'reason_code' => 'I0',
+        ]);
+        $this->assertDatabaseMissing('audit_logs', ['action' => 'client.security_auto_block']);
+    }
+
+    public function test_login_ih_is_ignored_when_security_report_mode_is_disabled(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->updateOrCreate([], [
+            ...app(IpRiskControlService::class)->defaults(),
+            'security_report_mode' => 'disabled',
+        ]);
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $request = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic',
+            'icid' => $credential['code'],
+            'key' => 'IH-DISABLED-DEVICE',
+            'BSphpSeSsL' => str_repeat('k', 64),
+            'appsafecode' => 'LOGIN-SAFE',
+            'ih' => json_encode([
+                'v' => 1, 'o' => 2, 'c' => 1, 'dc' => 1, 's' => [1], 'ls' => 1, 'lk' => 'imp', 'lo' => 0,
+            ], JSON_THROW_ON_ERROR),
+        ], '', '&', PHP_QUERY_RFC3986));
+
+        $this->postJson('/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token, $request['envelope'])
+            ->assertOk();
+        $this->assertDatabaseCount('client_security_events', 0);
+        $this->assertDatabaseMissing('client_security_subject_states', [
+            'device_hash' => hash('sha256', 'IH-DISABLED-DEVICE'),
+        ]);
+    }
+
+    public function test_security_report_real_slot_d0_is_observed_even_in_enforce_mode(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->updateOrCreate([], [
+            ...app(IpRiskControlService::class)->defaults(),
+            'security_report_mode' => 'enforce',
+        ]);
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $handle = str_repeat('t', 64);
+        $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
+        $login = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $credential['code'], 'key' => 'REAL-SLOT-DEVICE',
+            'BSphpSeSsL' => $handle, 'appsafecode' => 'LOGIN-SAFE',
+        ], '', '&', PHP_QUERY_RFC3986));
+        $response = $this->postJson($gateway, $login['envelope'])->assertOk()->json();
+        $fields = explode('|', $cipher->openResponse($response, $login['session_key'], $login['request_nonce']));
+        $reportToken = $fields[10];
+
+        $report = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'security.report', 'BSphpSeSsL' => $handle, 'key' => 'REAL-SLOT-DEVICE',
+            'appsafecode' => 'REPORT-SAFE', 'event_id' => '01REALSLOTD000000000000001',
+            'event_code' => 'D0', 'report_token' => $reportToken,
+            'evidence' => json_encode(['slot' => 9, 'kind' => 'code', 'decoy' => false, 'persona' => 'launcher']),
+        ], '', '&', PHP_QUERY_RFC3986));
+        $plain = $cipher->openResponse(
+            $this->postJson($gateway, $report['envelope'])->assertOk()->json(),
+            $report['session_key'],
+            $report['request_nonce'],
+        );
+        $this->assertSame(['01', 'accepted', 'REPORT-SAFE'], array_slice(explode('|', $plain), 0, 3));
+        $this->assertDatabaseHas('client_security_events', [
+            'application_id' => $application->getKey(),
+            'event_code' => 'D0',
+            'action' => 'observe',
+        ]);
+        $this->assertDatabaseHas('application_client_sessions', [
+            'token_hash' => hash('sha256', $handle),
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseMissing('client_security_subject_states', [
+            'device_hash' => hash('sha256', 'REAL-SLOT-DEVICE'),
+            'status' => 'blocked',
+        ]);
+    }
+
+    public function test_security_report_decoy_d0_writes_detailed_block_reason(): void
+    {
+        [$application, $cardType] = $this->applicationAndType();
+        $application->riskPolicy()->updateOrCreate([], [
+            ...app(IpRiskControlService::class)->defaults(),
+            'security_report_mode' => 'enforce',
+        ]);
+        $credential = app(CardGenerationService::class)->generate($cardType, 1, $this->administrator())['credentials'][0];
+        $cipher = app(HybridPacketCipher::class);
+        $handle = str_repeat('u', 64);
+        $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
+        $login = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $credential['code'], 'key' => 'DECOY-SLOT-DEVICE',
+            'BSphpSeSsL' => $handle, 'appsafecode' => 'LOGIN-SAFE',
+        ], '', '&', PHP_QUERY_RFC3986));
+        $response = $this->postJson($gateway, $login['envelope'])->assertOk()->json();
+        $fields = explode('|', $cipher->openResponse($response, $login['session_key'], $login['request_nonce']));
+        $reportToken = $fields[10];
+
+        $report = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'security.report', 'BSphpSeSsL' => $handle, 'key' => 'DECOY-SLOT-DEVICE',
+            'appsafecode' => 'REPORT-SAFE', 'event_id' => '01DECOYSLOTD0000000000001',
+            'event_code' => 'D0', 'report_token' => $reportToken,
+            'evidence' => json_encode(['slot' => 2, 'invoked' => true, 'decoy' => true]),
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->postJson($gateway, $report['envelope'])->assertOk();
+
+        $this->assertDatabaseHas('application_client_sessions', [
+            'token_hash' => hash('sha256', $handle),
+            'status' => 'security_blocked',
+        ]);
+        $blockLog = AuditLog::query()->where('action', 'client.security_auto_block')->latest('id')->firstOrFail();
+        $this->assertStringContainsString('诱饵命中', (string) $blockLog->reason);
+        $this->assertStringContainsString('slot 2', (string) $blockLog->reason);
+        $this->assertStringContainsString('诱饵方法被调用', (string) $blockLog->reason);
+        $this->assertSame('卡密不存在', data_get($blockLog->after_data, 'public_message'));
+    }
+
     /**
      * @return array{Application, CardType}
      */

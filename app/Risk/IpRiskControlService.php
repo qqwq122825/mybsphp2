@@ -165,7 +165,12 @@ final class IpRiskControlService
             $state->save();
 
             if ($shouldBlockDevice) {
-                $this->deviceStates->block($application, $normalizedDevice, 'C0');
+                $this->deviceStates->block(
+                    $application,
+                    $normalizedDevice,
+                    'C0',
+                    '套卡探测达到阈值，已拉黑设备。后续任意软件登录显示卡密不存在。',
+                );
             }
 
             $blockedParts = array_values(array_filter([

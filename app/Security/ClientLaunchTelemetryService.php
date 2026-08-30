@@ -99,7 +99,12 @@ final class ClientLaunchTelemetryService
             }
 
             if ($enforce) {
-                $this->deviceStates->block($application, $device, 'T1');
+                $this->deviceStates->block(
+                    $application,
+                    $device,
+                    'T1',
+                    '异常退出次数达到阈值 T1，已拉黑设备。后续任意软件登录显示卡密不存在。',
+                );
                 $this->ipRisk->blockForClientSecurityEvent(
                     $application,
                     $ip,

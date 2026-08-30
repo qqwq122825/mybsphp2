@@ -148,7 +148,7 @@
                                 <option value="observe" @selected(old('security_report_mode', $policy->security_report_mode) === 'observe')>观察 · 只记录</option>
                                 <option value="enforce" @selected(old('security_report_mode', $policy->security_report_mode) === 'enforce')>处置 · 高置信自动冻结</option>
                             </select>
-                            <small>蜜罐事件与异常退出策略：控制 D0、D1、R0、S0 与 T1 的服务端处置；拉黑时同步处理设备和登录 IP。</small>
+                            <small>控制 D0、D1、R0、S0、T1，以及登录可选字段 ih。处置模式下：诱饵槽确认立即拉黑；真槽完整性只观察。拉黑时同步设备和登录 IP，对外仍显示卡密不存在。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>异常退出窗口</strong>

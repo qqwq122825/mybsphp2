@@ -787,6 +787,16 @@ final class AdminRiskControlController extends Controller
         )->first();
     }
 
+    private function preferDetailedNote(?string $note, string $fallback): string
+    {
+        $note = trim((string) $note);
+        if ($note === '' || str_starts_with($note, '设备已拉黑')) {
+            return $fallback;
+        }
+
+        return $note;
+    }
+
     private function newestReasonLabel(string $reason, ?string $note, mixed $at, Collection $linked): string
     {
         $newest = [
@@ -879,8 +889,11 @@ final class AdminRiskControlController extends Controller
         return match (true) {
             $reason === 'QUICK_BLOCK' || str_contains((string) $note, '快速拉黑') => '快速拉黑',
             in_array($reason, ['ADMIN_BLOCK', 'GLOBAL_BLOCK'], true) => '手动添加',
-            $reason === 'C0' || str_contains((string) $note, '套卡探测') => '套卡探测',
-            in_array($reason, ['D0', 'D1', 'R0', 'S0', 'T1'], true) || str_contains((string) $note, '客户端安全') => '蜜罐事件',
+            $reason === 'C0' || str_contains((string) $note, '套卡探测') => $this->preferDetailedNote($note, '套卡探测'),
+            in_array($reason, ['D0', 'D1', 'R0', 'S0', 'T1', 'IH'], true)
+                || str_contains((string) $note, '客户端安全')
+                || str_contains((string) $note, '登录 ih')
+                || str_contains((string) $note, 'security.report') => $this->preferDetailedNote($note, '蜜罐事件'),
             default => $note ?: ($reason !== '' ? $reason : '封控'),
         };
     }
