@@ -16,6 +16,12 @@
         });
     };
 
+    const eventElement = (event) => {
+        const target = event.target;
+        if (target instanceof Element) return target;
+        return target instanceof Node ? target.parentElement : null;
+    };
+
     const focusWithoutPageScroll = (element) => {
         const left = window.scrollX;
         const top = window.scrollY;
@@ -290,11 +296,20 @@
     });
 
     const showWindowDialog = (dialog) => {
-        if (!(dialog instanceof HTMLDialogElement) || dialog.open) return;
+        if (!(dialog instanceof HTMLDialogElement)) return;
         dialog.classList.remove('is-minimized');
         dialog.classList.add('is-maximized');
         const preferModal = dialog.dataset.windowScope !== 'workspace'
             || window.matchMedia('(pointer: coarse)').matches;
+        if (dialog.open) {
+            let isModal = false;
+            try { isModal = typeof dialog.matches === 'function' && dialog.matches(':modal'); } catch { isModal = false; }
+            if (preferModal && !isModal) {
+                try { dialog.close(); } catch { /* ignore */ }
+            } else {
+                return;
+            }
+        }
         try {
             if (preferModal) dialog.showModal();
             else dialog.show();
@@ -988,13 +1003,18 @@
         help.textContent = hint;
     });
 
-    document.addEventListener('click', (event) => {
-        if (!(event.target instanceof Element)) return;
-        const openButton = event.target.closest('[data-user-detail]');
+    let lastUserDetailOpenAt = 0;
+    const openUserDetailDialog = (event) => {
+        const target = eventElement(event);
+        if (!(target instanceof Element)) return false;
         const dialog = document.querySelector('[data-user-detail-dialog]');
+        const openButton = target.closest('[data-user-detail]');
         if (openButton instanceof HTMLButtonElement && dialog instanceof HTMLDialogElement) {
+            const now = Date.now();
+            if (now - lastUserDetailOpenAt < 400) return true;
+            lastUserDetailOpenAt = now;
             const form = dialog.querySelector('[data-user-detail-form]');
-            if (!(form instanceof HTMLFormElement)) return;
+            if (!(form instanceof HTMLFormElement)) return true;
             form.action = openButton.dataset.action || '';
             const values = {
                 expires_at: openButton.dataset.expires || '',
@@ -1009,11 +1029,26 @@
             });
             const title = dialog.querySelector('[data-user-detail-title]');
             if (title instanceof HTMLElement) title.textContent = openButton.dataset.title || '编辑软件用户';
+            if (dialog.open) {
+                try { dialog.close(); } catch { /* ignore */ }
+            }
             showWindowDialog(dialog);
-            return;
+            return true;
         }
-        const closeButton = event.target.closest('[data-user-detail-close]');
-        if (closeButton && dialog instanceof HTMLDialogElement) dialog.close();
+        const closeButton = target.closest('[data-user-detail-close]');
+        if (closeButton && dialog instanceof HTMLDialogElement) {
+            dialog.close();
+            return true;
+        }
+        return false;
+    };
+
+    document.addEventListener('click', (event) => {
+        openUserDetailDialog(event);
+    });
+    document.addEventListener('pointerup', (event) => {
+        if (event.pointerType !== 'touch') return;
+        if (openUserDetailDialog(event)) event.preventDefault();
     });
 
     let activeRiskActionMenu = null;

@@ -6,6 +6,7 @@ use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
 use App\Install\EnvironmentFileWriter;
 use App\Install\InstallationManager;
+use App\Sessions\ClientSessionService;
 use App\Models\Administrator;
 use App\Models\SystemSetting;
 use Illuminate\Contracts\Encryption\DecryptException;
@@ -182,6 +183,10 @@ final class AdminSystemSettingController extends Controller
             after: [...$validated, 'client_service_message' => '[updated]'],
             actorRole: $this->actor()->role,
         ), $request);
+
+        if ((string) ($before['universal_card_enabled'] ?? '0') === '1' && ! $validated['universal_card_enabled']) {
+            app(ClientSessionService::class)->revokeUniversalSessions();
+        }
 
         $entryChanges = [];
         if ($adminPathChanged) {

@@ -23,7 +23,7 @@ final class UniversalCardService
 
     public function matches(string $credential): bool
     {
-        if (! $this->enabled()) {
+        if (! $this->isEnabled()) {
             return false;
         }
 
@@ -38,7 +38,7 @@ final class UniversalCardService
             && hash_equals($configuredHash, hash('sha256', trim($credential)));
     }
 
-    private function enabled(): bool
+    public function isEnabled(): bool
     {
         if (! config('universal_card.enabled', false)) {
             return false;

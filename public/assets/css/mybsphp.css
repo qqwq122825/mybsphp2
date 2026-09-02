@@ -4947,7 +4947,11 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 }
 .bsphp-user-table .bsphp-user-action-column {
     right: 0;
+    z-index: 3;
+    isolation: isolate;
     box-shadow: -8px 0 12px -12px rgba(31, 45, 70, .75);
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
 }
 .bsphp-user-table thead .bsphp-user-select-column,
 .bsphp-user-table thead .bsphp-user-identity-column,
@@ -4963,13 +4967,21 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 .bsphp-user-table tbody tr:hover .bsphp-user-action-column { background: #f1f6fd; }
 
 .bsphp-detail-button {
+    position: relative;
+    z-index: 2;
     border: 0;
     border-radius: 6px;
-    padding: 5px 9px;
+    padding: 8px 12px;
+    min-width: 52px;
+    min-height: 36px;
     color: #fff;
     background: #4289ee;
     font: inherit;
     font-size: 11px;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    pointer-events: auto;
 }
 
 .bsphp-card-list-header .bsphp-mode-chip {
@@ -4991,6 +5003,9 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 
 .bsphp-user-detail-card {
     width: min(620px, calc(100vw - 32px));
+    height: auto;
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
     border: 0;
     border-radius: 16px;
     padding: 0;

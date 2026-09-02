@@ -136,7 +136,7 @@
         </form>
     </section>
 
-    <x-admin.window-dialog class="bsphp-user-detail-card" data-user-detail-dialog>
+    <x-admin.window-dialog class="bsphp-user-detail-card" data-user-detail-dialog :workspace="false">
         <x-slot:heading><small>用户详情</small><h3 data-user-detail-title>编辑软件用户</h3></x-slot:heading>
         <form method="post" data-user-detail-form>
             @csrf @method('PUT')

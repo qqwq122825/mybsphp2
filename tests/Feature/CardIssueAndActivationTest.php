@@ -90,6 +90,49 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertSame(['5031', $handle, 'MASTER-HEART-SAFE'], array_slice($heartbeatFields, 0, 3));
     }
 
+    public function test_universal_card_heartbeat_fails_after_the_runtime_switch_is_turned_off(): void
+    {
+        $testUniversalCard = 'TEST-UNIVERSAL-CARD-OFF-HB';
+        [$application] = $this->applicationAndType();
+        $application->riskPolicy()->create(['enabled' => false]);
+        SystemSetting::query()->create([
+            'key' => 'universal_card_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'security',
+        ]);
+        SystemSetting::query()->create([
+            'key' => 'universal_card_code_hash', 'value' => hash('sha256', $testUniversalCard),
+            'type' => 'string', 'group' => 'security',
+        ]);
+        $cipher = app(HybridPacketCipher::class);
+        $handle = str_repeat('u', 64);
+        $gateway = '/AppEn.php?appid='.$application->code.'&md5='.$application->gateway_token;
+        $sealed = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'login.ic', 'icid' => $testUniversalCard, 'key' => 'MASTER-OFF-HB-DEVICE',
+            'appsafecode' => 'MASTER-OFF-HB-SAFE', 'BSphpSeSsL' => $handle,
+        ], '', '&', PHP_QUERY_RFC3986));
+        $this->postJson($gateway, $sealed['envelope'])->assertOk();
+
+        SystemSetting::query()->whereKey('universal_card_enabled')->update(['value' => '0']);
+
+        $heartbeat = $cipher->sealRequestWithContext($application, http_build_query([
+            'api' => 'timeout.ic', 'BSphpSeSsL' => $handle, 'key' => 'MASTER-OFF-HB-DEVICE',
+            'appsafecode' => 'MASTER-OFF-HB-SAFE',
+        ], '', '&', PHP_QUERY_RFC3986));
+        $heartbeatResponse = $this->postJson($gateway, $heartbeat['envelope'])->assertOk()->json();
+        $heartbeatFields = explode('|', $cipher->openResponse(
+            $heartbeatResponse,
+            $heartbeat['session_key'],
+            $heartbeat['request_nonce'],
+        ));
+        $this->assertSame('5026', $heartbeatFields[0]);
+        $this->assertSame($handle, $heartbeatFields[1]);
+        $this->assertDatabaseHas('application_client_sessions', [
+            'application_id' => $application->getKey(),
+            'token_hash' => hash('sha256', $handle),
+            'auth_mode' => 'universal',
+            'status' => 'logged_out',
+        ]);
+    }
+
     public function test_universal_card_is_hidden_while_the_runtime_switch_is_off(): void
     {
         $testUniversalCard = 'TEST-UNIVERSAL-CARD-OFF';

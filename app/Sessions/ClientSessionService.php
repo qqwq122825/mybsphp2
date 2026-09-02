@@ -2,6 +2,7 @@
 
 namespace App\Sessions;
 
+use App\Cards\UniversalCardService;
 use App\Models\Application;
 use App\Models\ApplicationAccount;
 use App\Models\ApplicationClientSession;
@@ -87,8 +88,11 @@ final class ClientSessionService
         }
 
         if ($session->auth_mode === 'universal') {
-            // Universal sessions have no card/account row and use the configured
-            // far-future expiry returned by login.ic.
+            if (! app(UniversalCardService::class)->isEnabled()) {
+                $session->forceFill(['status' => 'logged_out', 'logged_out_at' => now()])->save();
+
+                return $this->heartbeatResult('5026', '登录连接已失效', $handle);
+            }
         } elseif ($session->auth_mode === 'card') {
             $card = $session->card;
             if (! $card instanceof Card || $card->user_status === 'frozen') return $this->heartbeatResult('5026', '网络连接异常', $handle);
@@ -103,6 +107,18 @@ final class ClientSessionService
         $session->forceFill(['last_heartbeat_at' => now()])->save();
 
         return $this->heartbeatResult('5031', '状态正常', $handle);
+    }
+
+    public function revokeUniversalSessions(): int
+    {
+        return ApplicationClientSession::query()
+            ->where('auth_mode', 'universal')
+            ->where('status', 'active')
+            ->update([
+                'status' => 'logged_out',
+                'logged_out_at' => now(),
+                'updated_at' => now(),
+            ]);
     }
 
     private function bind(

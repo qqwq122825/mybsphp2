@@ -176,9 +176,9 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/agent/index.php', false)
             ->assertSee('激活码查询')
             ->assertSee('/activation-query', false)
-            ->assertSee('mybsphp.css?v=20260829-blocklist-nav', false)
+            ->assertSee('mybsphp.css?v=20260902-user-detail-ipad', false)
             ->assertSee('custom-select.js?v=20260812-select-scroll', false)
-            ->assertSee('mybsphp.js?v=20260828-workspace-form-action', false)
+            ->assertSee('mybsphp.js?v=20260902-user-detail-ipad', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -258,7 +258,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-workspace-base-link', false)
             ->assertSee('data-workspace-base-tab', false)
             ->assertSee('data-workspace-base-url=', false)
-            ->assertSee('mybsphp.js?v=20260828-workspace-form-action', false)
+            ->assertSee('mybsphp.js?v=20260902-user-detail-ipad', false)
             ->assertSee($application->code.'-卡串类型');
 
         $this->get('/private-console/applications/'.$application->public_id.'/users')
@@ -268,6 +268,8 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('software-user-table-component', false)
             ->assertSee('admin-data-table-toolbar', false)
             ->assertSee('卡串验证模式')
+            ->assertSee('data-user-detail-dialog', false)
+            ->assertSee('data-window-scope="modal"', false)
             ->assertDontSee('账号用户')
             ->assertDontSee('用户分组');
 
