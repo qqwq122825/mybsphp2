@@ -34,8 +34,13 @@ Route::post('/AppEn.php', LegacyGatewayController::class)
 
 $agentPath = app(InstallationManager::class)->agentPath();
 Route::prefix($agentPath)->name('agent.')->group(function (): void {
-    Route::get('/index.php', [AgentAuthController::class, 'show'])->name('login');
-    Route::post('/index.php', [AgentAuthController::class, 'login'])->name('login.store');
+    // Do not use a virtual *.php route here. Production Nginx treats such a
+    // path as a physical PHP script before Laravel sees it, so POST requests
+    // to a missing agent/index.php are converted into the 404 error subrequest.
+    Route::get('/login', [AgentAuthController::class, 'show'])->name('login');
+    Route::post('/login', [AgentAuthController::class, 'login'])->name('login.store');
+    Route::match(['get', 'post'], '/index.php', [AgentAuthController::class, 'legacyLogin'])
+        ->name('login.legacy');
 
     Route::middleware('agent.auth')->group(function (): void {
         Route::get('/dashboard', [AgentPortalController::class, 'dashboard'])->name('dashboard');

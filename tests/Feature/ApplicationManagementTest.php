@@ -173,7 +173,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('切换侧栏显示')
             ->assertSee('data-quick-entry', false)
             ->assertSee('代理后端')
-            ->assertSee('/agent/index.php', false)
+            ->assertSee('/agent/login', false)
             ->assertSee('激活码查询')
             ->assertSee('/activation-query', false)
             ->assertSee('mybsphp.css?v=20260902-user-detail-ipad', false)

@@ -40,11 +40,11 @@ class AgentPortalTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_agent_entry_is_index_php_and_only_agent_accounts_can_login(): void
+    public function test_agent_entry_uses_extensionless_login_and_only_agent_accounts_can_login(): void
     {
         $agent = $this->agent();
 
-        $this->get('/agent/index.php')
+        $this->get('/agent/login')
             ->assertOk()
             ->assertSee('代理商管理平台登录')
             ->assertSee('请输入代理账号信息')
@@ -52,9 +52,11 @@ class AgentPortalTest extends TestCase
             ->assertDontSee('简体中文')
             ->assertDontSee('name="captcha"', false)
             ->assertDontSee('name="language"', false)
-            ->assertSee('/assets/css/agent.css', false);
+            ->assertSee('/assets/css/agent.css', false)
+            ->assertSee('/agent/login"', false)
+            ->assertDontSee('/agent/index.php"', false);
 
-        $this->post('/agent/index.php', [
+        $this->post('/agent/login', [
             'username' => $agent->username,
             'password' => 'agent-secret',
         ])->assertRedirect('/agent/dashboard');
@@ -70,7 +72,21 @@ class AgentPortalTest extends TestCase
             ->assertDontSee('批量删除')
             ->assertSee($agent->username.'(1星)');
 
-        $this->post('/agent/logout')->assertRedirect('/agent/index.php');
+        $this->post('/agent/logout')->assertRedirect('/agent/login');
+    }
+
+    public function test_legacy_agent_php_entry_redirects_to_extensionless_login(): void
+    {
+        $this->get('/agent/index.php')->assertRedirect('/agent/login');
+        $this->post('/agent/index.php', [
+            'username' => 'legacy-agent',
+            'password' => 'legacy-password',
+        ])->assertStatus(307)->assertRedirect('/agent/login');
+
+        $this->assertFileExists(public_path('agent/index.php'));
+        $shim = (string) file_get_contents(public_path('agent/index.php'));
+        $this->assertStringContainsString("'/login'", $shim);
+        $this->assertStringContainsString('307', $shim);
     }
 
     public function test_agent_can_purchase_manage_issue_and_unbind_only_owned_cards(): void

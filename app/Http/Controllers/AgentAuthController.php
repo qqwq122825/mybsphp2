@@ -142,6 +142,15 @@ final class AgentAuthController extends Controller
         return redirect()->intended(route('agent.dashboard'));
     }
 
+    public function legacyLogin(Request $request): RedirectResponse
+    {
+        // 307 preserves a submitted login body for stacks where the legacy
+        // virtual route reaches Laravel. GET/HEAD can use the normal 302.
+        $status = $request->isMethod('GET') || $request->isMethod('HEAD') ? 302 : 307;
+
+        return redirect()->route('agent.login', status: $status);
+    }
+
     public function logout(Request $request): RedirectResponse
     {
         $agent = Auth::guard('agent')->user();
