@@ -205,7 +205,10 @@ button, input, select, textarea { font: inherit; }
 .agent-row-actions { display: flex; align-items: center; gap: 6px; }
 .agent-row-actions form { margin: 0; }
 .agent-row-actions button { min-height: 29px; padding: 0 9px; border: 0; border-radius: 6px; color: #fff; background: var(--agent-blue); font-size: 11px; font-weight: 700; cursor: pointer; }
-.agent-row-actions button.is-danger { background: #ef693d; }
+.agent-star-cell { width: 44px; text-align: center; }
+.agent-star-cell form { margin: 0; }
+.agent-star { min-width: 32px; min-height: 32px; padding: 0; border: 0; color: #c5cad3; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
+.agent-star.is-on { color: #f5b301; }
 
 .agent-query-panel { overflow: hidden; border: 1px solid var(--agent-line); border-radius: 15px; background: #fff; box-shadow: 0 6px 18px rgba(40,57,84,.05); }
 .agent-query-panel .admin-table-shell-header { min-height: 96px; align-items: flex-start; padding: 20px 22px; }

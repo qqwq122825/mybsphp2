@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', '代理控制台') - {{ $appName }}</title>
     <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260812-select-scroll">
-    <link rel="stylesheet" href="/assets/css/agent.css?v=20260906-query-wide">
+    <link rel="stylesheet" href="/assets/css/agent.css?v=20260906-star">
     <script src="/assets/js/custom-select.js?v=20260812-select-scroll" defer></script>
     <script src="/assets/js/mybsphp.js?v=20260812-select-scroll" defer></script>
 </head>

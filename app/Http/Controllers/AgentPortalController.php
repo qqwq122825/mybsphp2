@@ -80,6 +80,7 @@ final class AgentPortalController extends Controller
         if ($request->filled('keyword')) {
             $this->applyCardKeyword($query, (string) $request->input('keyword'));
         }
+        $query->orderByDesc('agent_starred');
         $request->input('sort') === 'oldest'
             ? $query->orderBy('cards.id')
             : $query->orderByDesc('cards.id');
@@ -97,11 +98,17 @@ final class AgentPortalController extends Controller
         $agent = $this->agent();
         $this->ensureOwnedCard($agent, $card);
         $validated = $request->validate([
-            'action' => ['required', Rule::in(['freeze', 'unfreeze', 'delete_card', 'unbind'])],
+            'action' => ['required', Rule::in(['freeze', 'unfreeze', 'delete_card', 'unbind', 'star'])],
             'deduct_time' => ['nullable', 'boolean'],
             'confirmed' => ['nullable', 'boolean'],
         ]);
         $card->loadMissing(['application', 'cardType', 'batch']);
+
+        if ($validated['action'] === 'star') {
+            $card->forceFill(['agent_starred' => ! $card->agent_starred])->save();
+
+            return back();
+        }
 
         if ($validated['action'] === 'freeze' && $this->cardIsActivated($card)) {
             return back()->withErrors(['action' => '已激活卡密不能冻结，只能删除并退回制卡金额。']);
