@@ -211,13 +211,27 @@ button, input, select, textarea { font: inherit; }
 .agent-query-panel .admin-table-shell-header { min-height: 96px; align-items: flex-start; padding: 20px 22px; }
 .agent-query-panel .admin-table-shell-header h2 { margin: 0; font-size: 18px; }
 .agent-query-panel .admin-table-shell-header small { max-width: 760px; line-height: 1.55; }
-.agent-query-panel .admin-filter-bar { align-items: flex-start; padding: 22px 22px 20px; }
-.agent-query-panel .admin-filter-bar__keyword { flex: 1 1 560px; align-items: start; }
+.agent-query-panel .admin-filter-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 18px 16px;
+    padding: 22px 22px 20px;
+}
+.agent-query-panel .admin-filter-bar__keyword {
+    flex: none;
+    width: 100%;
+    max-width: none;
+    align-items: start;
+}
 .agent-query-panel .admin-filter-bar__keyword > strong { padding-top: 14px; }
+.agent-query-panel .admin-filter-bar__control { width: 100%; min-width: 0; }
 .agent-query-panel .admin-filter-bar__keyword textarea {
     display: block;
     width: 100%;
+    height: 132px;
     min-height: 132px;
+    min-width: 0;
     padding: 12px 14px;
     border: 1px solid #dfe3e9;
     border-radius: 8px;
