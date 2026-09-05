@@ -183,6 +183,58 @@ class AgentPortalTest extends TestCase
         $this->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'freeze'])->assertNotFound();
     }
 
+    public function test_agent_purchase_card_types_are_sorted_by_software(): void
+    {
+        $agent = $this->agent();
+        [$application, $weeklyType] = $this->applicationAndType();
+        $application->forceFill(['name' => '暗区国服越狱'])->save();
+        $weeklyType->forceFill(['name' => '周卡', 'sort_order' => 1])->save();
+
+        $dailyType = $weeklyType->replicate();
+        $dailyType->forceFill([
+            'public_id' => (string) Str::ulid(),
+            'name' => '天卡',
+            'code' => 'agent-day',
+            'sort_order' => 2,
+        ])->save();
+
+        $otherCredentials = app(ApplicationCredentialService::class)->generate();
+        $otherApplication = $application->replicate();
+        $otherApplication->forceFill([
+            'public_id' => (string) Str::ulid(),
+            'code' => '3002',
+            'name' => '三角洲国服巨魔',
+            'client_secret_hash' => hash('sha256', $otherCredentials['communication_key_ciphertext']),
+            ...$otherCredentials,
+        ])->save();
+        $otherWeekly = $weeklyType->replicate();
+        $otherWeekly->forceFill([
+            'public_id' => (string) Str::ulid(),
+            'application_id' => $otherApplication->getKey(),
+            'name' => '周卡',
+            'code' => 'agent-week-b',
+            'sort_order' => 1,
+        ])->save();
+        $otherDaily = $weeklyType->replicate();
+        $otherDaily->forceFill([
+            'public_id' => (string) Str::ulid(),
+            'application_id' => $otherApplication->getKey(),
+            'name' => '天卡',
+            'code' => 'agent-day-b',
+            'sort_order' => 2,
+        ])->save();
+
+        $html = $this->actingAs($agent, 'agent')->get('/agent/purchase')->assertOk()->getContent();
+        preg_match_all('/>([^<]+ &gt; (?:周卡|天卡)，价格)/u', $html, $matches);
+
+        $this->assertSame([
+            '三角洲国服巨魔 &gt; 周卡，价格',
+            '三角洲国服巨魔 &gt; 天卡，价格',
+            '暗区国服越狱 &gt; 周卡，价格',
+            '暗区国服越狱 &gt; 天卡，价格',
+        ], $matches[1]);
+    }
+
     private function agent(int $balanceCents = 0, string $username = 'agent-one'): Administrator
     {
         $agent = Administrator::query()->create([

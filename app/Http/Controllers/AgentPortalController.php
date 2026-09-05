@@ -130,7 +130,14 @@ final class AgentPortalController extends Controller
             ->whereHas('application', fn (Builder $query) => $query->where('status', 'active'));
         $this->limitToAssignedApplications($types, $agent);
         $this->limitToAssignedCardTypes($types, $agent);
-        $types = $types->orderBy('sort_order')->orderBy('name')->get();
+        $types = $types->get()
+            ->sortBy(fn (CardType $type): string => sprintf(
+                '%s\0%010d\0%s',
+                $type->application?->name ?? '',
+                (int) $type->sort_order,
+                $type->name
+            ))
+            ->values();
 
         return view('agent.cards.purchase', [
             ...$this->layout($agent),
