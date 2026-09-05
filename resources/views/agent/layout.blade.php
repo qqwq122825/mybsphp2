@@ -19,12 +19,6 @@
             <a class="{{ request()->routeIs('agent.cards.index') ? 'is-active' : '' }}" href="{{ route('agent.cards.index') }}"><i>▤</i><span>卡管理</span></a>
             <a class="{{ request()->routeIs('agent.cards.purchase') ? 'is-active' : '' }}" href="{{ route('agent.cards.purchase') }}"><i>⌑</i><span>余额制卡</span></a>
             <a class="{{ request()->routeIs('agent.finance') ? 'is-active' : '' }}" href="{{ route('agent.finance') }}"><i>➤</i><span>财务管理</span></a>
-            <details class="agent-nav-tools" {{ request()->routeIs('agent.tools.*') ? 'open' : '' }}>
-                <summary><i>☆</i><span>代理工具</span><b>⌄</b></summary>
-                <div>
-                    <a class="{{ request()->routeIs('agent.tools.query') ? 'is-active' : '' }}" href="{{ route('agent.tools.query') }}">批量查询</a>
-                </div>
-            </details>
         </nav>
     </aside>
 

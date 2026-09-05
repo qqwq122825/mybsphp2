@@ -1,15 +1,16 @@
-@if($usedCard ?? null)
-    <div class="agent-modal" data-agent-used-modal>
-        <div class="agent-modal-card" role="dialog" aria-modal="true" aria-labelledby="agent-used-title">
-            <h2 id="agent-used-title">卡密已经使用</h2>
-            <p>该卡密已激活。请选择冻结用户或删除卡密。冻结用户后无法登录，到期时间保持不变；删除卡密会作废该卡并踢下线。</p>
+@if($deleteCard ?? null)
+    <div class="agent-modal" data-agent-delete-modal>
+        <div class="agent-modal-card" role="dialog" aria-modal="true" aria-labelledby="agent-delete-title">
+            <h2 id="agent-delete-title">确认删除</h2>
+            <p>删除后用户无法继续登录，并将退回制卡金额 {{ $deleteCard['refund'] }} 元。</p>
             <ul>
-                <li><code>{{ $usedCard['code'] }}</code> · {{ $usedCard['application'] }} · {{ $usedCard['type'] }}</li>
+                <li><code>{{ $deleteCard['code'] }}</code> · {{ $deleteCard['application'] }} · {{ $deleteCard['type'] }}</li>
             </ul>
-            <form method="post" action="{{ route('agent.cards.action', $usedCard['id']) }}" class="agent-modal-actions">
+            <form method="post" action="{{ route('agent.cards.action', $deleteCard['id']) }}" class="agent-modal-actions">
                 @csrf
-                <button type="submit" name="action" value="freeze_user">冻结用户</button>
-                <button type="submit" name="action" value="delete_card" class="is-danger">删除卡密</button>
+                <input type="hidden" name="action" value="delete_card">
+                <input type="hidden" name="confirmed" value="1">
+                <button type="submit" class="is-danger">确认删除并退款</button>
                 <button type="button" class="is-ghost" data-agent-modal-close>取消</button>
             </form>
         </div>

@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Applications\ApplicationCredentialService;
 use App\Auth\SystemAccessSynchronizer;
+use App\Cards\CardCredentialHasher;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
 use App\Models\Card;
+use App\Models\CardBatch;
 use App\Models\CardType;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -73,6 +75,8 @@ class AgentPortalTest extends TestCase
             ->assertDontSee('批量冻结')
             ->assertDontSee('批量解冻')
             ->assertDontSee('解除用户绑定')
+            ->assertDontSee('代理工具')
+            ->assertDontSee('批量查询')
             ->assertSee($agent->username.'(1星)');
 
         $this->post('/agent/logout')->assertRedirect('/agent/login');
@@ -170,25 +174,46 @@ class AgentPortalTest extends TestCase
             ->assertSee((string) $ownedCards->first()->code_ciphertext)
             ->assertSee('搜索完整卡号或后4位')
             ->assertDontSee('全部软件')
-            ->assertDontSee('全部卡类');
-        $this->get('/agent/tools/query')
-            ->assertOk()
-            ->assertSee('批量查询')
-            ->assertSee('请输入卡密后查询')
-            ->assertSee('操作')
-            ->assertDontSee('全部软件')
-            ->assertDontSee('>批量冻结<', false)
-            ->assertDontSee('>批量解冻<', false)
-            ->assertDontSee('>解除用户绑定<', false);
-        $this->get('/agent/tools/query?keyword='.urlencode((string) $ownedCards->first()->code_ciphertext))
+            ->assertDontSee('全部卡类')
+            ->assertDontSee('代理工具')
+            ->assertDontSee('批量查询');
+        $this->get('/agent/tools/query')->assertRedirect('/agent/cards');
+        $this->get('/agent/cards?keyword='.urlencode((string) $ownedCards->first()->code_ciphertext))
             ->assertOk()
             ->assertSee((string) $ownedCards->first()->code_ciphertext)
             ->assertSee('冻结')
-            ->assertSee('解绑')
+            ->assertSee('删除')
+            ->assertDontSee('value="unbind"', false)
             ->assertDontSee((string) $ownedCards->last()->code_ciphertext);
-        $this->get('/agent/tools/unbind')->assertRedirect('/agent/tools/query');
-        $this->get('/agent/tools/freeze')->assertRedirect('/agent/tools/query');
-        $this->get('/agent/tools/unfreeze')->assertRedirect('/agent/tools/query');
+
+        $systemCode = 'SYSTEM-MADE-CARD-9001';
+        $systemBatch = CardBatch::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'card_type_id' => $cardType->getKey(),
+            'batch_no' => 'SYS-'.Str::upper(Str::random(8)),
+            'source' => 'generated',
+            'planned_quantity' => 1,
+            'actual_quantity' => 1,
+            'status' => 'ready',
+            'created_by_administrator_id' => $administrator->getKey(),
+        ]);
+        $systemCard = Card::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'batch_id' => $systemBatch->getKey(),
+            'card_type_id' => $cardType->getKey(),
+            'application_id' => $application->getKey(),
+            'code_lookup_hash' => app(CardCredentialHasher::class)->lookupHash($systemCode),
+            'code_ciphertext' => $systemCode,
+            'code_last4' => substr($systemCode, -4),
+            'status' => 'issued',
+        ]);
+        $this->get('/agent/cards?keyword='.urlencode($systemCode))
+            ->assertOk()
+            ->assertSee('共 0 张');
+        $this->post('/agent/cards/'.$systemCard->getKey().'/action', ['action' => 'freeze'])->assertNotFound();
+        $this->get('/agent/tools/unbind')->assertRedirect('/agent/cards');
+        $this->get('/agent/tools/freeze')->assertRedirect('/agent/cards');
+        $this->get('/agent/tools/unfreeze')->assertRedirect('/agent/cards');
         $card = $ownedCards->first();
         $this->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'freeze'])->assertRedirect();
         $this->assertTrue($card->fresh()->card_is_frozen);
@@ -203,30 +228,43 @@ class AgentPortalTest extends TestCase
             'expires_at' => $expiresAt,
             'card_is_frozen' => false,
         ])->save();
-        $queryUrl = '/agent/tools/query?keyword='.urlencode((string) $card->code_ciphertext);
-        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'freeze'])
-            ->assertRedirect($queryUrl)
-            ->assertSessionHas('agent_used_card');
+        $queryUrl = '/agent/cards?keyword='.urlencode((string) $card->code_ciphertext);
         $this->get($queryUrl)
             ->assertOk()
-            ->assertSee('卡密已经使用')
-            ->assertSee('冻结用户')
-            ->assertSee('删除卡密')
-            ->assertSee((string) $card->code_ciphertext);
+            ->assertSee('删除')
+            ->assertSee('解绑')
+            ->assertDontSee('value="freeze"', false);
+        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'freeze'])
+            ->assertRedirect($queryUrl)
+            ->assertSessionHasErrors('action');
         $this->assertSame('active', $card->fresh()->user_status);
 
-        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'freeze_user'])
+        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'delete_card'])
+            ->assertRedirect($queryUrl)
+            ->assertSessionHas('agent_delete_card');
+        $this->get($queryUrl)
+            ->assertOk()
+            ->assertSee('确认删除')
+            ->assertSee('4.40')
+            ->assertSee('确认删除并退款');
+        $this->assertSame('active', $card->fresh()->status);
+        $this->assertSame(9120, $agent->fresh()->agent_balance_cents);
+
+        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', [
+            'action' => 'delete_card',
+            'confirmed' => '1',
+        ])
             ->assertRedirect($queryUrl)
             ->assertSessionHas('success');
-        $frozen = $card->fresh();
-        $this->assertSame('frozen', $frozen->user_status);
-        $this->assertSame($expiresAt->toDateTimeString(), $frozen->expires_at?->toDateTimeString());
-
-        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'unfreeze'])
-            ->assertRedirect($queryUrl);
-        $restored = $card->fresh();
-        $this->assertSame('active', $restored->user_status);
-        $this->assertSame($expiresAt->toDateTimeString(), $restored->expires_at?->toDateTimeString());
+        $this->assertSame('revoked', $card->fresh()->status);
+        $this->assertSame(9560, $agent->fresh()->agent_balance_cents);
+        $this->assertDatabaseHas('agent_transactions', [
+            'agent_id' => $agent->getKey(),
+            'type' => 'card_refund',
+            'amount_cents' => 440,
+            'balance_after_cents' => 9560,
+            'reference_id' => (string) $card->public_id,
+        ]);
 
         $usedCard = $ownedCards->last();
         $usedCard->forceFill([
@@ -236,10 +274,14 @@ class AgentPortalTest extends TestCase
             'expires_at' => $expiresAt,
             'card_is_frozen' => false,
         ])->save();
-        $this->post('/agent/cards/'.$usedCard->getKey().'/action', ['action' => 'delete_card'])
+        $this->from($queryUrl)->post('/agent/cards/'.$usedCard->getKey().'/action', [
+            'action' => 'delete_card',
+            'confirmed' => '1',
+        ])
             ->assertRedirect()
             ->assertSessionHas('success');
         $this->assertSame('revoked', $usedCard->fresh()->status);
+        $this->assertSame(10000, $agent->fresh()->agent_balance_cents);
 
         $card->forceFill(['bound_device_ciphertext' => 'DEVICE-AGENT-001', 'bound_device_mask' => 'DEV***'])->save();
         $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'unbind'])
@@ -279,7 +321,7 @@ class AgentPortalTest extends TestCase
         $this->get('/agent/inventory')->assertNotFound();
         $this->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'delete'])
             ->assertSessionHasErrors('action');
-        $this->assertNotSame('revoked', $card->fresh()->status);
+        $this->assertSame('revoked', $card->fresh()->status);
 
         $otherAgent = $this->agent(0, 'other-agent');
         $this->actingAs($otherAgent, 'agent');

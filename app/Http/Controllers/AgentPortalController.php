@@ -85,8 +85,8 @@ final class AgentPortalController extends Controller
         return view('agent.cards.index', [
             ...$this->layout($agent),
             'cards' => $query->paginate(20)->withQueryString(),
-            'usedCard' => session('agent_used_card'),
             'unbindCard' => session('agent_unbind_card'),
+            'deleteCard' => session('agent_delete_card'),
         ]);
     }
 
@@ -95,17 +95,25 @@ final class AgentPortalController extends Controller
         $agent = $this->agent();
         $this->ensureOwnedCard($agent, $card);
         $validated = $request->validate([
-            'action' => ['required', Rule::in(['freeze', 'unfreeze', 'freeze_user', 'delete_card', 'unbind'])],
+            'action' => ['required', Rule::in(['freeze', 'unfreeze', 'delete_card', 'unbind'])],
             'deduct_time' => ['nullable', 'boolean'],
+            'confirmed' => ['nullable', 'boolean'],
         ]);
-        $card->loadMissing(['application', 'cardType']);
+        $card->loadMissing(['application', 'cardType', 'batch']);
 
         if ($validated['action'] === 'freeze' && $this->cardIsActivated($card)) {
-            return back()->with('agent_used_card', [
+            return back()->withErrors(['action' => '已激活卡密不能冻结，只能删除并退回制卡金额。']);
+        }
+
+        if ($validated['action'] === 'delete_card' && ! $request->boolean('confirmed')) {
+            $refundCents = $this->agentCardRefundCents($agent, $card);
+
+            return back()->with('agent_delete_card', [
                 'id' => $card->getKey(),
                 'code' => $card->code_ciphertext,
                 'application' => $card->application?->name ?? '',
                 'type' => $card->cardType?->name ?? '',
+                'refund' => number_format($refundCents / 100, 2),
             ]);
         }
 
@@ -123,8 +131,7 @@ final class AgentPortalController extends Controller
         $message = match ($validated['action']) {
             'freeze' => $this->sealUnusedCard($card, $request),
             'unfreeze' => $this->unfreezeOwnedCard($card, $request),
-            'freeze_user' => $this->freezeActivatedUser($card, $request),
-            'delete_card' => $this->deleteActivatedCard($card, $request),
+            'delete_card' => $this->deleteOwnedCard($card, $request),
             'unbind' => $this->unbindOwnedCard($card, $request, $request->boolean('deduct_time')),
         };
 
@@ -247,39 +254,26 @@ final class AgentPortalController extends Controller
             ]);
     }
 
-    public function queryCards(Request $request): View
+    public function queryCards(Request $request): RedirectResponse
     {
-        $agent = $this->agent();
-        $keyword = trim((string) $request->input('keyword', ''));
-        $query = $this->ownedCardsQuery($agent)->with(['application', 'cardType', 'batch']);
-        if ($keyword === '') {
-            $query->whereRaw('0 = 1');
-        } else {
-            $this->applyCardKeyword($query, $keyword);
-        }
-
-        return view('agent.tools.query', [
-            ...$this->layout($agent),
-            'keyword' => $keyword,
-            'cards' => $query->orderByDesc('cards.id')->paginate(50)->withQueryString(),
-            'usedCard' => session('agent_used_card'),
-            'unbindCard' => session('agent_unbind_card'),
-        ]);
+        return redirect()->route('agent.cards.index', array_filter([
+            'keyword' => trim((string) $request->input('keyword', '')),
+        ], fn (string $value): bool => $value !== ''));
     }
 
     public function unbind(): RedirectResponse
     {
-        return redirect()->route('agent.tools.query');
+        return redirect()->route('agent.cards.index');
     }
 
     public function freeze(): RedirectResponse
     {
-        return redirect()->route('agent.tools.query');
+        return redirect()->route('agent.cards.index');
     }
 
     public function unfreeze(): RedirectResponse
     {
-        return redirect()->route('agent.tools.query');
+        return redirect()->route('agent.cards.index');
     }
 
     public function finance(): View
@@ -292,45 +286,90 @@ final class AgentPortalController extends Controller
         ]);
     }
 
-    private function freezeActivatedUser(Card $card, Request $request): string
+    private function deleteOwnedCard(Card $card, Request $request): string
     {
-        if ($card->user_status === 'frozen') {
-            return $card->code_ciphertext.'：用户原本已冻结，到期时间未改动';
-        }
-        $card->forceFill(['user_status' => 'frozen', 'user_frozen_at' => now()])->save();
-        $this->closeCardSessions($card);
-        $this->audit->record(new AuditEvent(
-            action: 'agent.user_freeze',
-            targetType: 'card',
-            targetId: (string) $card->public_id,
-            applicationId: (int) $card->application_id,
-            after: ['expires_at' => $card->expires_at?->toIso8601String()],
-            actorRole: 'agent',
-        ), $request);
+        $agentId = $this->agent()->getKey();
 
-        return $card->code_ciphertext.'：已激活用户已冻结，到期时间保持不变';
+        return DB::transaction(function () use ($card, $request, $agentId): string {
+            $lockedCard = Card::query()->lockForUpdate()->findOrFail($card->getKey());
+            $lockedCard->loadMissing(['batch', 'cardType']);
+            $agent = Administrator::query()->lockForUpdate()->findOrFail($agentId);
+            if ($lockedCard->status === 'revoked') {
+                return $lockedCard->code_ciphertext.'：卡密原本已删除';
+            }
+
+            $refundCents = $this->agentCardRefundCents($agent, $lockedCard);
+            $alreadyRefunded = AgentTransaction::query()
+                ->where('agent_id', $agent->getKey())
+                ->where('type', 'card_refund')
+                ->where('reference_type', 'card')
+                ->where('reference_id', (string) $lockedCard->public_id)
+                ->exists();
+
+            $lockedCard->forceFill([
+                'status' => 'revoked',
+                'user_status' => 'revoked',
+                'revoked_at' => now(),
+            ])->save();
+            $this->closeCardSessions($lockedCard);
+
+            $refunded = false;
+            if ($refundCents > 0 && ! $alreadyRefunded) {
+                $agent->increment('agent_balance_cents', $refundCents);
+                $agent->refresh();
+                AgentTransaction::query()->create([
+                    'public_id' => (string) Str::ulid(),
+                    'agent_id' => $agent->getKey(),
+                    'type' => 'card_refund',
+                    'amount_cents' => $refundCents,
+                    'balance_after_cents' => $agent->agent_balance_cents,
+                    'reference_type' => 'card',
+                    'reference_id' => (string) $lockedCard->public_id,
+                    'note' => '删除卡密退回制卡金额',
+                    'metadata' => [
+                        'batch_public_id' => $lockedCard->batch?->public_id,
+                        'unit_price_cents' => $refundCents,
+                    ],
+                ]);
+                $refunded = true;
+            }
+
+            $this->audit->record(new AuditEvent(
+                action: 'agent.card_delete',
+                targetType: 'card',
+                targetId: (string) $lockedCard->public_id,
+                applicationId: (int) $lockedCard->application_id,
+                after: [
+                    'refunded' => $refunded,
+                    'refund_cents' => $refunded ? $refundCents : 0,
+                ],
+                actorRole: 'agent',
+            ), $request);
+
+            return $refunded
+                ? $lockedCard->code_ciphertext.'：卡密已删除，已退回制卡金额 '.number_format($refundCents / 100, 2).' 元'
+                : $lockedCard->code_ciphertext.'：卡密已删除，用户无法继续登录';
+        }, 3);
     }
 
-    private function deleteActivatedCard(Card $card, Request $request): string
+    private function agentCardRefundCents(Administrator $agent, Card $card): int
     {
-        if ($card->status === 'revoked') {
-            return $card->code_ciphertext.'：卡密原本已删除';
+        $card->loadMissing(['batch', 'cardType']);
+        $purchase = AgentTransaction::query()
+            ->where('agent_id', $agent->getKey())
+            ->where('type', 'card_purchase')
+            ->where('reference_type', 'card_batch')
+            ->where('reference_id', (string) ($card->batch?->public_id ?? ''))
+            ->latest('id')
+            ->first();
+        if ($purchase instanceof AgentTransaction) {
+            return max(0, (int) ($purchase->metadata['unit_price_cents'] ?? 0));
         }
-        $card->forceFill([
-            'status' => 'revoked',
-            'user_status' => 'revoked',
-            'revoked_at' => now(),
-        ])->save();
-        $this->closeCardSessions($card);
-        $this->audit->record(new AuditEvent(
-            action: 'agent.card_delete',
-            targetType: 'card',
-            targetId: (string) $card->public_id,
-            applicationId: (int) $card->application_id,
-            actorRole: 'agent',
-        ), $request);
+        if ($card->cardType) {
+            return $this->agentUnitPrice($agent, $card->cardType);
+        }
 
-        return $card->code_ciphertext.'：已使用卡密已删除，用户无法继续登录';
+        return 0;
     }
 
     private function sealUnusedCard(Card $card, Request $request): string
