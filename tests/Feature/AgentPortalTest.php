@@ -70,6 +70,9 @@ class AgentPortalTest extends TestCase
             ->assertDontSee('我的代理')
             ->assertDontSee('库存制卡')
             ->assertDontSee('批量删除')
+            ->assertDontSee('批量冻结')
+            ->assertDontSee('批量解冻')
+            ->assertDontSee('解除用户绑定')
             ->assertSee($agent->username.'(1星)');
 
         $this->post('/agent/logout')->assertRedirect('/agent/login');
@@ -172,24 +175,24 @@ class AgentPortalTest extends TestCase
             ->assertOk()
             ->assertSee('批量查询')
             ->assertSee('请输入卡密后查询')
-            ->assertDontSee('全部软件');
+            ->assertSee('操作')
+            ->assertDontSee('全部软件')
+            ->assertDontSee('>批量冻结<', false)
+            ->assertDontSee('>批量解冻<', false)
+            ->assertDontSee('>解除用户绑定<', false);
         $this->get('/agent/tools/query?keyword='.urlencode((string) $ownedCards->first()->code_ciphertext))
             ->assertOk()
             ->assertSee((string) $ownedCards->first()->code_ciphertext)
+            ->assertSee('冻结')
+            ->assertSee('解绑')
             ->assertDontSee((string) $ownedCards->last()->code_ciphertext);
-        $this->get('/agent/tools/unbind')
-            ->assertOk()
-            ->assertSee('卡密')
-            ->assertDontSee('软件选择')
-            ->assertDontSee('新绑定');
+        $this->get('/agent/tools/unbind')->assertRedirect('/agent/tools/query');
+        $this->get('/agent/tools/freeze')->assertRedirect('/agent/tools/query');
+        $this->get('/agent/tools/unfreeze')->assertRedirect('/agent/tools/query');
         $card = $ownedCards->first();
         $this->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'freeze'])->assertRedirect();
         $this->assertTrue($card->fresh()->card_is_frozen);
-
-        $this->get('/agent/tools/freeze')->assertOk()->assertSee('已使用卡密会弹出确认')->assertDontSee('全部软件');
-        $this->post('/agent/tools/freeze', [
-            'credential' => (string) $ownedCards->last()->code_ciphertext,
-        ])->assertOk()->assertSee('未激活卡密已封卡');
+        $this->post('/agent/cards/'.$ownedCards->last()->getKey().'/action', ['action' => 'freeze'])->assertRedirect();
         $this->assertTrue($ownedCards->last()->fresh()->card_is_frozen);
 
         $expiresAt = now()->addDays(30)->startOfSecond();
@@ -200,26 +203,27 @@ class AgentPortalTest extends TestCase
             'expires_at' => $expiresAt,
             'card_is_frozen' => false,
         ])->save();
-        $this->post('/agent/tools/freeze', [
-            'credential' => (string) $card->code_ciphertext,
-        ])->assertOk()
+        $queryUrl = '/agent/tools/query?keyword='.urlencode((string) $card->code_ciphertext);
+        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'freeze'])
+            ->assertRedirect($queryUrl)
+            ->assertSessionHas('agent_used_card');
+        $this->get($queryUrl)
+            ->assertOk()
             ->assertSee('卡密已经使用')
             ->assertSee('冻结用户')
             ->assertSee('删除卡密')
             ->assertSee((string) $card->code_ciphertext);
         $this->assertSame('active', $card->fresh()->user_status);
 
-        $this->post('/agent/tools/freeze', [
-            'credential' => (string) $card->code_ciphertext,
-            'activated_action' => 'freeze_user',
-        ])->assertOk()->assertSee('已激活用户已冻结，到期时间保持不变');
+        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'freeze_user'])
+            ->assertRedirect($queryUrl)
+            ->assertSessionHas('success');
         $frozen = $card->fresh();
         $this->assertSame('frozen', $frozen->user_status);
         $this->assertSame($expiresAt->toDateTimeString(), $frozen->expires_at?->toDateTimeString());
 
-        $this->post('/agent/tools/unfreeze', [
-            'credential' => (string) $card->code_ciphertext,
-        ])->assertOk()->assertSee('用户已解冻，到期时间保持不变');
+        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'unfreeze'])
+            ->assertRedirect($queryUrl);
         $restored = $card->fresh();
         $this->assertSame('active', $restored->user_status);
         $this->assertSame($expiresAt->toDateTimeString(), $restored->expires_at?->toDateTimeString());
@@ -232,17 +236,45 @@ class AgentPortalTest extends TestCase
             'expires_at' => $expiresAt,
             'card_is_frozen' => false,
         ])->save();
-        $this->post('/agent/tools/freeze', [
-            'credential' => (string) $usedCard->code_ciphertext,
-            'activated_action' => 'delete_card',
-        ])->assertOk()->assertSee('已使用卡密已删除，用户无法继续登录');
+        $this->post('/agent/cards/'.$usedCard->getKey().'/action', ['action' => 'delete_card'])
+            ->assertRedirect()
+            ->assertSessionHas('success');
         $this->assertSame('revoked', $usedCard->fresh()->status);
 
         $card->forceFill(['bound_device_ciphertext' => 'DEVICE-AGENT-001', 'bound_device_mask' => 'DEV***'])->save();
-        $this->post('/agent/tools/unbind', [
-            'credential' => (string) $card->code_ciphertext,
-        ])->assertRedirect()->assertSessionHas('success', '设备绑定已解除。');
-        $this->assertNull($card->fresh()->bound_device_ciphertext);
+        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'unbind'])
+            ->assertRedirect($queryUrl)
+            ->assertSessionHas('success', '设备绑定已解除，未扣除时间。')
+            ->assertSessionMissing('agent_unbind_card');
+        $cleared = $card->fresh();
+        $this->assertNull($cleared->bound_device_ciphertext);
+        $this->assertSame($expiresAt->toDateTimeString(), $cleared->expires_at?->toDateTimeString());
+
+        $application->forceFill([
+            'rebind_deduction_value' => 2,
+            'rebind_deduction_unit' => 'hour',
+        ])->save();
+        $card->forceFill(['bound_device_ciphertext' => 'DEVICE-AGENT-002', 'bound_device_mask' => 'DEV***'])->save();
+        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'unbind'])
+            ->assertRedirect($queryUrl)
+            ->assertSessionHas('agent_unbind_card');
+        $this->assertSame('DEVICE-AGENT-002', $card->fresh()->bound_device_ciphertext);
+        $this->get($queryUrl)
+            ->assertOk()
+            ->assertSee('确认解绑')
+            ->assertSee('扣除时间')
+            ->assertSee('不扣时间')
+            ->assertSee('解绑扣时 2小时');
+
+        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', [
+            'action' => 'unbind',
+            'deduct_time' => '1',
+        ])
+            ->assertRedirect($queryUrl)
+            ->assertSessionHas('success', '设备绑定已解除，并已扣除解绑时间。');
+        $deducted = $card->fresh();
+        $this->assertNull($deducted->bound_device_ciphertext);
+        $this->assertSame($expiresAt->copy()->subHours(2)->toDateTimeString(), $deducted->expires_at?->toDateTimeString());
 
         $this->get('/agent/inventory')->assertNotFound();
         $this->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'delete'])

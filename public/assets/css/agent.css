@@ -207,6 +207,11 @@ button, input, select, textarea { font: inherit; }
 .agent-row-actions button { min-height: 29px; padding: 0 9px; border: 0; border-radius: 6px; color: #fff; background: var(--agent-blue); font-size: 11px; font-weight: 700; cursor: pointer; }
 .agent-row-actions button.is-danger { background: #ef693d; }
 
+.agent-query-panel { overflow: hidden; border: 1px solid var(--agent-line); border-radius: 15px; background: #fff; box-shadow: 0 6px 18px rgba(40,57,84,.05); }
+.agent-query-panel .admin-table-shell-header { min-height: 72px; padding: 0 22px; }
+.agent-query-panel .admin-filter-bar { padding: 16px 22px; }
+.agent-query-panel .admin-filter-bar__keyword { align-items: start; }
+.agent-query-panel .admin-filter-bar__keyword textarea { width: min(560px, 100%); min-height: 72px; padding: 10px 12px; resize: vertical; }
 .agent-form-panel { min-height: calc(100vh - 108px); }
 .agent-form-tip { margin: 18px 20px 0; padding: 17px 20px; border-left: 5px solid var(--agent-blue); color: #4286ef; background: #f5f9ff; font-size: 14px; font-weight: 650; }
 .agent-business-form { width: min(920px,calc(100% - 40px)); display: grid; gap: 18px; margin: 22px auto 34px; }
