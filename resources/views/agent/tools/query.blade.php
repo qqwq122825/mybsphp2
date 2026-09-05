@@ -11,7 +11,7 @@
     <x-slot:search>
         <x-admin.filter-bar :action="route('agent.tools.query')" keyword-label="卡密：" button-label="⌕" :icon-only="true">
             <x-slot:keyword>
-                <textarea name="keyword" rows="2" placeholder="输入完整卡号或后4位，多个卡密用空格或换行分隔" autofocus>{{ $keyword }}</textarea>
+                <textarea name="keyword" rows="5" placeholder="输入完整卡号或后4位，多个卡密用空格或换行分隔" autofocus>{{ $keyword }}</textarea>
             </x-slot:keyword>
         </x-admin.filter-bar>
     </x-slot:search>
