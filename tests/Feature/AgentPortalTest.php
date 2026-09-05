@@ -179,10 +179,14 @@ class AgentPortalTest extends TestCase
             ->assertDontSee('代理工具')
             ->assertDontSee('批量查询');
         $this->assertFalse((bool) $ownedCards->first()->fresh()->agent_starred);
-        $this->post('/agent/cards/'.$ownedCards->first()->getKey().'/action', ['action' => 'star'])->assertRedirect();
+        $this->from('/agent/cards')->postJson('/agent/cards/'.$ownedCards->first()->getKey().'/action', ['action' => 'star'])
+            ->assertOk()
+            ->assertJson(['starred' => true]);
         $this->assertTrue((bool) $ownedCards->first()->fresh()->agent_starred);
         $this->get('/agent/cards')->assertOk()->assertSee('★');
-        $this->post('/agent/cards/'.$ownedCards->first()->getKey().'/action', ['action' => 'star'])->assertRedirect();
+        $this->from('/agent/cards')->postJson('/agent/cards/'.$ownedCards->first()->getKey().'/action', ['action' => 'star'])
+            ->assertOk()
+            ->assertJson(['starred' => false]);
         $this->assertFalse((bool) $ownedCards->first()->fresh()->agent_starred);
         $this->get('/agent/tools/query')->assertRedirect('/agent/cards');
         $this->get('/agent/cards?keyword='.urlencode((string) $ownedCards->first()->code_ciphertext))

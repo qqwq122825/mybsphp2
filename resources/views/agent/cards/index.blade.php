@@ -17,11 +17,7 @@
         @forelse($cards as $card)
             <tr>
                 <td class="agent-star-cell">
-                    <form method="post" action="{{ route('agent.cards.action', $card) }}">
-                        @csrf
-                        <input type="hidden" name="action" value="star">
-                        <button type="submit" class="agent-star{{ $card->agent_starred ? ' is-on' : '' }}" aria-label="{{ $card->agent_starred ? '取消标记' : '标记' }}" title="标记">{{ $card->agent_starred ? '★' : '☆' }}</button>
-                    </form>
+                    <button type="button" class="agent-star{{ $card->agent_starred ? ' is-on' : '' }}" data-agent-star data-star-url="{{ route('agent.cards.action', $card) }}" aria-label="{{ $card->agent_starred ? '取消标记' : '标记' }}" title="标记">{{ $card->agent_starred ? '★' : '☆' }}</button>
                 </td>
                 <td>{{ $card->id }}</td><td><code>{{ $card->code_ciphertext }}</code></td><td>{{ $card->application->name }}</td><td>{{ $card->cardType->name }}</td>
                 <td>{{ $card->cardType->duration_value }}{{ ['minute'=>'分钟','hour'=>'小时','day'=>'天','month'=>'月','year'=>'年'][$card->cardType->duration_unit] ?? '' }}</td>
@@ -38,5 +34,32 @@
 @include('agent.partials.action-modals')
 @endsection
 @push('scripts')
-<script>(()=>{document.querySelectorAll('[data-agent-modal-close]').forEach((button)=>button.addEventListener('click',()=>button.closest('.agent-modal')?.remove()));})();</script>
+<script>(()=>{
+    const token=document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')||'';
+    const paint=(button,on)=>{button.classList.toggle('is-on',on);button.textContent=on?'★':'☆';button.setAttribute('aria-label',on?'取消标记':'标记');};
+    document.querySelectorAll('[data-agent-star]').forEach((button)=>{
+        let seq=0;
+        button.addEventListener('click',async()=>{
+            const mine=++seq;
+            const on=!button.classList.contains('is-on');
+            paint(button,on);
+            try{
+                const response=await fetch(button.getAttribute('data-star-url')||'',{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':token,'X-Requested-With':'XMLHttpRequest'},
+                    body:JSON.stringify({action:'star'}),
+                    credentials:'same-origin'
+                });
+                if(!response.ok)throw new Error();
+                const data=await response.json();
+                if(mine!==seq)return;
+                paint(button,!!data.starred);
+            }catch{
+                if(mine!==seq)return;
+                paint(button,!on);
+            }
+        });
+    });
+    document.querySelectorAll('[data-agent-modal-close]').forEach((button)=>button.addEventListener('click',()=>button.closest('.agent-modal')?.remove()));
+})();</script>
 @endpush

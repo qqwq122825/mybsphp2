@@ -14,6 +14,7 @@ use App\Models\ApplicationClientSession;
 use App\Models\Card;
 use App\Models\CardType;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -80,7 +81,7 @@ final class AgentPortalController extends Controller
         if ($request->filled('keyword')) {
             $this->applyCardKeyword($query, (string) $request->input('keyword'));
         }
-        $query->orderByDesc('agent_starred');
+        $query->orderByDesc('cards.agent_starred');
         $request->input('sort') === 'oldest'
             ? $query->orderBy('cards.id')
             : $query->orderByDesc('cards.id');
@@ -93,7 +94,7 @@ final class AgentPortalController extends Controller
         ]);
     }
 
-    public function cardAction(Request $request, Card $card): RedirectResponse
+    public function cardAction(Request $request, Card $card): RedirectResponse|JsonResponse
     {
         $agent = $this->agent();
         $this->ensureOwnedCard($agent, $card);
@@ -105,7 +106,11 @@ final class AgentPortalController extends Controller
         $card->loadMissing(['application', 'cardType', 'batch']);
 
         if ($validated['action'] === 'star') {
-            $card->forceFill(['agent_starred' => ! $card->agent_starred])->save();
+            $starred = ! $card->agent_starred;
+            $card->forceFill(['agent_starred' => $starred])->save();
+            if ($request->expectsJson()) {
+                return response()->json(['starred' => $starred]);
+            }
 
             return back();
         }
