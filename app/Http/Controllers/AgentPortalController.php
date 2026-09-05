@@ -35,7 +35,7 @@ final class AgentPortalController extends Controller
     public function dashboard(): View
     {
         $agent = $this->agent();
-        $cards = $this->ownedCardsQuery($agent);
+        $cards = $this->ownedCardsQuery($agent)->where('cards.status', '!=', 'revoked');
         $today = today();
         $yesterday = today()->subDay();
 
@@ -59,7 +59,9 @@ final class AgentPortalController extends Controller
     public function cards(Request $request): View
     {
         $agent = $this->agent();
-        $query = $this->ownedCardsQuery($agent)->with(['application', 'cardType', 'batch']);
+        $query = $this->ownedCardsQuery($agent)
+            ->with(['application', 'cardType', 'batch'])
+            ->where('cards.status', '!=', 'revoked');
 
         if ($request->filled('application')) {
             $query->where('application_id', $request->integer('application'));

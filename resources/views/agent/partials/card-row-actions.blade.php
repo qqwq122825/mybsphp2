@@ -1,10 +1,9 @@
 @php
-    $canOperate = (int) $card->batch?->created_by_administrator_id === (int) $agent->getKey();
     $used = $card->activated_at !== null || in_array($card->status, ['active', 'expired', 'consumed'], true);
     $revoked = $card->status === 'revoked';
     $locked = $card->card_is_frozen || $card->user_status === 'frozen';
 @endphp
-@if($canOperate && ! $revoked)
+@if(! $revoked)
     @if(! $used)
         <form method="post" action="{{ route('agent.cards.action', $card) }}">
             @csrf

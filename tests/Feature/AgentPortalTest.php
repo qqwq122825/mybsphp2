@@ -239,50 +239,6 @@ class AgentPortalTest extends TestCase
             ->assertSessionHasErrors('action');
         $this->assertSame('active', $card->fresh()->user_status);
 
-        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'delete_card'])
-            ->assertRedirect($queryUrl)
-            ->assertSessionHas('agent_delete_card');
-        $this->get($queryUrl)
-            ->assertOk()
-            ->assertSee('确认删除')
-            ->assertSee('4.40')
-            ->assertSee('确认删除并退款');
-        $this->assertSame('active', $card->fresh()->status);
-        $this->assertSame(9120, $agent->fresh()->agent_balance_cents);
-
-        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', [
-            'action' => 'delete_card',
-            'confirmed' => '1',
-        ])
-            ->assertRedirect($queryUrl)
-            ->assertSessionHas('success');
-        $this->assertSame('revoked', $card->fresh()->status);
-        $this->assertSame(9560, $agent->fresh()->agent_balance_cents);
-        $this->assertDatabaseHas('agent_transactions', [
-            'agent_id' => $agent->getKey(),
-            'type' => 'card_refund',
-            'amount_cents' => 440,
-            'balance_after_cents' => 9560,
-            'reference_id' => (string) $card->public_id,
-        ]);
-
-        $usedCard = $ownedCards->last();
-        $usedCard->forceFill([
-            'status' => 'active',
-            'user_status' => 'active',
-            'activated_at' => now(),
-            'expires_at' => $expiresAt,
-            'card_is_frozen' => false,
-        ])->save();
-        $this->from($queryUrl)->post('/agent/cards/'.$usedCard->getKey().'/action', [
-            'action' => 'delete_card',
-            'confirmed' => '1',
-        ])
-            ->assertRedirect()
-            ->assertSessionHas('success');
-        $this->assertSame('revoked', $usedCard->fresh()->status);
-        $this->assertSame(10000, $agent->fresh()->agent_balance_cents);
-
         $card->forceFill(['bound_device_ciphertext' => 'DEVICE-AGENT-001', 'bound_device_mask' => 'DEV***'])->save();
         $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'unbind'])
             ->assertRedirect($queryUrl)
@@ -317,6 +273,57 @@ class AgentPortalTest extends TestCase
         $deducted = $card->fresh();
         $this->assertNull($deducted->bound_device_ciphertext);
         $this->assertSame($expiresAt->copy()->subHours(2)->toDateTimeString(), $deducted->expires_at?->toDateTimeString());
+
+        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'delete_card'])
+            ->assertRedirect($queryUrl)
+            ->assertSessionHas('agent_delete_card');
+        $this->get($queryUrl)
+            ->assertOk()
+            ->assertSee('确认删除')
+            ->assertSee('4.40')
+            ->assertSee('确认删除并退款');
+        $this->assertSame('active', $card->fresh()->status);
+        $this->assertSame(9120, $agent->fresh()->agent_balance_cents);
+
+        $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', [
+            'action' => 'delete_card',
+            'confirmed' => '1',
+        ])
+            ->assertRedirect($queryUrl)
+            ->assertSessionHas('success');
+        $this->assertSame('revoked', $card->fresh()->status);
+        $this->assertSame(9560, $agent->fresh()->agent_balance_cents);
+        $this->assertDatabaseHas('agent_transactions', [
+            'agent_id' => $agent->getKey(),
+            'type' => 'card_refund',
+            'amount_cents' => 440,
+            'balance_after_cents' => 9560,
+            'reference_id' => (string) $card->public_id,
+        ]);
+        $this->get($queryUrl)
+            ->assertOk()
+            ->assertSee('共 0 张');
+        $this->get('/private-console/cards?keyword='.urlencode((string) $card->code_ciphertext))
+            ->assertOk()
+            ->assertSee((string) $card->code_ciphertext)
+            ->assertSee('已删除');
+
+        $usedCard = $ownedCards->last();
+        $usedCard->forceFill([
+            'status' => 'active',
+            'user_status' => 'active',
+            'activated_at' => now(),
+            'expires_at' => $expiresAt,
+            'card_is_frozen' => false,
+        ])->save();
+        $this->from($queryUrl)->post('/agent/cards/'.$usedCard->getKey().'/action', [
+            'action' => 'delete_card',
+            'confirmed' => '1',
+        ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+        $this->assertSame('revoked', $usedCard->fresh()->status);
+        $this->assertSame(10000, $agent->fresh()->agent_balance_cents);
 
         $this->get('/agent/inventory')->assertNotFound();
         $this->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'delete'])
