@@ -48,6 +48,11 @@ Route::prefix($agentPath)->name('agent.')->group(function (): void {
         Route::post('/cards/{card}/action', [AgentPortalController::class, 'cardAction'])->name('cards.action');
         Route::get('/purchase', [AgentPortalController::class, 'purchase'])->name('cards.purchase');
         Route::post('/purchase', [AgentPortalController::class, 'storePurchase'])->name('cards.purchase.store');
+        Route::get('/tools/query', [AgentPortalController::class, 'queryCards'])->name('tools.query');
+        Route::get('/tools/freeze', [AgentPortalController::class, 'freeze'])->name('tools.freeze');
+        Route::post('/tools/freeze', [AgentPortalController::class, 'runFreeze'])->name('tools.freeze.run');
+        Route::get('/tools/unfreeze', [AgentPortalController::class, 'unfreeze'])->name('tools.unfreeze');
+        Route::post('/tools/unfreeze', [AgentPortalController::class, 'runUnfreeze'])->name('tools.unfreeze.run');
         Route::get('/tools/unbind', [AgentPortalController::class, 'unbind'])->name('tools.unbind');
         Route::post('/tools/unbind', [AgentPortalController::class, 'runUnbind'])->name('tools.unbind.run');
         Route::get('/finance', [AgentPortalController::class, 'finance'])->name('finance');

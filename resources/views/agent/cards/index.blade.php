@@ -3,13 +3,8 @@
 @section('content')
 <section class="agent-panel agent-card-list-panel">
     <header><h1>卡列表</h1></header>
-    <form class="agent-card-filter" method="get">
-        <select name="application"><option value="">全部软件</option>@foreach($applications as $application)<option value="{{ $application->id }}" @selected((string)request('application') === (string)$application->id)>{{ $application->name }}</option>@endforeach</select>
+    <form class="agent-card-filter agent-card-filter-simple" method="get">
         <input name="keyword" value="{{ request('keyword') }}" placeholder="搜索完整卡号或后4位">
-        <select name="card_type"><option value="">全部卡类</option>@foreach($cardTypes as $type)<option value="{{ $type->id }}" @selected((string)request('card_type') === (string)$type->id)>{{ $type->name }}</option>@endforeach</select>
-        <select name="sort"><option value="oldest" @selected(request('sort') === 'oldest')>正序</option><option value="latest" @selected(request('sort','latest') === 'latest')>倒序</option></select>
-        <select name="usage"><option value="">全部使用</option><option value="unused" @selected(request('usage') === 'unused')>未使用</option><option value="used" @selected(request('usage') === 'used')>已使用</option></select>
-        <select name="freeze"><option value="">全部状态</option><option value="normal" @selected(request('freeze') === 'normal')>正常</option><option value="frozen" @selected(request('freeze') === 'frozen')>已冻结</option></select>
         <button class="agent-search-button" type="submit" aria-label="搜索">⌕</button>
     </form>
 

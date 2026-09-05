@@ -10,11 +10,13 @@ use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\AgentTransaction;
 use App\Models\Application;
+use App\Models\ApplicationClientSession;
 use App\Models\Card;
 use App\Models\CardType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -75,10 +77,7 @@ final class AgentPortalController extends Controller
             $query->where('card_is_frozen', $request->input('freeze') === 'frozen');
         }
         if ($request->filled('keyword')) {
-            $keyword = trim((string) $request->input('keyword'));
-            strlen($keyword) <= 4
-                ? $query->where('code_last4', $keyword)
-                : $query->where('code_lookup_hash', $this->credentialHasher->lookupHash($keyword));
+            $this->applyCardKeyword($query, (string) $request->input('keyword'));
         }
         $request->input('sort') === 'oldest'
             ? $query->orderBy('cards.id')
@@ -87,12 +86,6 @@ final class AgentPortalController extends Controller
         return view('agent.cards.index', [
             ...$this->layout($agent),
             'cards' => $query->paginate(20)->withQueryString(),
-            'applications' => Application::query()
-                ->whereHas('cards.batch', fn (Builder $batch) => $batch->where('created_by_administrator_id', $agent->getKey()))
-                ->orderBy('name')->get(),
-            'cardTypes' => CardType::query()
-                ->whereHas('cards.batch', fn (Builder $batch) => $batch->where('created_by_administrator_id', $agent->getKey()))
-                ->with('application')->orderBy('name')->get(),
         ]);
     }
 
@@ -236,53 +229,156 @@ final class AgentPortalController extends Controller
             ]);
     }
 
-    public function unbind(): View
+    public function queryCards(Request $request): View
     {
         $agent = $this->agent();
+        $keyword = trim((string) $request->input('keyword', ''));
+        $query = $this->ownedCardsQuery($agent)->with(['application', 'cardType', 'batch']);
+        if ($keyword === '') {
+            $query->whereRaw('0 = 1');
+        } else {
+            $this->applyCardKeyword($query, $keyword);
+        }
 
-        $applications = Application::query()
-            ->whereHas('cards.batch', fn (Builder $batch) => $batch->where('created_by_administrator_id', $agent->getKey()));
-        $this->limitToAssignedApplications($applications, $agent, 'id');
-
-        return view('agent.tools.unbind', [
+        return view('agent.tools.query', [
             ...$this->layout($agent),
-            'applications' => $applications->orderBy('name')->get(),
+            'keyword' => $keyword,
+            'cards' => $query->orderByDesc('cards.id')->paginate(50)->withQueryString(),
         ]);
+    }
+
+    public function unbind(): View
+    {
+        return view('agent.tools.unbind', $this->layout($this->agent()));
     }
 
     public function runUnbind(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'application_id' => ['required', 'integer', 'exists:applications,id'],
             'credential' => ['required', 'string', 'max:128'],
-            'new_binding' => ['nullable', 'string', 'max:255'],
         ]);
         $agent = $this->agent();
-        abort_unless($this->canAccessApplication($agent, (int) $validated['application_id']), 404);
+        $credential = preg_split('/\s+/', trim($validated['credential']))[0] ?? '';
         $card = $this->ownedCardsQuery($agent)
-            ->where('application_id', $validated['application_id'])
-            ->where('code_lookup_hash', $this->credentialHasher->lookupHash(trim($validated['credential'])))
+            ->where('code_lookup_hash', $this->credentialHasher->lookupHash($credential))
             ->first();
         if (! $card instanceof Card) {
             throw ValidationException::withMessages(['credential' => '未找到属于当前代理的充值卡。']);
         }
 
         $card->forceFill([
-            'bound_device_ciphertext' => filled($validated['new_binding'] ?? null) ? $validated['new_binding'] : null,
-            'bound_device_mask' => filled($validated['new_binding'] ?? null)
-                ? Str::mask((string) $validated['new_binding'], '*', 3)
-                : null,
+            'bound_device_ciphertext' => null,
+            'bound_device_mask' => null,
         ])->save();
+        $this->closeCardSessions($card);
         $this->audit->record(new AuditEvent(
             action: 'agent.card_binding_updated',
             targetType: 'card',
             targetId: (string) $card->public_id,
             applicationId: (int) $card->application_id,
-            after: ['binding_cleared' => ! filled($validated['new_binding'] ?? null)],
+            after: ['binding_cleared' => true],
             actorRole: 'agent',
         ), $request);
 
-        return back()->with('success', filled($validated['new_binding'] ?? null) ? '新设备绑定已保存。' : '设备绑定已解除。');
+        return back()->with('success', '设备绑定已解除。');
+    }
+
+    public function freeze(): View
+    {
+        return $this->freezeView('', collect(), []);
+    }
+
+    public function runFreeze(Request $request): View
+    {
+        $validated = $request->validate([
+            'credential' => ['required', 'string', 'max:4000'],
+            'activated_action' => ['nullable', Rule::in(['freeze_user', 'delete_card'])],
+        ]);
+        $agent = $this->agent();
+        $cards = $this->ownedCardsForKeyword($agent, $validated['credential']);
+        if ($cards->isEmpty()) {
+            throw ValidationException::withMessages(['credential' => '未找到属于当前代理的充值卡。']);
+        }
+
+        $activatedAction = $validated['activated_action'] ?? null;
+        $pending = collect();
+        $results = [];
+        foreach ($cards as $card) {
+            if ($this->cardIsActivated($card)) {
+                if ($activatedAction === null) {
+                    $pending->push($card);
+                    continue;
+                }
+                $results[] = $activatedAction === 'delete_card'
+                    ? $this->deleteActivatedCard($card, $request)
+                    : $this->freezeActivatedUser($card, $request);
+                continue;
+            }
+
+            if ($card->card_is_frozen) {
+                $results[] = $card->code_ciphertext.'：未激活卡密原本已封卡';
+                continue;
+            }
+            $card->forceFill(['card_is_frozen' => true, 'frozen_at' => now()])->save();
+            $this->audit->record(new AuditEvent(
+                action: 'agent.card_freeze',
+                targetType: 'card',
+                targetId: (string) $card->public_id,
+                applicationId: (int) $card->application_id,
+                actorRole: 'agent',
+            ), $request);
+            $results[] = $card->code_ciphertext.'：未激活卡密已封卡';
+        }
+
+        return $this->freezeView($validated['credential'], $pending, $results);
+    }
+
+    public function unfreeze(): View
+    {
+        return $this->unfreezeView('', []);
+    }
+
+    public function runUnfreeze(Request $request): View
+    {
+        $validated = $request->validate([
+            'credential' => ['required', 'string', 'max:4000'],
+        ]);
+        $agent = $this->agent();
+        $cards = $this->ownedCardsForKeyword($agent, $validated['credential']);
+        if ($cards->isEmpty()) {
+            throw ValidationException::withMessages(['credential' => '未找到属于当前代理的充值卡。']);
+        }
+
+        $results = [];
+        foreach ($cards as $card) {
+            $changed = false;
+            if ($card->card_is_frozen) {
+                $card->forceFill(['card_is_frozen' => false, 'frozen_at' => null]);
+                $changed = true;
+            }
+            if ($this->cardIsActivated($card) && $card->user_status === 'frozen') {
+                $card->forceFill(['user_status' => 'active', 'user_frozen_at' => null]);
+                $changed = true;
+            }
+            if (! $changed) {
+                $results[] = $card->code_ciphertext.'：当前未冻结，到期时间未改动';
+                continue;
+            }
+            $card->save();
+            $this->audit->record(new AuditEvent(
+                action: $this->cardIsActivated($card) ? 'agent.user_unfreeze' : 'agent.card_unfreeze',
+                targetType: 'card',
+                targetId: (string) $card->public_id,
+                applicationId: (int) $card->application_id,
+                after: ['expires_at' => $card->expires_at?->toIso8601String()],
+                actorRole: 'agent',
+            ), $request);
+            $results[] = $this->cardIsActivated($card)
+                ? $card->code_ciphertext.'：用户已解冻，到期时间保持不变'
+                : $card->code_ciphertext.'：未激活卡密已解封';
+        }
+
+        return $this->unfreezeView($validated['credential'], $results);
     }
 
     public function finance(): View
@@ -293,6 +389,112 @@ final class AgentPortalController extends Controller
             ...$this->layout($agent),
             'transactions' => $agent->agentTransactions()->latest()->paginate(20),
         ]);
+    }
+
+    private function freezeActivatedUser(Card $card, Request $request): string
+    {
+        if ($card->user_status === 'frozen') {
+            return $card->code_ciphertext.'：用户原本已冻结，到期时间未改动';
+        }
+        $card->forceFill(['user_status' => 'frozen', 'user_frozen_at' => now()])->save();
+        $this->closeCardSessions($card);
+        $this->audit->record(new AuditEvent(
+            action: 'agent.user_freeze',
+            targetType: 'card',
+            targetId: (string) $card->public_id,
+            applicationId: (int) $card->application_id,
+            after: ['expires_at' => $card->expires_at?->toIso8601String()],
+            actorRole: 'agent',
+        ), $request);
+
+        return $card->code_ciphertext.'：已激活用户已冻结，到期时间保持不变';
+    }
+
+    private function deleteActivatedCard(Card $card, Request $request): string
+    {
+        if ($card->status === 'revoked') {
+            return $card->code_ciphertext.'：卡密原本已删除';
+        }
+        $card->forceFill([
+            'status' => 'revoked',
+            'user_status' => 'revoked',
+            'revoked_at' => now(),
+        ])->save();
+        $this->closeCardSessions($card);
+        $this->audit->record(new AuditEvent(
+            action: 'agent.card_delete',
+            targetType: 'card',
+            targetId: (string) $card->public_id,
+            applicationId: (int) $card->application_id,
+            actorRole: 'agent',
+        ), $request);
+
+        return $card->code_ciphertext.'：已使用卡密已删除，用户无法继续登录';
+    }
+
+    private function freezeView(string $credential, Collection $pending, array $results): View
+    {
+        return view('agent.tools.freeze', [
+            ...$this->layout($this->agent()),
+            'credential' => $credential,
+            'pending' => $pending,
+            'results' => $results,
+        ]);
+    }
+
+    private function unfreezeView(string $credential, array $results): View
+    {
+        return view('agent.tools.unfreeze', [
+            ...$this->layout($this->agent()),
+            'credential' => $credential,
+            'results' => $results,
+        ]);
+    }
+
+    private function ownedCardsForKeyword(Administrator $agent, string $keyword): Collection
+    {
+        $query = $this->ownedCardsQuery($agent)->with(['application', 'cardType']);
+        $this->applyCardKeyword($query, $keyword);
+
+        return $query->orderBy('cards.id')->get();
+    }
+
+    private function cardIsActivated(Card $card): bool
+    {
+        return $card->activated_at !== null || $card->status === 'active';
+    }
+
+    private function closeCardSessions(Card $card): void
+    {
+        ApplicationClientSession::query()
+            ->where('card_id', $card->getKey())
+            ->where('status', 'active')
+            ->update([
+                'status' => 'logged_out',
+                'logged_out_at' => now(),
+                'updated_at' => now(),
+            ]);
+    }
+
+    private function applyCardKeyword(Builder $query, string $keyword): void
+    {
+        $tokens = preg_split('/[\s,;]+/', trim($keyword), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($tokens === []) {
+            return;
+        }
+
+        $query->where(function (Builder $inner) use ($tokens): void {
+            foreach ($tokens as $token) {
+                if (strlen($token) <= 4) {
+                    $inner->orWhere('code_last4', $token);
+                    if ($token !== strtoupper($token)) {
+                        $inner->orWhere('code_last4', strtoupper($token));
+                    }
+                    continue;
+                }
+                $inner->orWhere('code_lookup_hash', $this->credentialHasher->lookupHash($token));
+            }
+        });
     }
 
     private function ownedCardsQuery(Administrator $agent): Builder

@@ -160,16 +160,87 @@ class AgentPortalTest extends TestCase
         $this->assertCount(2, $ownedCards);
         $this->assertTrue($ownedCards->every(fn (Card $card): bool => $card->status === 'issued'));
 
-        $this->get('/agent/cards')->assertOk()->assertSee('卡列表')->assertSee('测试软件')->assertSee((string) $ownedCards->first()->code_ciphertext);
+        $this->get('/agent/cards')
+            ->assertOk()
+            ->assertSee('卡列表')
+            ->assertSee('测试软件')
+            ->assertSee((string) $ownedCards->first()->code_ciphertext)
+            ->assertSee('搜索完整卡号或后4位')
+            ->assertDontSee('全部软件')
+            ->assertDontSee('全部卡类');
+        $this->get('/agent/tools/query')
+            ->assertOk()
+            ->assertSee('批量查询')
+            ->assertSee('请输入卡密后查询')
+            ->assertDontSee('全部软件');
+        $this->get('/agent/tools/query?keyword='.urlencode((string) $ownedCards->first()->code_ciphertext))
+            ->assertOk()
+            ->assertSee((string) $ownedCards->first()->code_ciphertext)
+            ->assertDontSee((string) $ownedCards->last()->code_ciphertext);
+        $this->get('/agent/tools/unbind')
+            ->assertOk()
+            ->assertSee('卡密')
+            ->assertDontSee('软件选择')
+            ->assertDontSee('新绑定');
         $card = $ownedCards->first();
         $this->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'freeze'])->assertRedirect();
         $this->assertTrue($card->fresh()->card_is_frozen);
 
+        $this->get('/agent/tools/freeze')->assertOk()->assertSee('已使用卡密会弹出确认')->assertDontSee('全部软件');
+        $this->post('/agent/tools/freeze', [
+            'credential' => (string) $ownedCards->last()->code_ciphertext,
+        ])->assertOk()->assertSee('未激活卡密已封卡');
+        $this->assertTrue($ownedCards->last()->fresh()->card_is_frozen);
+
+        $expiresAt = now()->addDays(30)->startOfSecond();
+        $card->forceFill([
+            'status' => 'active',
+            'user_status' => 'active',
+            'activated_at' => now(),
+            'expires_at' => $expiresAt,
+            'card_is_frozen' => false,
+        ])->save();
+        $this->post('/agent/tools/freeze', [
+            'credential' => (string) $card->code_ciphertext,
+        ])->assertOk()
+            ->assertSee('卡密已经使用')
+            ->assertSee('冻结用户')
+            ->assertSee('删除卡密')
+            ->assertSee((string) $card->code_ciphertext);
+        $this->assertSame('active', $card->fresh()->user_status);
+
+        $this->post('/agent/tools/freeze', [
+            'credential' => (string) $card->code_ciphertext,
+            'activated_action' => 'freeze_user',
+        ])->assertOk()->assertSee('已激活用户已冻结，到期时间保持不变');
+        $frozen = $card->fresh();
+        $this->assertSame('frozen', $frozen->user_status);
+        $this->assertSame($expiresAt->toDateTimeString(), $frozen->expires_at?->toDateTimeString());
+
+        $this->post('/agent/tools/unfreeze', [
+            'credential' => (string) $card->code_ciphertext,
+        ])->assertOk()->assertSee('用户已解冻，到期时间保持不变');
+        $restored = $card->fresh();
+        $this->assertSame('active', $restored->user_status);
+        $this->assertSame($expiresAt->toDateTimeString(), $restored->expires_at?->toDateTimeString());
+
+        $usedCard = $ownedCards->last();
+        $usedCard->forceFill([
+            'status' => 'active',
+            'user_status' => 'active',
+            'activated_at' => now(),
+            'expires_at' => $expiresAt,
+            'card_is_frozen' => false,
+        ])->save();
+        $this->post('/agent/tools/freeze', [
+            'credential' => (string) $usedCard->code_ciphertext,
+            'activated_action' => 'delete_card',
+        ])->assertOk()->assertSee('已使用卡密已删除，用户无法继续登录');
+        $this->assertSame('revoked', $usedCard->fresh()->status);
+
         $card->forceFill(['bound_device_ciphertext' => 'DEVICE-AGENT-001', 'bound_device_mask' => 'DEV***'])->save();
         $this->post('/agent/tools/unbind', [
-            'application_id' => $cardType->application_id,
             'credential' => (string) $card->code_ciphertext,
-            'new_binding' => '',
         ])->assertRedirect()->assertSessionHas('success', '设备绑定已解除。');
         $this->assertNull($card->fresh()->bound_device_ciphertext);
 

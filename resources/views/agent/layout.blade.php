@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', '代理控制台') - {{ $appName }}</title>
     <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260812-select-scroll">
-    <link rel="stylesheet" href="/assets/css/agent.css?v=20260725-custom-select">
+    <link rel="stylesheet" href="/assets/css/agent.css?v=20260906-agent-freeze">
     <script src="/assets/js/custom-select.js?v=20260812-select-scroll" defer></script>
     <script src="/assets/js/mybsphp.js?v=20260812-select-scroll" defer></script>
 </head>
@@ -22,9 +22,9 @@
             <details class="agent-nav-tools" {{ request()->routeIs('agent.tools.*') ? 'open' : '' }}>
                 <summary><i>☆</i><span>代理工具</span><b>⌄</b></summary>
                 <div>
-                    <a href="{{ route('agent.cards.index') }}">批量查询</a>
-                    <a href="{{ route('agent.cards.index', ['freeze' => 'normal']) }}">批量冻结</a>
-                    <a href="{{ route('agent.cards.index', ['freeze' => 'frozen']) }}">批量解冻</a>
+                    <a class="{{ request()->routeIs('agent.tools.query') ? 'is-active' : '' }}" href="{{ route('agent.tools.query') }}">批量查询</a>
+                    <a class="{{ request()->routeIs('agent.tools.freeze') ? 'is-active' : '' }}" href="{{ route('agent.tools.freeze') }}">批量冻结</a>
+                    <a class="{{ request()->routeIs('agent.tools.unfreeze') ? 'is-active' : '' }}" href="{{ route('agent.tools.unfreeze') }}">批量解冻</a>
                     <a class="{{ request()->routeIs('agent.tools.unbind') ? 'is-active' : '' }}" href="{{ route('agent.tools.unbind') }}">解除用户绑定</a>
                 </div>
             </details>
