@@ -519,6 +519,69 @@ class IpRiskControlTest extends TestCase
         }
     }
 
+    public function test_control_center_shows_probe_and_honeypot_reasons_instead_of_generic_ip_notes(): void
+    {
+        app(SystemAccessSynchronizer::class)->sync();
+        $lockPath = storage_path('framework/testing/risk-center-reasons.lock');
+        @unlink($lockPath);
+        config(['mybsphp.installed' => false, 'mybsphp.install_lock' => $lockPath]);
+        app(InstallationManager::class)->writeLock([
+            'admin_path' => 'private-console', 'app_name' => '风控测试后台', 'secondary_password_enabled' => false,
+        ]);
+        try {
+            $administrator = Administrator::query()->create([
+                'username' => 'reason-admin', 'password' => 'secret', 'role' => 'super_admin', 'status' => 'active',
+            ]);
+            $administrator->roles()->attach(Role::query()->where('code', 'super_admin')->sole());
+            $application = $this->application('REASON');
+            $this->actingAs($administrator, 'admin');
+
+            GlobalSecurityBlock::rememberDevice(
+                'PROBE-SERIAL-001',
+                'C0',
+                '套卡探测达到阈值，已拉黑设备。后续任意软件登录显示卡密不存在。',
+            );
+            GlobalSecurityBlock::rememberIp('203.0.113.21', 'C0', 'IP 已拉黑，全软件登录显示卡密不存在');
+            IpRiskState::query()->create([
+                'public_id' => (string) Str::ulid(),
+                'application_id' => $application->getKey(),
+                'ip' => '203.0.113.21',
+                'ip_hash' => hash('sha256', '203.0.113.21'),
+                'level' => 'high',
+                'permanently_blocked' => true,
+                'last_device_hash' => hash('sha256', 'PROBE-SERIAL-001'),
+                'last_seen_at' => now(),
+                'note' => '套卡探测 INVALID_CARD 达到 3 次 / 60 秒',
+            ]);
+
+            GlobalSecurityBlock::rememberDevice(
+                'HONEY-SERIAL-001',
+                'D0',
+                '客户端蜜罐事件 D0，已拉黑设备。后续任意软件登录显示卡密不存在。',
+            );
+            GlobalSecurityBlock::rememberIp('198.51.100.21', 'D0', 'IP 已拉黑，全软件登录显示卡密不存在');
+            IpRiskState::query()->create([
+                'public_id' => (string) Str::ulid(),
+                'application_id' => $application->getKey(),
+                'ip' => '198.51.100.21',
+                'ip_hash' => hash('sha256', '198.51.100.21'),
+                'level' => 'high',
+                'permanently_blocked' => true,
+                'last_device_hash' => hash('sha256', 'HONEY-SERIAL-001'),
+                'last_seen_at' => now(),
+                'note' => '客户端安全事件 D0 同步拉黑 IP',
+            ]);
+
+            $this->get('/private-console/risk-control/center')
+                ->assertOk()
+                ->assertSee('套卡探测 INVALID_CARD 达到 3 次 / 60 秒')
+                ->assertSee('蜜罐 · 诱饵确认')
+                ->assertDontSee('IP 已拉黑，全软件登录显示卡密不存在');
+        } finally {
+            @unlink($lockPath);
+        }
+    }
+
     public function test_administrator_can_open_control_center_and_update_policy(): void
     {
         app(SystemAccessSynchronizer::class)->sync();
@@ -642,6 +705,8 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('近 24 小时 <b>1</b> 次 · 设备 <b>1</b> · IP <b>1</b>', false)
                 ->assertSee('BLOCKED-DEVICE')
                 ->assertSee('2409:8a55:d336:d350:c5ac:6a09:45d4:572a')
+                ->assertSee('蜜罐 · 异常退出')
+                ->assertDontSee('IP 已拉黑')
                 ->assertSee('卡密不存在')
                 ->assertDontSee('主动添加封禁')
                 ->assertDontSee('全软件封禁')

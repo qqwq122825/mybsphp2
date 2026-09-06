@@ -21,7 +21,9 @@
                 </td>
                 <td>{{ $card->id }}</td><td><code>{{ $card->code_ciphertext }}</code></td><td>{{ $card->application->name }}</td><td>{{ $card->cardType->name }}</td>
                 <td>{{ $card->cardType->duration_value }}{{ ['minute'=>'分钟','hour'=>'小时','day'=>'天','month'=>'月','year'=>'年'][$card->cardType->duration_unit] ?? '' }}</td>
-                <td>{{ $card->card_is_frozen ? '冻结' : '正常' }}</td><td>{{ in_array($card->status,['active','expired','consumed']) ? '已激活' : '未激活' }}</td>
+                @php $activated = in_array($card->status, ['active', 'expired', 'consumed'], true); @endphp
+                <td>{{ $card->card_is_frozen ? '冻结' : '正常' }}</td>
+                <td><span class="status-tag {{ $activated ? 'status-active' : 'status-issued' }}">{{ $activated ? '已激活' : '未激活' }}</span></td>
                 <td class="agent-row-actions">@include('agent.partials.card-row-actions', ['card' => $card, 'agent' => $agent])</td>
             </tr>
         @empty<tr><td colspan="9" class="empty-cell">暂无代理充值卡。</td></tr>@endforelse

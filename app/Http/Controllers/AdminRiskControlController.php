@@ -743,7 +743,7 @@ final class AdminRiskControlController extends Controller
         foreach ($globalIps as $block) {
             $hash = (string) $block->subject_hash;
             $at = $block->updated_at ?? $block->created_at;
-            $byHash[$hash] = [
+            $byHash->put($hash, [
                 'key' => 'global:'.$block->getKey(),
                 'hash' => $hash,
                 'ip' => (string) $block->subject_value,
@@ -752,15 +752,21 @@ final class AdminRiskControlController extends Controller
                 'note' => $block->note,
                 'at' => $at,
                 'timestamp' => $at?->getTimestamp() ?? 0,
-            ];
+            ]);
         }
         foreach ($blockedIps as $state) {
             $hash = (string) $state->ip_hash;
             if ($byHash->has($hash)) {
+                $item = $byHash->get($hash);
+                $stateNote = trim((string) $state->note);
+                if ($stateNote !== '' && $this->isGenericBlockNote(is_string($item['note'] ?? null) ? $item['note'] : null)) {
+                    $item['note'] = $stateNote;
+                    $byHash->put($hash, $item);
+                }
                 continue;
             }
             $at = $state->last_seen_at ?? $state->updated_at;
-            $byHash[$hash] = [
+            $byHash->put($hash, [
                 'key' => 'ip:'.$state->getKey(),
                 'hash' => $hash,
                 'ip' => (string) $state->ip,
@@ -769,7 +775,7 @@ final class AdminRiskControlController extends Controller
                 'note' => $state->note,
                 'at' => $at,
                 'timestamp' => $at?->getTimestamp() ?? 0,
-            ];
+            ]);
         }
 
         return [
@@ -787,34 +793,97 @@ final class AdminRiskControlController extends Controller
         )->first();
     }
 
-    private function preferDetailedNote(?string $note, string $fallback): string
+    private function isGenericBlockNote(?string $note): bool
     {
         $note = trim((string) $note);
-        if ($note === '' || str_starts_with($note, '设备已拉黑')) {
-            return $fallback;
+        if ($note === '') {
+            return true;
         }
 
-        return $note;
+        return str_starts_with($note, '设备已拉黑')
+            || str_starts_with($note, 'IP 已拉黑')
+            || str_starts_with($note, '随设备拉黑');
+    }
+
+    private function compactBlockNote(?string $note): ?string
+    {
+        $note = trim((string) $note);
+        if ($this->isGenericBlockNote($note)) {
+            return null;
+        }
+        $note = preg_replace('/[。．]?后续任意软件登录显示卡密不存在。?/u', '', $note) ?? $note;
+        $note = preg_replace('/[，,]?已拉黑(?:当前)?设备。?/u', '', $note) ?? $note;
+        $note = trim($note, " \t。；;");
+
+        return $note === '' ? null : $note;
+    }
+
+    private function blockReasonCategory(string $reason, string $note): ?string
+    {
+        return match (true) {
+            $reason === 'QUICK_BLOCK' || str_contains($note, '快速拉黑') => '快速拉黑',
+            $reason === 'C0' || str_contains($note, '套卡探测') => '套卡探测',
+            $reason === 'T1' || str_contains($note, '异常退出') => '蜜罐 · 异常退出',
+            $reason === 'S0' || str_contains($note, '日签') => '蜜罐 · 日签失败',
+            $reason === 'R0' || str_contains($note, '非法能力') => '蜜罐 · 非法能力',
+            $reason === 'IH' || str_contains($note, '登录 ih') => '蜜罐 · 登录 ih',
+            $reason === 'D0' || str_contains($note, '诱饵') => '蜜罐 · 诱饵确认',
+            $reason === 'D1' || str_contains($note, '真槽') || str_contains($note, '完整性') => '蜜罐 · 真槽完整性',
+            str_contains($note, '客户端安全')
+                || str_contains($note, 'security.report')
+                || str_contains($note, '蜜罐') => '蜜罐事件',
+            in_array($reason, ['ADMIN_BLOCK', 'GLOBAL_BLOCK'], true) => '手动添加',
+            default => null,
+        };
+    }
+
+    private function reasonCodeWeight(string $reason): int
+    {
+        return match ($reason) {
+            'C0', 'D0', 'D1', 'R0', 'S0', 'T1', 'IH', 'QUICK_BLOCK' => 3,
+            'ADMIN_BLOCK', 'GLOBAL_BLOCK' => 1,
+            default => 0,
+        };
+    }
+
+    private function noteDetailWeight(?string $note): int
+    {
+        $note = trim((string) $note);
+        if ($this->isGenericBlockNote($note)) {
+            return 0;
+        }
+        $weight = 1;
+        if (preg_match('/达到\s*\d+\s*次/u', $note) === 1) {
+            $weight += 3;
+        }
+        if (str_contains($note, '槽') || str_contains($note, 'ih') || str_contains($note, 'IH')) {
+            $weight += 2;
+        }
+
+        return $weight;
     }
 
     private function newestReasonLabel(string $reason, ?string $note, mixed $at, Collection $linked): string
     {
-        $newest = [
+        $candidates = collect([[
             'reason' => $reason,
             'note' => $note,
             'timestamp' => $at instanceof \Carbon\CarbonInterface ? $at->getTimestamp() : 0,
-        ];
-        foreach ($linked as $item) {
-            if ((int) ($item['timestamp'] ?? 0) >= $newest['timestamp']) {
-                $newest = [
-                    'reason' => (string) ($item['reason'] ?? ''),
-                    'note' => $item['note'] ?? null,
-                    'timestamp' => (int) ($item['timestamp'] ?? 0),
-                ];
-            }
-        }
+        ]])->concat($linked->map(fn (array $item): array => [
+            'reason' => (string) ($item['reason'] ?? ''),
+            'note' => $item['note'] ?? null,
+            'timestamp' => (int) ($item['timestamp'] ?? 0),
+        ]));
 
-        return $this->blockReasonLabel($newest['reason'], is_string($newest['note'] ?? null) ? $newest['note'] : null);
+        $newest = $candidates->sortByDesc(
+            fn (array $item): int => ((int) $item['timestamp'] * 10) + $this->reasonCodeWeight((string) ($item['reason'] ?? '')),
+        )->first() ?? ['reason' => $reason, 'note' => $note];
+        $reasonCode = (string) ($newest['reason'] ?? '');
+        $bestNote = $candidates->sortByDesc(
+            fn (array $item): int => ($this->noteDetailWeight(is_string($item['note'] ?? null) ? $item['note'] : null) * 1_000_000_000) + (int) $item['timestamp'],
+        )->first()['note'] ?? $newest['note'];
+
+        return $this->blockReasonLabel($reasonCode, is_string($bestNote ?? null) ? $bestNote : null);
     }
 
     private function releaseLinkedIps(string $deviceHash): void
@@ -886,16 +955,26 @@ final class AdminRiskControlController extends Controller
 
     private function blockReasonLabel(string $reason, ?string $note): string
     {
-        return match (true) {
-            $reason === 'QUICK_BLOCK' || str_contains((string) $note, '快速拉黑') => '快速拉黑',
-            in_array($reason, ['ADMIN_BLOCK', 'GLOBAL_BLOCK'], true) => '手动添加',
-            $reason === 'C0' || str_contains((string) $note, '套卡探测') => $this->preferDetailedNote($note, '套卡探测'),
-            in_array($reason, ['D0', 'D1', 'R0', 'S0', 'T1', 'IH'], true)
-                || str_contains((string) $note, '客户端安全')
-                || str_contains((string) $note, '登录 ih')
-                || str_contains((string) $note, 'security.report') => $this->preferDetailedNote($note, '蜜罐事件'),
-            default => $note ?: ($reason !== '' ? $reason : '封控'),
-        };
+        $note = trim((string) $note);
+        $category = $this->blockReasonCategory($reason, $note);
+        $detail = $this->compactBlockNote($note);
+        if ($category === null) {
+            if ($detail !== null) {
+                return $detail;
+            }
+
+            return in_array($reason, ['high', 'normal', 'medium', ''], true) ? '封控' : $reason;
+        }
+        if ($category === '手动添加' && $detail !== null && $detail !== $category) {
+            return $detail;
+        }
+        if ($detail !== null && $detail !== $category && (str_contains($detail, '达到') || str_contains($detail, '槽') || str_contains($detail, 'ih'))) {
+            return str_contains($detail, $category) || str_starts_with($detail, '套卡探测') || str_starts_with($detail, '蜜罐')
+                ? $detail
+                : $category.'：'.$detail;
+        }
+
+        return $category;
     }
 
     private function globalBlockSuccessMessage(

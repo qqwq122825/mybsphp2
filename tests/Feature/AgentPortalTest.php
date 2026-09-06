@@ -174,6 +174,8 @@ class AgentPortalTest extends TestCase
             ->assertSee((string) $ownedCards->first()->code_ciphertext)
             ->assertSee('搜索完整卡号或后4位')
             ->assertSee('☆')
+            ->assertSee('未激活')
+            ->assertSee('status-issued')
             ->assertDontSee('全部软件')
             ->assertDontSee('全部卡类')
             ->assertDontSee('代理工具')
@@ -244,6 +246,8 @@ class AgentPortalTest extends TestCase
             ->assertOk()
             ->assertSee('删除')
             ->assertSee('解绑')
+            ->assertSee('已激活')
+            ->assertSee('status-active')
             ->assertDontSee('value="freeze"', false);
         $this->from($queryUrl)->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'freeze'])
             ->assertRedirect($queryUrl)

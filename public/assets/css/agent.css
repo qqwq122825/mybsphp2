@@ -209,6 +209,7 @@ button, input, select, textarea { font: inherit; }
 .agent-star-cell form { margin: 0; }
 .agent-star { min-width: 32px; min-height: 32px; padding: 0; border: 0; color: #c5cad3; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
 .agent-star.is-on { color: #f5b301; }
+.agent-card-table .status-tag { min-height: 22px; font-size: 11px; }
 
 .agent-query-panel { overflow: hidden; border: 1px solid var(--agent-line); border-radius: 15px; background: #fff; box-shadow: 0 6px 18px rgba(40,57,84,.05); }
 .agent-query-panel .admin-table-shell-header { min-height: 96px; align-items: flex-start; padding: 20px 22px; }
