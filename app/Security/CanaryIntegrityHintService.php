@@ -42,10 +42,10 @@ final class CanaryIntegrityHintService
             return $noop;
         }
 
-        // CRC（cm）已改为客户端本地校验，登录 ih 不再据此拉黑。
-        $shouldBlock = $mode === 'enforce' && $hint->decoyConfirmed;
+        // cm=1（TEXT CRC 失配）在处置模式下与诱饵确认一样拉黑。
+        $shouldBlock = $mode === 'enforce' && ($hint->decoyConfirmed || $hint->crcMismatch);
         $action = $shouldBlock ? 'freeze' : 'observe';
-        $eventCode = $hint->decoyConfirmed ? 'D0' : 'I0';
+        $eventCode = $hint->decoyConfirmed ? 'D0' : ($hint->crcMismatch ? 'CRC' : 'I0');
         $message = $shouldBlock ? $hint->blockNote() : $hint->observeNote();
 
         DB::transaction(function () use ($application, $device, $ip, $hint, $shouldBlock, $action, $eventCode, $message): void {
@@ -104,7 +104,7 @@ final class CanaryIntegrityHintService
             'should_block' => $shouldBlock,
             'public_code' => 'INVALID_CARD',
             'public_message' => '卡密不存在',
-            'internal_code' => 'IH_BLOCKED',
+            'internal_code' => $hint->crcMismatch && ! $hint->decoyConfirmed ? 'CRC_BLOCKED' : 'IH_BLOCKED',
             'internal_message' => $message,
         ];
     }
