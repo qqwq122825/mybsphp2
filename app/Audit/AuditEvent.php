@@ -18,5 +18,7 @@ final readonly class AuditEvent
         public ?string $reason = null,
         public string $result = 'success',
         public ?string $actorRole = null,
+        /** 仅管理员自查诊断（如登录 trace）跳过脱敏。 */
+        public bool $raw = false,
     ) {}
 }

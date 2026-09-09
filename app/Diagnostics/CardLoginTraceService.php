@@ -9,7 +9,6 @@ use App\Models\Application;
 use App\Models\Card;
 use App\Models\ClientSecuritySubjectState;
 use App\Models\SystemSetting;
-use App\Support\SensitiveDataRedactor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Throwable;
@@ -19,7 +18,6 @@ final class CardLoginTraceService
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly CardCredentialHasher $cardHasher,
-        private readonly SensitiveDataRedactor $redactor,
     ) {}
 
     /**
@@ -41,12 +39,6 @@ final class CardLoginTraceService
     ): void {
         $fields = explode('|', $legacyResponse);
         $returnedDevice = (string) ($fields[8] ?? '');
-        $sanitizedFields = $fields;
-        foreach ([2 => '[PAYLOAD]', 3 => '[REQUEST_SAFE_CODE]', 9 => '[SESSION_HANDLE]', 10 => '[REPORT_TOKEN]'] as $index => $replacement) {
-            if (array_key_exists($index, $sanitizedFields)) {
-                $sanitizedFields[$index] = $replacement;
-            }
-        }
 
         $this->record(
             $application,
@@ -62,8 +54,8 @@ final class CardLoginTraceService
                 'http_status' => 200,
                 'business_code' => (string) ($fields[0] ?? ''),
                 'message' => '卡密登录响应已生成',
-                'legacy_response' => implode('|', $sanitizedFields),
-                'legacy_fields' => $sanitizedFields,
+                'legacy_response' => $legacyResponse,
+                'legacy_fields' => $fields,
                 'returned_device' => $returnedDevice,
                 'returned_device_length' => mb_strlen($returnedDevice),
                 'request_device_matches_response' => $returnedDevice !== '' && hash_equals($returnedDevice, trim($device)),
@@ -110,7 +102,7 @@ final class CardLoginTraceService
                 'http_status' => $response->getStatusCode(),
                 'business_code' => $businessCode,
                 'message' => $message,
-                'json_response' => $this->redactor->redact($body),
+                'json_response' => $body,
             ],
             false,
             $universal,
@@ -144,7 +136,7 @@ final class CardLoginTraceService
             $card = $this->cardSnapshot($application, $credential);
             $deviceSecurityState = $this->deviceSecuritySnapshot($application, $device);
             $boundDevice = (string) ($card['bound_device'] ?? '');
-            $sanitizedParameters = $this->sanitizeParameters($parameters, $parameterNames);
+            $plainParameters = $this->plainParameters($parameters);
             $responseData['bound_device'] = $boundDevice;
             $responseData['bound_device_length'] = mb_strlen($boundDevice);
             $responseData['request_device_matches_binding'] = $boundDevice === ''
@@ -174,13 +166,16 @@ final class CardLoginTraceService
                     'device_fingerprint' => $this->fingerprint(trim($device)),
                     'session_fingerprint' => $this->fingerprint($sessionHandle),
                     'request_nonce_fingerprint' => $this->fingerprint($requestNonce),
-                    'parameters' => $sanitizedParameters,
-                    'request_query' => http_build_query($sanitizedParameters, '', '&', PHP_QUERY_RFC3986),
+                    'session_handle' => $sessionHandle,
+                    'request_nonce' => $requestNonce,
+                    'parameters' => $plainParameters,
+                    'request_query' => http_build_query($plainParameters, '', '&', PHP_QUERY_RFC3986),
                 ],
                 after: $responseData,
                 reason: (string) ($responseData['business_code'] ?? '').' · '.(string) ($responseData['message'] ?? ''),
                 result: $success ? 'success' : 'failed',
                 actorRole: 'client',
+                raw: true,
             ), $request);
 
             if ($success && ! $universal && $this->currentMode() === 'all') {
@@ -242,31 +237,22 @@ final class CardLoginTraceService
 
     /**
      * @param  array<string, mixed>  $parameters
-     * @param  array{credential: string, secret: string, device: string, safe_code: string}  $parameterNames
      * @return array<string, mixed>
      */
-    private function sanitizeParameters(array $parameters, array $parameterNames): array
+    private function plainParameters(array $parameters): array
     {
         $result = [];
         foreach ($parameters as $key => $value) {
             if (! is_string($key)) {
                 continue;
             }
-            $scalar = is_scalar($value) ? (string) $value : '';
-            if ($key === $parameterNames['credential']) {
-                $result[$key] = trim($scalar);
-            } elseif ($key === $parameterNames['device']) {
-                $result[$key] = trim($scalar);
-            } elseif ($key === $parameterNames['secret']) {
-                $result[$key] = $scalar === '' ? '' : '[CREDENTIAL_SECRET]';
-            } elseif ($key === $parameterNames['safe_code']) {
-                $result[$key] = $scalar === '' ? '' : '[REQUEST_SAFE_CODE]';
-            } elseif (in_array(strtolower($key), ['bsphpsessl', 'session_token'], true)) {
-                $result[$key] = $scalar === '' ? '' : '[SESSION_HANDLE]';
-            } elseif (in_array($key, ['render_profile', 'launch_telemetry', 'ih'], true)) {
-                $result[$key] = $scalar === '' ? '' : '[PRESENT '.strlen($scalar).' BYTES]';
-            } else {
-                $result[$key] = $this->redactor->redact(mb_substr($scalar, 0, 512), $key);
+            if (is_scalar($value) || $value === null) {
+                $result[$key] = $value === null ? '' : (string) $value;
+                continue;
+            }
+            if (is_array($value)) {
+                $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                $result[$key] = is_string($encoded) ? $encoded : '';
             }
         }
 

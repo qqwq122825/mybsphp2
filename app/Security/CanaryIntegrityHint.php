@@ -51,13 +51,13 @@ final readonly class CanaryIntegrityHint
         $lastSlot = self::boundedInt($data['ls'] ?? 0, 23);
         $lastKind = self::boundedKind($data['lk'] ?? '');
         $lastOutside = (int) ($data['lo'] ?? 0) === 1;
-        // Compact login signal: cm=1 means the locally measured executable
-        // digest did not match the embedded release record.  The digest itself
-        // is intentionally never accepted from the client.
+        // Compact login signal: older clients may still send cm=1 for TEXT CRC
+        // mismatch. CRC is now local-only; keep parsing for diagnostics but do
+        // not treat it as a login block signal by itself.
         $crcMismatch = self::truthy($data['cm'] ?? false);
         $decoySlots = array_values(array_intersect($slots, self::DECOY_SLOTS));
         $decoyConfirmed = $decoyConfirm > 0 || ($confirm > 0 && $decoySlots !== []);
-        $integrityNoted = $observe > 0 || $confirm > 0 || $slots !== [] || $crcMismatch;
+        $integrityNoted = $observe > 0 || $confirm > 0 || $slots !== [];
 
         if (! $integrityNoted) {
             return self::empty();

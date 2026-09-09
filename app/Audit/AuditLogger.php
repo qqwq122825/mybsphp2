@@ -42,10 +42,14 @@ final class AuditLogger
             'request_id' => $requestId,
             'ip' => $request->ip(),
             'user_agent_hash' => is_string($userAgent) ? hash('sha256', $userAgent) : null,
-            'before_data' => $event->before === [] ? null : $this->redactor->redact($event->before),
-            'after_data' => $event->after === [] ? null : $this->redactor->redact($event->after),
+            'before_data' => $event->before === []
+                ? null
+                : ($event->raw ? $event->before : $this->redactor->redact($event->before)),
+            'after_data' => $event->after === []
+                ? null
+                : ($event->raw ? $event->after : $this->redactor->redact($event->after)),
             'reason' => is_string($event->reason)
-                ? $this->redactor->redactMessage($event->reason)
+                ? ($event->raw ? $event->reason : $this->redactor->redactMessage($event->reason))
                 : null,
             'result' => $event->result,
         ]);
