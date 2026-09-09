@@ -827,6 +827,7 @@ final class AdminRiskControlController extends Controller
             $reason === 'S0' || str_contains($note, '日签') => '蜜罐 · 日签失败',
             $reason === 'R0' || str_contains($note, '非法能力') => '蜜罐 · 非法能力',
             $reason === 'IH' || str_contains($note, '登录 ih') => '蜜罐 · 登录 ih',
+            $reason === 'CRC' || str_contains($note, 'CRC 失配') || str_contains($note, 'CRC不一致') => '蜜罐 · CRC 失配',
             $reason === 'D0' || str_contains($note, '诱饵') => '蜜罐 · 诱饵确认',
             $reason === 'D1' || str_contains($note, '真槽') || str_contains($note, '完整性') => '蜜罐 · 真槽完整性',
             str_contains($note, '客户端安全')
@@ -840,7 +841,7 @@ final class AdminRiskControlController extends Controller
     private function reasonCodeWeight(string $reason): int
     {
         return match ($reason) {
-            'C0', 'D0', 'D1', 'R0', 'S0', 'T1', 'IH', 'QUICK_BLOCK' => 3,
+            'C0', 'D0', 'D1', 'R0', 'S0', 'T1', 'IH', 'CRC', 'QUICK_BLOCK' => 3,
             'ADMIN_BLOCK', 'GLOBAL_BLOCK' => 1,
             default => 0,
         };

@@ -21,7 +21,7 @@ final class ClientSecurityReportService
     private const EVENTS = [
         'D0' => ['high', 'freeze'], 'D1' => ['high', 'freeze'], 'R0' => ['high', 'freeze'],
         'S0' => ['high', 'freeze'],
-        'I0' => ['medium', 'observe'], 'I1' => ['medium', 'observe'], 'T0' => ['low', 'observe'],
+        'I0' => ['medium', 'observe'], 'I1' => ['medium', 'observe'], 'CRC' => ['high', 'freeze'], 'T0' => ['low', 'observe'],
     ];
 
     public function rotateToken(Application $application, string $handle): string

@@ -24,11 +24,12 @@ final readonly class CanaryIntegrityHint
         public int $lastSlot,
         public string $lastKind,
         public bool $lastOutside,
+        public bool $crcMismatch,
     ) {}
 
     public static function empty(): self
     {
-        return new self(false, false, false, 0, 0, 0, [], 0, '', false);
+        return new self(false, false, false, 0, 0, 0, [], 0, '', false, false);
     }
 
     public static function parse(string $raw): self
@@ -50,9 +51,13 @@ final readonly class CanaryIntegrityHint
         $lastSlot = self::boundedInt($data['ls'] ?? 0, 23);
         $lastKind = self::boundedKind($data['lk'] ?? '');
         $lastOutside = (int) ($data['lo'] ?? 0) === 1;
+        // Compact login signal: cm=1 means the locally measured executable
+        // digest did not match the embedded release record.  The digest itself
+        // is intentionally never accepted from the client.
+        $crcMismatch = self::truthy($data['cm'] ?? false);
         $decoySlots = array_values(array_intersect($slots, self::DECOY_SLOTS));
         $decoyConfirmed = $decoyConfirm > 0 || ($confirm > 0 && $decoySlots !== []);
-        $integrityNoted = $observe > 0 || $confirm > 0 || $slots !== [];
+        $integrityNoted = $observe > 0 || $confirm > 0 || $slots !== [] || $crcMismatch;
 
         if (! $integrityNoted) {
             return self::empty();
@@ -69,6 +74,7 @@ final readonly class CanaryIntegrityHint
             $lastSlot,
             $lastKind,
             $lastOutside,
+            $crcMismatch,
         );
     }
 
@@ -91,6 +97,7 @@ final readonly class CanaryIntegrityHint
             'lk' => $this->lastKind,
             'lo' => $this->lastOutside ? 1 : 0,
             'decoy' => $this->decoyConfirmed,
+            'cm' => $this->crcMismatch ? 1 : 0,
         ];
     }
 
@@ -99,16 +106,18 @@ final readonly class CanaryIntegrityHint
         $slots = $this->slots === [] ? '未标注' : implode(',', $this->slots);
         $kind = $this->lastKind !== '' ? $this->lastKind : 'unknown';
 
+        $crc = $this->crcMismatch ? '，CRC 失配' : '';
         return '登录 ih：诱饵槽确认被 Hook（dc='.$this->decoyConfirmCount
-            .' c='.$this->confirmCount.' 槽 '.$slots.' kind='.$kind.'），已拉黑设备。后续任意软件登录显示卡密不存在。';
+            .' c='.$this->confirmCount.' 槽 '.$slots.' kind='.$kind.$crc.'），已拉黑设备。后续任意软件登录显示卡密不存在。';
     }
 
     public function observeNote(): string
     {
         $slots = $this->slots === [] ? '未标注' : implode(',', $this->slots);
 
+        $crc = $this->crcMismatch ? '，CRC 失配' : '';
         return '登录 ih：真槽完整性异常仅观察（o='.$this->observeCount
-            .' c='.$this->confirmCount.' 槽 '.$slots.'），不自动拉黑。';
+            .' c='.$this->confirmCount.' 槽 '.$slots.$crc.'），不自动拉黑。';
     }
 
     private static function boundedInt(mixed $value, int $maximum = 100000): int
@@ -118,6 +127,11 @@ final readonly class CanaryIntegrityHint
         }
 
         return max(0, min($maximum, (int) $value));
+    }
+
+    private static function truthy(mixed $value): bool
+    {
+        return $value === true || $value === 1 || $value === '1' || $value === 'true';
     }
 
     /**
