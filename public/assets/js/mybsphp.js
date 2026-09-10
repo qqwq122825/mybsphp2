@@ -423,6 +423,8 @@
             const tab = temporaryTabs.get(key);
             if (!tab) return;
             activeKey = key;
+            tab.element.querySelector('span').textContent = tab.title;
+            tab.element.title = tab.title;
             setBaseTabState(false);
             temporaryTabs.forEach((item, itemKey) => {
                 item.element.classList.toggle('is-active', itemKey === key);
@@ -459,6 +461,7 @@
             return {
                 content: incomingContent.innerHTML,
                 tabs: incomingTabs instanceof HTMLElement ? incomingTabs.innerHTML : '',
+                workspaceTitle: incomingTabs?.dataset.workspacePageTitle || '',
                 documentTitle: parsed.title || baseTitle,
                 url: response.url,
             };
@@ -486,12 +489,19 @@
             }
         };
 
+        const updateWorkspacePage = (tab, page, fallbackUrl = tab.url) => {
+            tab.content = page.content;
+            tab.documentTitle = page.documentTitle;
+            tab.url = page.url || fallbackUrl;
+            // Use the latest server name after a rename, even when the list is cached.
+            if (page.workspaceTitle) tab.title = page.workspaceTitle;
+        };
+
         const addTemporaryTab = (key, title, page) => {
             const existing = temporaryTabs.get(key);
             if (existing) {
-                existing.content = page.content;
-                existing.documentTitle = page.documentTitle;
-                existing.url = page.url || existing.url;
+                updateWorkspacePage(existing, page);
+                if (!page.workspaceTitle) existing.title = title;
                 renderWorkspace(key);
                 return;
             }
@@ -501,11 +511,10 @@
             element.className = 'workspace-tab';
             element.dataset.workspaceTab = key;
             element.innerHTML = '<span></span><i data-workspace-tab-close aria-label="关闭标签" title="关闭标签">×</i>';
-            element.querySelector('span').textContent = title;
             workspaceTabs.append(element);
             temporaryTabs.set(key, {
                 element,
-                title,
+                title: page.workspaceTitle || title,
                 content: page.content,
                 documentTitle: page.documentTitle,
                 url: page.url || key,
@@ -608,9 +617,7 @@
             }
             try {
                 const page = await requestWorkspace(contentLink.href);
-                tab.content = page.content;
-                tab.documentTitle = page.documentTitle;
-                tab.url = page.url || contentLink.href;
+                updateWorkspacePage(tab, page, contentLink.href);
                 if (activeKey === submissionKey) renderWorkspace(submissionKey);
             } catch (error) {
                 window.alert(error instanceof Error ? error.message : '工作页加载失败');
@@ -629,9 +636,7 @@
             fields.forEach(([name, value]) => body.append(name, value ?? ''));
             try {
                 const page = await requestWorkspace(action, { method: method.toUpperCase(), body });
-                tab.content = page.content;
-                tab.documentTitle = page.documentTitle;
-                tab.url = page.url || tab.url;
+                updateWorkspacePage(tab, page);
                 if (activeKey === submissionKey && temporaryTabs.has(submissionKey)) renderWorkspace(submissionKey);
                 complete({ ok: true });
             } catch (error) {
@@ -676,9 +681,7 @@
 
             try {
                 const page = await requestWorkspace(requestUrl, options);
-                tab.content = page.content;
-                tab.documentTitle = page.documentTitle;
-                tab.url = page.url || tab.url;
+                updateWorkspacePage(tab, page);
                 if (activeKey === submissionKey) renderWorkspace(submissionKey);
             } catch (error) {
                 window.alert(error instanceof Error ? error.message : '表单提交失败');

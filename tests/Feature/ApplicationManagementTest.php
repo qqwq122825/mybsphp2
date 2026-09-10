@@ -181,7 +181,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/activation-query', false)
             ->assertSee('mybsphp.css?v=20260910-element-software', false)
             ->assertSee('custom-select.js?v=20260910-element-software', false)
-            ->assertSee('mybsphp.js?v=20260910-element-software', false)
+            ->assertSee('mybsphp.js?v=20260911-workspace-names', false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -238,7 +238,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('软件配置')
             ->assertSee('封控设置')
             ->assertSee('/private-console/risk-control?application='.$application->public_id, false)
-            ->assertSee('data-workspace-title="'.$application->code.'-封控设置"', false)
+            ->assertSee('data-workspace-title="'.$application->name.' · 封控设置"', false)
             ->assertSee('用户管理')
             ->assertSee('充值卡列表')
             ->assertSee('充值卡批量维护')
@@ -261,8 +261,8 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-workspace-base-link', false)
             ->assertSee('data-workspace-base-tab', false)
             ->assertSee('data-workspace-base-url=', false)
-            ->assertSee('mybsphp.js?v=20260910-element-software', false)
-            ->assertSee($application->code.'-卡串类型');
+            ->assertSee('mybsphp.js?v=20260911-workspace-names', false)
+            ->assertSee($application->name.' · 卡串类型');
 
         $this->get('/private-console/applications/'.$application->public_id.'/users')
             ->assertOk()
@@ -478,7 +478,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('BSPHP_MUTUALKEY')
             ->assertSee('/AppEn.php?appid=10000001&amp;md5=', false)
             ->assertSee('现代混合加密')
-            ->assertSee('10000001-软件配置')
+            ->assertSee('游戏 iOS · 软件配置')
             ->assertSee('role="tablist"', false)
             ->assertSee('data-config-tab="basic"', false)
             ->assertSee('data-config-tab="communication"', false)
@@ -486,7 +486,7 @@ class ApplicationManagementTest extends TestCase
             ->assertDontSee('data-config-tab="risk"', false)
             ->assertDontSee('data-risk-panel', false)
             ->assertSee('data-workspace-bootstrap-url=', false)
-            ->assertSee('data-workspace-bootstrap-title="10000001-软件配置"', false)
+            ->assertSee('data-workspace-bootstrap-title="游戏 iOS · 软件配置"', false)
             ->assertDontSee('封控策略')
             ->assertDontSee('IP 频率和阻断规则')
             ->assertDontSee('/private-console/risk-control?application='.$application->public_id, false)
@@ -745,6 +745,49 @@ class ApplicationManagementTest extends TestCase
         $this->get('/private-console/applications/create')
             ->assertOk()->assertSee('name="code" value="'.$code.'"', false);
         $this->assertDatabaseCount('applications', 1);
+    }
+
+    public function test_software_workspace_titles_use_escaped_names_without_changing_identifiers(): void
+    {
+        $this->actingAs($this->administrator(), 'admin');
+        $this->post('/private-console/applications', [
+            'code' => '90000001', 'name' => '标签名称测试', 'mode' => 'card_login',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $application = Application::query()->where('code', '90000001')->sole();
+        $name = '长名称软件 <测试> "A&B"';
+        $application->forceFill(['name' => $name])->save();
+        $list = $this->get('/private-console/applications')->assertOk();
+        $base = '/private-console/applications/'.$application->public_id;
+        $pages = [
+            $base.'/edit' => '软件配置',
+            $base.'/users' => '用户管理',
+            $base.'/card-types' => '卡串类型',
+            $base.'/cards/make' => '现卡制作',
+            '/private-console/risk-control?application='.$application->public_id => '封控设置',
+            '/private-console/cards?application='.$application->getKey() => '充值卡列表',
+        ];
+        foreach ($pages as $url => $label) {
+            $title = e($name.' · '.$label);
+            $list->assertSee('data-workspace-title="'.$title.'"', false)
+                ->assertDontSee('data-workspace-title="90000001-', false)
+                ->assertSee($url, false);
+            $page = $this->get($url)->assertOk()
+                ->assertSee('data-workspace-page-title="'.$title.'"', false)
+                ->assertSee('title="'.$title.'"', false);
+            if (in_array($label, ['软件配置', '封控设置'], true)) {
+                $page->assertSee('data-workspace-bootstrap-title="'.$title.'"', false);
+            }
+        }
+        $this->get('/private-console/cards')->assertOk()
+            ->assertSee('data-workspace-page-title="充值卡列表"', false);
+        $this->get('/private-console/cards/maintenance')->assertOk()
+            ->assertSee('data-workspace-page-title="充值卡批量维护"', false);
+
+        $application->forceFill(['name' => '重命名后的软件'])->save();
+        $this->get($base.'/edit')->assertOk()
+            ->assertSee('data-workspace-page-title="重命名后的软件 · 软件配置"', false)
+            ->assertSee('value="90000001" readonly', false);
+        $this->assertSame('90000001', $application->fresh()->code);
     }
 
     private function administrator(): Administrator

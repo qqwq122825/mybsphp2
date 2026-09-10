@@ -39,3 +39,78 @@ test('workspace ignores component-handled native submits and preserves its trans
     assert.equal(requests[1].options.body.get('name'), 'edited');
     dom.window.close();
 });
+
+function titleWorkspace(t, { bootstrap = false } = {}) {
+    const dom = new JSDOM(`<div data-workspace-tabs data-workspace-base-url="http://localhost/admin/applications" ${bootstrap ? 'data-workspace-bootstrap-url="http://localhost/admin/applications/a/edit" data-workspace-bootstrap-title="同名软件 · 软件配置"' : ''}><a data-workspace-base-tab class="is-active" href="/admin/applications">软件管理</a></div><main data-workspace-content>${bootstrap ? '配置' : '<a href="/admin/applications/a/edit" data-workspace-open data-workspace-title="1001-软件配置">配置 A</a><a href="/admin/applications/b/edit" data-workspace-open data-workspace-title="1002-软件配置">配置 B</a>'}</main>`, { url: 'http://localhost/admin/applications', runScripts: 'outside-only' });
+    t.after(() => dom.window.close());
+    const { window } = dom;
+    window.scrollTo = () => {};
+    window.HTMLElement.prototype.scrollIntoView = () => {};
+    window.alert = message => assert.fail(message);
+    const titles = new Map(['a', 'b'].map(id => [id, '同名软件 · 软件配置']));
+    const escape = text => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
+    window.fetch = async url => {
+        const id = url.includes('/b/') ? 'b' : 'a';
+        const base = url === 'http://localhost/admin/applications';
+        return { ok: true, url, text: async () => `<html><body><div data-workspace-tabs ${base ? '' : `data-workspace-page-title="${escape(titles.get(id))}"`}><a data-workspace-base-tab class="is-active" href="/admin/applications">软件管理</a></div><main data-workspace-content>${base ? '列表' : `<p>配置 ${id}</p><form action="/admin/applications/${id}/edit" method="post"><input name="name"></form>`}</main></body></html>` };
+    };
+    window.eval(readFileSync(new URL('../../public/assets/js/mybsphp.js', import.meta.url), 'utf8'));
+    return { window, document: window.document, titles };
+}
+
+test('workspace uses names from the response while same-name software keeps separate URL-keyed tabs', async t => {
+    const { document } = titleWorkspace(t);
+    document.querySelector('a[data-workspace-open]').click();
+    await tick();
+    document.querySelector('[data-workspace-base-tab]').click();
+    document.querySelectorAll('a[data-workspace-open]')[1].click();
+    await tick();
+    const tabs = [...document.querySelectorAll('[data-workspace-tab]')];
+    assert.equal(tabs.length, 2);
+    assert.deepEqual(tabs.map(tab => tab.querySelector('span').textContent), ['同名软件 · 软件配置', '同名软件 · 软件配置']);
+    assert.notEqual(tabs[0].dataset.workspaceTab, tabs[1].dataset.workspaceTab);
+    tabs[0].click();
+    assert.equal(document.querySelector('main p').textContent, '配置 a');
+    tabs[0].querySelector('[data-workspace-tab-close]').click();
+    assert.equal(document.querySelectorAll('[data-workspace-tab]').length, 1);
+    assert.equal(document.querySelector('main p').textContent, '配置 b');
+});
+
+test('renames refresh tab text and its full tooltip after component save, cached-list reopen and native save', async t => {
+    const { document, window, titles } = titleWorkspace(t);
+    document.querySelector('a[data-workspace-open]').click();
+    await tick();
+    const tab = document.querySelector('[data-workspace-tab]');
+    const key = tab.dataset.workspaceTab;
+    const renamed = '很长的软件名称 <img src=x onerror=alert(1)> "A&B" · 软件配置';
+    titles.set('a', renamed);
+    let result;
+    document.dispatchEvent(new window.CustomEvent('workspace:submit', { cancelable: true, detail: {
+        action: key, method: 'post', fields: [['_method', 'PUT']], complete: response => { result = response; },
+    } }));
+    await tick();
+    assert.equal(result.ok, true);
+    assert.equal(tab.querySelector('span').textContent, renamed);
+    assert.equal(tab.title, renamed);
+    assert.equal(tab.querySelector('img'), null, 'titles must be text, never parsed HTML');
+    document.querySelector('[data-workspace-base-tab]').click();
+    document.querySelector('a[data-workspace-open]').click();
+    await tick();
+    assert.equal(document.querySelectorAll('[data-workspace-tab]').length, 1);
+    assert.equal(tab.title, renamed, 'cached list label must not replace the current server name');
+    titles.set('a', '再次改名 · 软件配置');
+    document.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await tick();
+    assert.equal(tab.title, '再次改名 · 软件配置');
+    assert.equal(tab.dataset.workspaceTab, key);
+});
+
+test('direct configuration URL bootstraps a named tab without changing its URL identity', async t => {
+    const { document, window } = titleWorkspace(t, { bootstrap: true });
+    await tick();
+    const tab = document.querySelector('[data-workspace-tab]');
+    assert.equal(tab.title, '同名软件 · 软件配置');
+    assert.equal(tab.querySelector('span').textContent, tab.title);
+    assert.equal(tab.dataset.workspaceTab, 'http://localhost/admin/applications/a/edit');
+    assert.equal(window.location.href, 'http://localhost/admin/applications');
+});

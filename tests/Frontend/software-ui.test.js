@@ -40,13 +40,14 @@ test('software forms preserve hidden settings, CSRF, method, named values and re
 });
 
 test('software cards only expose links and deletion controls rendered by Blade permissions', () => {
-    const root = dom(`<main><h1>软件管理</h1><article class="software-card"><div class="software-card-title"><h2>&lt;img src=x&gt;</h2><p><strong>1004</strong></p></div><span class="status-tag status-active">正常开放</span><div class="software-mode-line"><strong>卡串验证模式</strong></div><footer class="software-card-actions"><a href="/admin/applications/example/users" data-workspace-open data-workspace-title="1004-用户管理">▣ 用户管理</a></footer></article></main>`).querySelector('main');
+    const root = dom(`<main><h1>软件管理</h1><article class="software-card"><div class="software-card-title"><h2>&lt;img src=x&gt;</h2><p><strong>1004</strong></p></div><span class="status-tag status-active">正常开放</span><div class="software-mode-line"><strong>卡串验证模式</strong></div><footer class="software-card-actions"><a href="/admin/applications/example/users" data-workspace-open data-workspace-title="&lt;img src=x&gt; · 用户管理">▣ 用户管理</a></footer></article></main>`).querySelector('main');
     const card = readSoftwareList(root).applications[0];
     assert.equal(card.name, '<img src=x>');
     assert.equal(card.deletion, null);
     assert.equal(card.links.length, 1);
     assert.equal(card.links[0].workspace, true);
     assert.equal(card.links[0].label, '用户管理');
+    assert.equal(card.links[0].title, '<img src=x> · 用户管理');
     assert.equal(card.links[0].href, 'http://localhost/admin/applications/example/users');
 });
 

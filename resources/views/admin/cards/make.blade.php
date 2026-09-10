@@ -36,7 +36,7 @@
                 <div class="card-export-footer">
                     <span data-card-export-status>本次生成 {{ count($generatedCards) }} 张，明文仅在当前结果页展示。</span>
                     <a class="button button-secondary" href="{{ route('admin.software-card-making.show', ['adminPath' => $adminPath, 'application' => $application]) }}"
-                       data-workspace-open data-workspace-title="{{ $application->code }}-现卡制作">继续制卡</a>
+                       data-workspace-open data-workspace-title="{{ $application->name }} · 现卡制作">继续制卡</a>
                 </div>
             </div>
         </section>
@@ -52,7 +52,7 @@
                     <strong>请先添加充值卡类型</strong>
                     <p>当前软件还没有卡串类型，建立类型后再进行现卡制作。</p>
                     <a class="button button-primary" href="{{ route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application]) }}"
-                       data-workspace-open data-workspace-title="{{ $application->code }}-卡串类型">添加充值卡类型</a>
+                       data-workspace-open data-workspace-title="{{ $application->name }} · 卡串类型">添加充值卡类型</a>
                 </div>
             @else
                 <form class="card-making-form" method="post" action="{{ route('admin.card-batches.store', ['adminPath' => $adminPath]) }}">

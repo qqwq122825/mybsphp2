@@ -7,7 +7,7 @@
     <title>@yield('title', '管理后台') · {{ $appName }}</title>
     <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260910-element-software">
     <script src="/assets/js/custom-select.js?v=20260910-element-software" defer></script>
-    <script src="/assets/js/mybsphp.js?v=20260910-element-software" defer></script>
+    <script src="/assets/js/mybsphp.js?v=20260911-workspace-names" defer></script>
     @stack('head')
 </head>
 <body class="dashboard-page">

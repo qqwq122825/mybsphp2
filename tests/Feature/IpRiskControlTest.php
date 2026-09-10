@@ -657,8 +657,7 @@ class IpRiskControlTest extends TestCase
 
             $this->get('/private-console/risk-control')
                 ->assertOk()
-                ->assertSee($application->code.'-封控设置')
-                ->assertSee('data-workspace-bootstrap-title="'.$application->code.'-封控设置"', false)
+                ->assertSee('data-workspace-bootstrap-title="'.$application->name.' · 封控设置"', false)
                 ->assertSee($application->name.' · 封控设置')
                 ->assertSee('套卡探测')
                 ->assertSee('蜜罐策略')

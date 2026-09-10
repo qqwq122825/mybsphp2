@@ -73,28 +73,28 @@
                         @can('applications.update')
                             <a class="software-action-primary"
                                href="{{ route('admin.applications.edit', ['adminPath' => $adminPath, 'application' => $application]) }}"
-                               data-workspace-open data-workspace-title="{{ $application->code }}-软件配置">⚙ 软件配置</a>
+                               data-workspace-open data-workspace-title="{{ $application->name }} · 软件配置">⚙ 软件配置</a>
                         @endcan
                         @can('risk.view')
                             <a class="software-action-risk"
                                href="{{ route('admin.risk-control.index', ['adminPath' => $adminPath, 'application' => $application->public_id]) }}"
-                               data-workspace-open data-workspace-title="{{ $application->code }}-封控设置">◇ 封控设置</a>
+                               data-workspace-open data-workspace-title="{{ $application->name }} · 封控设置">◇ 封控设置</a>
                         @endcan
                         @can('applications.view')
                             <a href="{{ route('admin.applications.users.index', ['adminPath' => $adminPath, 'application' => $application]) }}"
-                               data-workspace-open data-workspace-title="{{ $application->code }}-用户管理">▣ 用户管理</a>
+                               data-workspace-open data-workspace-title="{{ $application->name }} · 用户管理">▣ 用户管理</a>
                         @endcan
                         @can('cards.view')
                             <a href="{{ route('admin.cards.index', ['adminPath' => $adminPath, 'application' => $application->getKey()]) }}"
-                               data-workspace-open data-workspace-title="{{ $application->code }}-充值卡列表">▣ 充值卡列表</a>
+                               data-workspace-open data-workspace-title="{{ $application->name }} · 充值卡列表">▣ 充值卡列表</a>
                         @endcan
                         @can('card_types.manage')
                             <a href="{{ route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application]) }}"
-                               data-workspace-open data-workspace-title="{{ $application->code }}-卡串类型">☷ 卡串类型</a>
+                               data-workspace-open data-workspace-title="{{ $application->name }} · 卡串类型">☷ 卡串类型</a>
                         @endcan
                         @can('batches.create')
                             <a class="software-action-warn" href="{{ route('admin.software-card-making.show', ['adminPath' => $adminPath, 'application' => $application]) }}"
-                               data-workspace-open data-workspace-title="{{ $application->code }}-现卡制作">＋ 现卡制作</a>
+                               data-workspace-open data-workspace-title="{{ $application->name }} · 现卡制作">＋ 现卡制作</a>
                         @endcan
                     </footer>
                 </article>

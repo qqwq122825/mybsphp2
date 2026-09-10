@@ -13,7 +13,7 @@ class AdminTablePresentationTest extends TestCase
         $this->assertStringContainsString('data-element-software', $list);
         $this->assertStringContainsString('name="delete_application"', $list);
         $this->assertStringContainsString('name="delete_card_types"', $list);
-        $this->assertStringContainsString('data-workspace-title="1004-软件配置"', $list);
+        $this->assertStringContainsString('data-workspace-title="王者荣耀巨魔 · 软件配置"', $list);
         $this->assertStringContainsString('还没有软件', AdminTablePreview::render('software-empty'));
         foreach (['software-config', 'software-account-config', 'software-create'] as $page) {
             $html = AdminTablePreview::render($page);
