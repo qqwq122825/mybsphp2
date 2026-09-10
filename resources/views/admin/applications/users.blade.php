@@ -2,7 +2,12 @@
 
 @section('title', $application->name.' · 软件用户管理')
 
+@push('head')
+    @vite('resources/js/admin-ui.js')
+@endpush
+
 @section('content')
+    <div data-element-list data-list-kind="users" data-form-errors="{{ json_encode($errors->getMessages()) }}" data-user-old="{{ json_encode(collect(old())->only(['_ui_detail_target', 'expires_at', 'bound_device', 'account_concurrency_limit', 'machine_concurrency_limit', 'note'])->all()) }}">
     @php
         $formatRemainingValidity = static function ($expiresAt): string {
             if (!$expiresAt) return '永久';
@@ -112,7 +117,7 @@
                     </table>
                 @endif
                 <x-slot:footer>
-                    <span>共 {{ $users->total() }} 条数据</span>
+                    <span data-page="{{ $users->currentPage() }}" data-total="{{ $users->total() }}" data-per-page="{{ $users->perPage() }}">共 {{ $users->total() }} 条数据</span>
                     @if($users->hasPages())<div class="pager">{{ $users->links() }}</div>@else<span>已显示全部数据</span>@endif
                 </x-slot:footer>
             </x-admin.table-frame>
@@ -150,4 +155,5 @@
             <footer><button type="button" data-user-detail-close>取消</button><button class="button button-primary" type="submit">确认保存</button></footer>
         </form>
     </x-admin.window-dialog>
+    </div>
 @endsection

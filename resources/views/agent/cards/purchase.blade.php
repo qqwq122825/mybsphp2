@@ -17,7 +17,7 @@
     @if($generatedCards !== [])
         <section class="agent-generated-result">
             <header><div><h2>制卡成功</h2><p>{{ $generatedMeta['application'] ?? '' }} · {{ $generatedMeta['card_type'] ?? '' }} · {{ $generatedMeta['quantity'] ?? count($generatedCards) }} 张</p></div><button type="button" data-copy-generated>复制全部</button></header>
-            <textarea readonly data-generated-content>@foreach($generatedCards as $credential){{ $credential['code'] }}{{ $credential['secret'] !== '' ? "\t".$credential['secret'] : '' }}@if(!$loop->last){{ "\n" }}@endif @endforeach</textarea>
+            <textarea readonly data-generated-content>{{ collect($generatedCards)->map(fn ($credential) => $credential['code'].($credential['secret'] !== '' ? "\t".$credential['secret'] : ''))->implode("\n") }}</textarea>
         </section>
     @endif
 </section>

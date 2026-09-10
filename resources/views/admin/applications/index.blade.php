@@ -2,7 +2,12 @@
 
 @section('title', '软件管理')
 
+@push('head')
+    @vite('resources/js/admin-ui.js')
+@endpush
+
 @section('content')
+    <div data-element-software>
     <header class="page-heading page-heading-actions">
         <div>
             <p class="eyebrow">SOFTWARE MANAGEMENT</p>
@@ -117,10 +122,11 @@
             @endforeach
         </section>
 
-        <div class="pager software-pager">
+        <div class="pager software-pager" data-page="{{ $applications->currentPage() }}" data-total="{{ $applications->total() }}" data-per-page="{{ $applications->perPage() }}">
             @if ($applications->previousPageUrl())<a href="{{ $applications->previousPageUrl() }}">上一页</a>@endif
             <span>第 {{ $applications->currentPage() }} / {{ $applications->lastPage() }} 页</span>
             @if ($applications->nextPageUrl())<a href="{{ $applications->nextPageUrl() }}">下一页</a>@endif
         </div>
     @endif
+    </div>
 @endsection

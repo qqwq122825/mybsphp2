@@ -1,0 +1,74 @@
+/* Element Plus owns buttons, controls, tables, tags and dialogs.
+   Only application layout and content typography belong here. */
+[data-element-list][hidden], [data-element-software][hidden], [data-element-config][hidden] { display:none !important; }
+.ep-admin-list, .ep-software-card, .ep-software-form, .ep-summary-grid .el-card { --el-card-border-radius:8px; }
+.ep-page-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
+.ep-page-heading h2 { margin:0; font-size:18px; line-height:1.5; }
+.ep-page-heading p { margin:8px 0 0; color:var(--el-text-color-secondary); font-size:13px; line-height:1.7; }
+.ep-metrics { max-width:600px; margin-top:20px; }
+.ep-metrics small { font-size:12px; color:var(--el-text-color-secondary); }
+.ep-filter-grid { display:grid; grid-template-columns:minmax(220px, 1fr) minmax(260px, 1.5fr) 144px auto; align-items:end; gap:16px; margin-bottom:20px; }
+.ep-filter-grid .el-form-item { min-width:0; margin-bottom:0; }
+.ep-table-toolbar { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
+.ep-table-toolbar > :last-child { margin-left:auto; }
+.ep-cell { overflow-wrap:anywhere; line-height:1.65; }
+.ep-cell > strong { display:block; font-weight:600; color:var(--el-text-color-primary); }
+.ep-cell small { display:block; margin-top:4px; color:var(--el-text-color-secondary); font-size:12px; }
+.ep-cell code, .ep-cell-mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
+.ep-cell .el-button { white-space:nowrap; }
+.ep-device-line { display:flex; align-items:baseline; gap:8px; }
+.ep-device-line b { flex-shrink:0; color:var(--el-text-color-secondary); font-size:12px; }
+.ep-pagination { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; color:var(--el-text-color-secondary); font-size:13px; }
+.ep-add-form { margin-top:20px; }
+.ep-field-help { color:var(--el-text-color-secondary); font-size:12px; line-height:1.6; margin-top:5px; }
+.ep-form-actions { display:flex; justify-content:flex-end; }
+.ep-admin-dialog { max-height:calc(100vh - 40px); overflow:auto; }
+.ep-admin-dialog .el-descriptions__content { overflow-wrap:anywhere; }
+.ep-payload-tabs { margin-top:20px; }
+.ep-payload { max-height:360px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; padding:16px; margin:0; background:var(--el-fill-color-light); border-radius:var(--el-border-radius-base); font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.ep-software-page { display:grid; gap:20px; }
+.ep-summary-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px; }
+.ep-summary-grid .ep-field-help { margin:8px 0 0; }
+.ep-software-identity { display:flex; align-items:center; gap:14px; min-width:0; }
+.ep-software-identity h2 { overflow-wrap:anywhere; }
+.ep-software-identity p { margin-top:4px; }
+.ep-software-mode { display:flex; flex-wrap:wrap; align-items:center; gap:12px; color:var(--el-text-color-secondary); font-size:13px; margin-bottom:20px; }
+.ep-software-stats { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:16px; }
+.ep-delete-options { display:grid; gap:16px; margin:20px 0; }
+.ep-delete-options p { margin:0; }
+.ep-software-form .el-tabs__content { overflow:visible; }
+.ep-config-section { margin:20px 0 28px; }
+.ep-config-section h3 { margin:0 0 20px; font-size:15px; color:var(--el-text-color-primary); }
+.ep-config-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:22px 24px; }
+.ep-config-field { min-width:0; }
+.ep-config-field-wide { grid-column:1/-1; }
+.ep-field-controls { display:flex; gap:12px; align-items:flex-start; }
+.ep-field-controls .el-form-item { flex:1; min-width:0; margin-bottom:0; }
+.ep-field-controls .el-input-number, .ep-field-controls .el-date-editor { width:100%; }
+.ep-config-field .ep-field-help { margin-top:8px; }
+.ep-config-field:has(.is-error) .ep-field-help { margin-top:24px; }
+.ep-copy-button { margin-top:12px; }
+.ep-connection-list { display:grid; gap:16px; margin-bottom:20px; }
+.ep-connection-item { display:grid; grid-template-columns:140px minmax(0,1fr); align-items:center; gap:16px; font-size:14px; }
+.ep-encryption-note { margin-bottom:20px; }
+.ep-settings-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; border-top:1px solid var(--el-border-color-light); padding-top:20px; margin-top:24px; }
+.ep-user-title { overflow-wrap:anywhere; font-weight:600; margin:0 0 24px; color:var(--el-text-color-primary); }
+.ep-user-detail .el-dialog__body { padding-top:12px; padding-bottom:12px; }
+@media(max-width:1100px) { .ep-filter-grid { grid-template-columns:1fr 1fr; } .ep-filter-grid > .el-button { justify-self:end; } }
+@media(max-width:600px) {
+    .ep-summary-grid { grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
+    .ep-software-stats { grid-template-columns:repeat(2, minmax(0,1fr)); }
+    .ep-config-grid { grid-template-columns:minmax(0,1fr); }
+    .ep-connection-item { grid-template-columns:minmax(0,1fr); gap:8px; }
+    .ep-settings-footer > .el-button { margin-left:auto; }
+    .ep-filter-grid { grid-template-columns:minmax(0,1fr); }
+    .ep-page-heading { flex-wrap:wrap; }
+    .ep-admin-list .el-card__body, .ep-admin-list .el-card__header { padding:16px; }
+    .ep-admin-dialog { margin-top:20px; }
+    .ep-pagination { justify-content:center; }
+}
+@media print {
+    .ep-filter-grid, .ep-table-toolbar, .ep-pagination { display:none; }
+    .ep-admin-list :is(.el-table, .el-table__inner-wrapper, .el-table__body-wrapper, .el-scrollbar__wrap, .el-scrollbar__view) { height:auto !important; max-height:none !important; overflow:visible !important; }
+    .ep-admin-list .el-table-fixed-column--right { position:static !important; }
+}

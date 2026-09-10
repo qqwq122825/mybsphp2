@@ -35,7 +35,11 @@
     @endisset
 
     <button class="button button-primary admin-filter-bar__submit" type="submit" aria-label="{{ $buttonAriaLabel }}">
-        {{ $buttonLabel }}
+        @if($iconOnly)
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
+        @else
+            {{ $buttonLabel }}
+        @endif
     </button>
 
     @isset($extra)

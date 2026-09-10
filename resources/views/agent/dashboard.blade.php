@@ -17,8 +17,6 @@
         ['今天激活', $metrics['today_activated'], '张', '卡', ''],
         ['今天冻结', $metrics['today_frozen'], '张', '卡', ''],
         ['昨天激活', $metrics['yesterday_activated'], '张', '卡', ''],
-        ['全国今天激活', $metrics['today_activated'], '张（当前代理）', '卡', ''],
-        ['全国昨天激活', $metrics['yesterday_activated'], '张（当前代理）', '卡', ''],
     ];
 @endphp
 <section class="agent-metric-grid">

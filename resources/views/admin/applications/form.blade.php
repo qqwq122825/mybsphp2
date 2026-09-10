@@ -5,7 +5,12 @@
 @endphp
 @section('title', $editing ? '软件配置' : '添加新软件')
 
+@push('head')
+    @vite('resources/js/admin-ui.js')
+@endpush
+
 @section('content')
+    <div data-element-config data-form-errors="{{ json_encode($errors->getMessages()) }}">
     @if (! $editing)
         <header class="page-heading page-heading-actions">
             <div>
@@ -314,4 +319,5 @@
 
         </div>
     @endif
+    </div>
 @endsection

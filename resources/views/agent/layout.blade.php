@@ -5,12 +5,14 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', '代理控制台') - {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260812-select-scroll">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260910-element-software">
     <link rel="stylesheet" href="/assets/css/agent.css?v=20260906-status">
-    <script src="/assets/js/custom-select.js?v=20260812-select-scroll" defer></script>
-    <script src="/assets/js/mybsphp.js?v=20260812-select-scroll" defer></script>
+    <script src="/assets/js/custom-select.js?v=20260910-element-software" defer></script>
+    <script src="/assets/js/mybsphp.js?v=20260910-element-software" defer></script>
+    @vite('resources/js/agent-ui.js')
 </head>
 <body class="agent-portal-page">
+<div data-element-agent data-app-name="{{ $appName }}" data-page-url="{{ request()->fullUrl() }}" data-balance="{{ $agent->agent_balance_cents }}" data-form-errors="{{ json_encode($errors->getMessages()) }}" data-success="{{ session('success') ?: session('status') }}">
 @include('partials.toasts')
 <div class="agent-shell" data-agent-shell>
     <aside class="agent-sidebar">
@@ -37,6 +39,7 @@
     <main class="agent-main">
         @yield('content')
     </main>
+</div>
 </div>
 <script>
 (()=>{const shell=document.querySelector('[data-agent-shell]'),button=document.querySelector('[data-agent-sidebar-toggle]');button?.addEventListener('click',()=>shell?.classList.toggle('is-sidebar-collapsed'));})();

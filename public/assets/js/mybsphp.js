@@ -46,6 +46,7 @@
     const initializeCustomSelects = (scope = document) => {
         if (!(scope instanceof Document || scope instanceof DocumentFragment || scope instanceof Element)) return;
         scope.querySelectorAll('select:not([multiple]):not([data-native-select])').forEach((select) => {
+            if (select.closest('[data-element-list], [data-element-software], [data-element-config], [data-element-agent]')) return;
             if (!(select instanceof HTMLSelectElement) || select.dataset.customSelectReady === '1') return;
             const wrapper = document.createElement('div');
             wrapper.className = 'custom-select';
@@ -296,6 +297,7 @@
     });
 
     const showWindowDialog = (dialog) => {
+        if (dialog?.closest('[data-element-list][data-element-ready], [data-element-software][data-element-ready], [data-element-config][data-element-ready]')) return;
         if (!(dialog instanceof HTMLDialogElement)) return;
         dialog.classList.remove('is-minimized');
         dialog.classList.add('is-maximized');
@@ -615,7 +617,30 @@
             }
         });
 
+        // Component forms validate first and then use the same workspace transport.
+        // Preserve its redirect header, active tab and server-rendered error response.
+        document.addEventListener('workspace:submit', async (event) => {
+            if (!activeKey || !temporaryTabs.has(activeKey)) return;
+            event.preventDefault();
+            const submissionKey = activeKey;
+            const tab = temporaryTabs.get(submissionKey);
+            const { action, method, fields, complete } = event.detail;
+            const body = new FormData();
+            fields.forEach(([name, value]) => body.append(name, value ?? ''));
+            try {
+                const page = await requestWorkspace(action, { method: method.toUpperCase(), body });
+                tab.content = page.content;
+                tab.documentTitle = page.documentTitle;
+                tab.url = page.url || tab.url;
+                if (activeKey === submissionKey && temporaryTabs.has(submissionKey)) renderWorkspace(submissionKey);
+                complete({ ok: true });
+            } catch (error) {
+                complete({ ok: false, message: error instanceof Error ? error.message : '表单提交失败' });
+            }
+        });
+
         document.addEventListener('submit', async (event) => {
+            if (event.defaultPrevented || event.target.closest?.('[data-element-host], .ep-admin-dialog')) return;
             if (!activeKey || !(event.target instanceof HTMLFormElement)) return;
             if (!workspaceContent.contains(event.target) || event.target.dataset.workspaceNative !== undefined) return;
             event.preventDefault();
@@ -848,10 +873,16 @@
             return;
         }
 
-        if (!(event.target instanceof HTMLInputElement) || !event.target.matches('[data-card-select-all]')) return;
-        const scope = event.target.closest('form') || document;
-        scope.querySelectorAll('[data-card-select]').forEach((checkbox) => {
-            if (checkbox instanceof HTMLInputElement) checkbox.checked = event.target.checked;
+        if (!(event.target instanceof HTMLInputElement) || !event.target.matches('[data-card-select-all], [data-card-select]')) return;
+        const scope = event.target.closest('.admin-data-table') || event.target.closest('form') || document;
+        const checkboxes = [...scope.querySelectorAll('[data-card-select]:not(:disabled)')];
+        if (event.target.matches('[data-card-select-all]')) {
+            checkboxes.forEach((checkbox) => { checkbox.checked = event.target.checked; });
+        }
+        const checkedCount = checkboxes.filter((checkbox) => checkbox.checked).length;
+        scope.querySelectorAll('[data-card-select-all]').forEach((checkbox) => {
+            checkbox.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
+            checkbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
         });
     });
 
@@ -896,7 +927,8 @@
 
         const densityButton = event.target.closest('[data-table-density-toggle]');
         if (densityButton instanceof HTMLButtonElement) {
-            densityButton.closest('.admin-data-table')?.classList.toggle('is-compact');
+            const compact = densityButton.closest('.admin-data-table')?.classList.toggle('is-compact');
+            densityButton.setAttribute('aria-pressed', String(Boolean(compact)));
             return;
         }
 

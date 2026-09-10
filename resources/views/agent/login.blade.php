@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#3867e8">
     <title>代理商管理平台登录 - {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260812-select-scroll">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260910-element-software">
     <link rel="stylesheet" href="/assets/css/agent.css?v=20260725-custom-select">
-    <script src="/assets/js/custom-select.js?v=20260812-select-scroll" defer></script>
-    <script src="/assets/js/mybsphp.js?v=20260812-select-scroll" defer></script>
+    <script src="/assets/js/custom-select.js?v=20260910-element-software" defer></script>
+    <script src="/assets/js/mybsphp.js?v=20260910-element-software" defer></script>
+    @vite('resources/js/agent-ui.js')
 </head>
 <body class="agent-login-page">
+<div data-element-agent data-agent-login data-app-name="{{ $appName }}" data-form-errors="{{ json_encode($errors->getMessages()) }}" data-success="{{ session('success') ?: session('status') }}">
 @include('partials.toasts')
 <main class="agent-login-card">
     <section class="agent-login-brand" aria-label="平台介绍">
@@ -31,8 +33,8 @@
 
             <form method="post" action="{{ route('agent.login.store') }}" class="agent-login-form">
                 @csrf
-                <label><span>用户名</span><input name="username" value="{{ old('username') }}" autocomplete="username" required autofocus></label>
-                <label><span>密码</span><input type="password" name="password" autocomplete="current-password" required></label>
+                <label><span>用户名</span><input name="username" maxlength="32" value="{{ old('username') }}" autocomplete="username" required autofocus></label>
+                <label><span>密码</span><input type="password" name="password" maxlength="128" autocomplete="current-password" required></label>
                 @if($languageEnabled)
                 <label><span>语言</span><select name="language"><option value="zh-CN">简体中文</option></select></label>
                 @endif
@@ -50,5 +52,6 @@
         </div>
     </section>
 </main>
+</div>
 </body>
 </html>

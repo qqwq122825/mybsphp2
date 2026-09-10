@@ -56,6 +56,7 @@
     </table>
 </x-admin.table-shell>
 @include('agent.partials.action-modals')
+<span hidden data-agent-pagination data-page="{{ $cards->currentPage() }}" data-total="{{ $cards->total() }}" data-per-page="{{ $cards->perPage() }}"></span>
 @endsection
 @push('scripts')
 <script>(()=>{document.querySelectorAll('[data-agent-modal-close]').forEach((button)=>button.addEventListener('click',()=>button.closest('.agent-modal')?.remove()));})();</script>

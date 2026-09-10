@@ -151,6 +151,7 @@
     }
 
     function enhance(select) {
+        if (select?.closest('[data-element-list], [data-element-software], [data-element-config], [data-element-agent]')) return;
         if (!select || select.multiple || select.getAttribute('data-native-select') !== null
             || select.getAttribute('data-custom-select-ready') === '1') return;
 

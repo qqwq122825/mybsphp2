@@ -24,15 +24,11 @@
 
     <x-slot:toolbar>
         <div class="admin-table-toolbar-summary"><strong>代理账号列表</strong><span>共 {{ $agents->total() }} 条数据</span></div>
-        <div class="admin-table-utility-tools">
-            <button type="button" data-table-density-toggle aria-label="切换表格密度" title="切换表格密度"><span aria-hidden="true">▥</span></button>
-            <button type="button" data-table-export aria-label="导出当前表格" title="导出当前表格"><span aria-hidden="true">↥</span></button>
-            <button type="button" onclick="window.print()" aria-label="打印" title="打印"><span aria-hidden="true">▤</span></button>
-        </div>
+        <x-admin.table-tools />
     </x-slot:toolbar>
 
     <table>
-        <thead><tr><th>代理账号</th><th>账号状态</th><th>购卡折扣</th><th>账户余额</th><th>最后活动时间</th><th>操作</th></tr></thead>
+        <thead><tr><th>代理账号</th><th>账号状态</th><th>购卡折扣</th><th>账户余额</th><th>最后活动时间</th><th class="admin-action-column">操作</th></tr></thead>
         <tbody>
         @forelse($agents as $agent)
             <tr>
@@ -41,9 +37,9 @@
                 <td>{{ number_format(($agent->agent_discount_basis_points ?: 10000) / 1000, 1) }} 折</td>
                 <td>¥ {{ number_format($agent->agent_balance_cents / 100, 2) }}</td>
                 <td>{{ $agent->last_login_at?->diffForHumans() ?? '—' }}</td>
-                <td>
+                <td class="admin-action-column">
                     @if($canManageAgents)
-                        <button class="administrator-manage-button" type="button" data-agent-manage
+                        <button class="administrator-manage-button admin-table-action admin-table-action--primary" type="button" data-agent-manage
                                 data-title="{{ $agent->username }}" data-status="{{ $agent->status }}"
                                 data-balance="{{ number_format($agent->agent_balance_cents / 100, 2, '.', '') }}"
                                 data-discount="{{ number_format(($agent->agent_discount_basis_points ?: 10000) / 1000, 1, '.', '') }}"

@@ -2,7 +2,12 @@
 
 @section('title', $title)
 
+@push('head')
+    @vite('resources/js/admin-ui.js')
+@endpush
+
 @section('content')
+<div data-element-list data-list-kind="logs">
 @php
     $isCardMakingLog = $logType === 'card-making';
     $isClientRequestLog = $logType === 'client-requests';
@@ -30,20 +35,16 @@
     </x-admin.filter-bar></x-slot:search>
     <x-slot:toolbar>
         <div>
-            <button type="submit" form="system-log-maintenance-form" name="action" value="delete_selected" onclick="return confirm('确定删除选中的日志吗？')">删除选定</button>
-            <button type="submit" form="system-log-maintenance-form" name="action" value="delete_older_7" onclick="return confirm('确定删除 7 天前的日志吗？')">维护删除最近7天前记录</button>
-            <button type="submit" form="system-log-maintenance-form" name="action" value="delete_older_50" onclick="return confirm('确定删除 50 天前的日志吗？')">维护删除最近50天前记录</button>
-            <button type="submit" form="system-log-maintenance-form" name="action" value="clear" onclick="return confirm('确定清空当前类型的全部日志吗？')">维护清空记录</button>
+            <x-admin.table-action tone="danger" type="submit" form="system-log-maintenance-form" name="action" value="delete_selected" onclick="return confirm('确定删除选中的日志吗？')">删除选定</x-admin.table-action>
+            <x-admin.table-action tone="neutral" type="submit" form="system-log-maintenance-form" name="action" value="delete_older_7" onclick="return confirm('确定删除 7 天前的日志吗？')">清理 7 天前</x-admin.table-action>
+            <x-admin.table-action tone="neutral" type="submit" form="system-log-maintenance-form" name="action" value="delete_older_50" onclick="return confirm('确定删除 50 天前的日志吗？')">清理 50 天前</x-admin.table-action>
+            <x-admin.table-action tone="danger" type="submit" form="system-log-maintenance-form" name="action" value="clear" onclick="return confirm('确定清空当前类型的全部日志吗？')">清空记录</x-admin.table-action>
         </div>
-        <div class="admin-table-utility-tools">
-            <button type="button" data-table-density-toggle aria-label="切换表格密度" title="切换表格密度"><span aria-hidden="true">▥</span></button>
-            <button type="button" data-table-export aria-label="导出当前表格" title="导出当前表格"><span aria-hidden="true">↥</span></button>
-            <button type="button" onclick="window.print()" aria-label="打印" title="打印"><span aria-hidden="true">▤</span></button>
-        </div>
+        <x-admin.table-tools />
     </x-slot:toolbar>
-        <table class="{{ $isClientStyleLog ? 'client-trace-table' : '' }}">
+        <table class="{{ $isClientStyleLog ? 'client-trace-table' : '' }} {{ $isClientSimpleLog ? 'is-simple' : '' }} {{ $isClientRequestLog ? 'has-action-column' : '' }}">
             @if($isClientSimpleLog)
-            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>真实原因</th><th>客户端提示</th><th>设备</th><th>详细请求</th>@unless($isBlocklistRequestLog)<th>处置</th>@endunless</tr></thead>
+            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>真实原因</th><th>客户端提示</th><th>设备</th><th class="admin-detail-column">详细请求</th>@unless($isBlocklistRequestLog)<th class="admin-action-column">处置</th>@endunless</tr></thead>
             <tbody>
             @forelse($logs as $log)
                 @php
@@ -78,7 +79,7 @@
                     <td class="client-trace-reason"><strong>{{ data_get($simpleResult, 'internal_message', '未记录') }}</strong><small class="client-trace-meta">{{ data_get($simpleResult, 'internal_code', '未标注') }}</small></td>
                     <td><span class="log-result {{ $simpleSuccess ? 'is-success' : 'is-danger' }}">{{ data_get($simpleResult, 'public_message', $simpleSuccess ? '登录成功' : '卡密不存在') }}</span></td>
                     <td><code>{{ data_get($simpleRequest, 'device', '—') ?: '—' }}</code></td>
-                    <td><button type="button"
+                    <td class="admin-detail-column"><x-admin.table-action
                                 class="client-trace-detail-button"
                                 data-client-trace-detail
                                 data-log-id="{{ $detailLog->id }}"
@@ -94,15 +95,15 @@
                                 data-result="{{ $detailLog->result === 'success' ? '成功' : '拦截/失败' }}"
                                 data-result-tone="{{ $detailLog->result === 'success' ? 'success' : 'danger' }}"
                                 data-request-payload="{{ $requestPayload }}"
-                                data-response-payload="{{ $responsePayload }}">详细请求 <span aria-hidden="true">→</span></button></td>
+                                data-response-payload="{{ $responsePayload }}">详细请求 <span aria-hidden="true">→</span></x-admin.table-action></td>
                     @unless($isBlocklistRequestLog)
-                    <td>@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice, 'blockIp' => (string) ($log->ip ?: '')])</td>
+                    <td class="admin-action-column">@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice, 'blockIp' => (string) ($log->ip ?: '')])</td>
                     @endunless
                 </tr>
             @empty<tr><td class="empty-cell" colspan="{{ $isBlocklistRequestLog ? 7 : 8 }}">{{ $isBlocklistRequestLog ? '当前没有黑名单命中记录。设备和 IP 拉黑后仍继续登录会出现在这里。' : '当前没有需要客服介入的简要诊断记录。' }}</td></tr>@endforelse
             </tbody>
             @elseif($isClientRequestLog)
-            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>响应摘要</th><th>结果</th><th>详情</th><th>处置</th></tr></thead>
+            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>响应摘要</th><th>结果</th><th class="admin-detail-column">详情</th><th class="admin-action-column">处置</th></tr></thead>
             <tbody>
             @forelse($logs as $log)
                 @php
@@ -130,7 +131,7 @@
                     </td>
                     <td class="client-trace-response"><strong>{{ $responseCode }}</strong><small>HTTP {{ $httpStatus }}</small></td>
                     <td><span class="log-result {{ $log->result === 'success' ? 'is-success' : 'is-danger' }}">{{ $log->result === 'success' ? '成功' : '拦截/失败' }}</span></td>
-                    <td><button type="button"
+                    <td class="admin-detail-column"><x-admin.table-action
                                 class="client-trace-detail-button"
                                 data-client-trace-detail
                                 data-log-id="{{ $log->id }}"
@@ -146,13 +147,13 @@
                                 data-result="{{ $log->result === 'success' ? '成功' : '拦截/失败' }}"
                                 data-result-tone="{{ $log->result === 'success' ? 'success' : 'danger' }}"
                                 data-request-payload="{{ $requestPayload }}"
-                                data-response-payload="{{ $responsePayload }}">查看详情 <span aria-hidden="true">→</span></button></td>
-                    <td>@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice, 'blockIp' => (string) ($log->ip ?: '')])</td>
+                                data-response-payload="{{ $responsePayload }}">查看详情 <span aria-hidden="true">→</span></x-admin.table-action></td>
+                    <td class="admin-action-column">@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice, 'blockIp' => (string) ($log->ip ?: '')])</td>
                 </tr>
             @empty<tr><td class="empty-cell" colspan="8">当前暂无{{ $title }}数据，可先在系统信息设置中开启诊断开关。</td></tr>@endforelse
             </tbody>
             @else
-            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>编号</th><th>记录时间</th><th>登录ip</th><th>用户名/UID</th><th>信息</th>@unless($isCardMakingLog)<th>结果</th>@endunless @if($isProtectionLog)<th>处置</th>@endif</tr></thead>
+            <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>编号</th><th>记录时间</th><th>登录ip</th><th>用户名/UID</th><th>信息</th>@unless($isCardMakingLog)<th>结果</th>@endunless @if($isProtectionLog)<th class="admin-action-column">处置</th>@endif</tr></thead>
             <tbody>
             @forelse($logs as $log)
                 <tr><td class="admin-select-column"><input type="checkbox" name="log_ids[]" value="{{ $log->id }}" form="system-log-maintenance-form" aria-label="选择日志 {{ $log->id }}" data-card-select></td><td>{{ $log->id }}</td><td>{{ $log->created_at?->format('Y-m-d H:i:s') }}</td><td>{{ $log->ip ?: '—' }}</td>
@@ -166,15 +167,15 @@
                     </td>
                     @unless($isCardMakingLog)<td><span class="log-result {{ $log->result === 'success' ? 'is-success' : 'is-danger' }}">{{ $log->result === 'success' ? '成功' : '拦截/失败' }}</span></td>@endunless
                     @if($isProtectionLog)
-                        <td>
+                        <td class="admin-action-column">
                             @if($log->canBlockLoginIp() && $blockedIpHashes->contains(\App\Models\GlobalSecurityBlock::hashValue((string) $log->ip)))
-                                已封禁
+                                <span class="log-result is-muted">已封禁</span>
                             @elseif($log->canBlockLoginIp())
                                 <form method="post" action="{{ route('admin.risk-control.global-blocks.store', ['adminPath' => $adminPath]) }}">
                                     @csrf
                                     <input type="hidden" name="ip" value="{{ $log->ip }}">
                                     <input type="hidden" name="note" value="系统安全日志封禁">
-                                    <button type="submit" onclick="return confirm('确定拉黑该 IP 吗？拉黑后任意软件登录显示卡密不存在。')">封禁此 IP</button>
+                                    <x-admin.table-action tone="danger" type="submit" onclick="return confirm('确定拉黑该 IP 吗？拉黑后任意软件登录显示卡密不存在。')">封禁此 IP</x-admin.table-action>
                                 </form>
                             @else
                                 —
@@ -187,7 +188,7 @@
             @endif
         </table>
     @if($logs->hasPages())
-        <x-slot:footer><div class="pager">{{ $logs->links() }}</div></x-slot:footer>
+        <x-slot:footer><div class="pager" data-page="{{ $logs->currentPage() }}" data-total="{{ $logs->total() }}" data-per-page="{{ $logs->perPage() }}">{{ $logs->links() }}</div></x-slot:footer>
     @endif
 </x-admin.table-shell>
 
@@ -271,4 +272,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 @endif
+</div>
 @endsection

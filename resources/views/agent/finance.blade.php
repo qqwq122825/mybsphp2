@@ -13,4 +13,5 @@
         @endif
     </x-admin.table-frame>
 </section>
+<span hidden data-agent-pagination data-page="{{ $transactions->currentPage() }}" data-total="{{ $transactions->total() }}" data-per-page="{{ $transactions->perPage() }}"></span>
 @endsection

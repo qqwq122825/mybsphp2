@@ -15,14 +15,10 @@
     </x-admin.filter-bar></x-slot:search>
     <x-slot:toolbar>
         <div class="admin-table-toolbar-summary"><strong>管理员列表</strong><span>共 {{ $administrators->total() }} 条数据</span></div>
-        <div class="admin-table-utility-tools">
-            <button type="button" data-table-density-toggle aria-label="切换表格密度" title="切换表格密度"><span aria-hidden="true">▥</span></button>
-            <button type="button" data-table-export aria-label="导出当前表格" title="导出当前表格"><span aria-hidden="true">↥</span></button>
-            <button type="button" onclick="window.print()" aria-label="打印" title="打印"><span aria-hidden="true">▤</span></button>
-        </div>
+        <x-admin.table-tools />
     </x-slot:toolbar>
         <table>
-            <thead><tr><th>管理员账号</th><th>账号状态</th><th>角色/权限</th><th>二级密码</th><th>最后活动时间</th><th>操作</th></tr></thead>
+            <thead><tr><th>管理员账号</th><th>账号状态</th><th>角色/权限</th><th>二级密码</th><th>最后活动时间</th><th class="admin-action-column">操作</th></tr></thead>
             <tbody>
             @forelse($administrators as $managed)
                 @php($isSystemAdministrator = $managed->role === 'super_admin' || $managed->roles->contains('code','super_admin'))
@@ -32,7 +28,7 @@
                     <td>{{ $managed->roles->pluck('name')->join('、') ?: $managed->role }}</td>
                     <td>{{ $managed->secondary_password_required ? '已启用' : '关闭' }}</td>
                     <td>{{ $managed->last_login_at?->diffForHumans() ?? '—' }}</td>
-                    <td><button class="administrator-manage-button" type="button" data-admin-manage
+                    <td class="admin-action-column"><button class="administrator-manage-button admin-table-action admin-table-action--primary" type="button" data-admin-manage
                         data-title="{{ $managed->username }}" data-role="{{ $managed->roles->first()?->code ?? $managed->role }}" data-status="{{ $managed->status }}"
                         data-protected="{{ $isSystemAdministrator || $managed->is($administrator) || !$canUpdateAdministrators ? '1' : '0' }}"
                         data-update-url="{{ route('admin.administrators.update',['adminPath'=>$adminPath,'managedAdministrator'=>$managed]) }}"
