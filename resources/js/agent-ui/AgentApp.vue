@@ -115,7 +115,8 @@ function width(column) { if (mobile.value && column.label === '卡号') return 1
                 <el-main :style="{padding: mobile ? '16px' : '24px', minWidth:0}">
                     <el-space direction="vertical" alignment="stretch" :size="20" style="width:100%">
                         <el-alert v-if="preview" title="本地验收预览 · 示例数据" description="本页操作仅用于组件验收，余额和业务数据保持原状。" type="info" show-icon :closable="false" />
-                        <el-tabs v-if="!page.login" :model-value="activeNav" @tab-change="navigate"><el-tab-pane v-for="item in page.navigation" :key="item.href" :label="item.label" :name="item.href" /></el-tabs>
+                        <!-- Mobile replaces the sidebar with tabs; desktop has one navigation surface. -->
+                        <el-tabs v-if="!page.login && mobile" :model-value="activeNav" @tab-change="navigate"><el-tab-pane v-for="item in page.navigation" :key="item.href" :label="item.label" :name="item.href" /></el-tabs>
                         <el-alert v-if="page.success" :title="page.success" type="success" show-icon />
                         <el-alert v-if="Object.keys(page.errors).length" title="请检查输入" :description="Object.values(page.errors).flat().join('；')" type="error" show-icon :closable="false" />
                         <template v-if="page.kind === 'dashboard'">
