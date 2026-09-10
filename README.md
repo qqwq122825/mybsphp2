@@ -84,6 +84,7 @@ npm run test:ui
 
 - `resources/js/admin-ui/AdminList.vue`：组件库列表页面，新增页面应复用它或直接使用 Element Plus 组件。
 - `resources/js/admin-ui/SoftwareList.vue` / `SoftwareForm.vue`：软件卡片、统计、配置页签及表单。
+- 添加软件时由服务端默认生成未占用的 8 位数字代号（包含软删除记录查重），仍可手动修改；校验失败保留输入，创建后代号保持不变。
 - `resources/js/admin-ui/FormFields.vue` / `UserDialogs.vue`：复用 Element Plus 输入、数字、日期组件和按内容自适应的用户弹窗。
 - `resources/js/admin-ui/read-list.js`：旧 Blade 页面的迁移适配，仅读取后端已经输出的数据、权限结果、表单地址和 CSRF 字段；不在前端重复封控/日志业务规则；软件表单由 `read-software.js` / `read-users.js` 适配，保留原字段和值。
 - 保留服务器渲染页面用于无 JavaScript 情况。成功挂载后隐藏旧页面；正常页面不叠加旧版按钮、表格或弹窗样式。

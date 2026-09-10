@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Applications\ApplicationCodeGenerator;
 use App\Applications\ApplicationCredentialService;
 use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
@@ -29,6 +30,7 @@ final class AdminApplicationController extends Controller
         private readonly InstallationManager $installation,
         private readonly AuditLogger $audit,
         private readonly ApplicationCredentialService $credentials,
+        private readonly ApplicationCodeGenerator $codes,
     ) {}
 
     public function index(string $adminPath): View
@@ -61,6 +63,7 @@ final class AdminApplicationController extends Controller
         return view('admin.applications.form', [
             ...$this->layout($adminPath),
             'application' => null,
+            'suggestedCode' => $this->codes->generate(),
         ]);
     }
 

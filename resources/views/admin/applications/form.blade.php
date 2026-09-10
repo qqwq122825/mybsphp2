@@ -47,10 +47,10 @@
                         </label>
                         <label class="field">
                             <span>软件代号</span>
-                            <input name="code" value="{{ old('code') }}" maxlength="20"
+                            <input name="code" value="{{ old('code', $suggestedCode ?? '') }}" maxlength="20"
                                    inputmode="numeric" pattern="[0-9]+"
                                    placeholder="例如 201 或 12345678" required>
-                            <small>只允许数字，创建后保持不变。</small>
+                            <small>默认随机生成 8 位数字，可手动修改；只允许数字，创建后保持不变。</small>
                         </label>
                     </div>
 

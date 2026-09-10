@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Applications\ApplicationCodeGenerator;
 use App\Auth\SystemAccessSynchronizer;
 use App\Cards\CardGenerationService;
 use App\Install\InstallationManager;
@@ -14,6 +15,8 @@ use App\Models\CardType;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 use Tests\TestCase;
 
 class ApplicationManagementTest extends TestCase
@@ -668,6 +671,80 @@ class ApplicationManagementTest extends TestCase
         foreach ($cardIds as $cardId) {
             $this->assertDatabaseHas('cards', ['id' => $cardId, 'status' => 'revoked']);
         }
+    }
+
+    public function test_create_form_suggests_an_editable_random_code_without_creating_a_record(): void
+    {
+        $this->actingAs($this->administrator(), 'admin');
+        $response = $this->get('/private-console/applications/create')->assertOk();
+        $code = $response->viewData('suggestedCode');
+
+        $this->assertMatchesRegularExpression('/^[1-9][0-9]{7}$/', $code);
+        $response->assertSee('name="code" value="'.$code.'"', false);
+        $this->assertDatabaseCount('applications', 0);
+
+        $this->post('/private-console/applications', [
+            'code' => $code, 'name' => '随机代号测试软件', 'mode' => 'card_login',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $application = Application::query()->where('code', $code)->sole();
+        $this->get('/private-console/applications/'.$application->public_id.'/edit')
+            ->assertOk()->assertSee('value="'.$code.'" readonly', false);
+        $this->assertSame($code, $application->fresh()->code);
+    }
+
+    public function test_create_validation_keeps_a_manual_code_or_an_explicitly_empty_code(): void
+    {
+        $this->actingAs($this->administrator(), 'admin');
+        foreach (['00123456', ''] as $code) {
+            $this->from('/private-console/applications/create')
+                ->post('/private-console/applications', [
+                    'code' => $code, 'name' => '', 'mode' => 'card_login',
+                ])->assertRedirect('/private-console/applications/create')->assertSessionHasErrors('name');
+            $this->get('/private-console/applications/create')
+                ->assertOk()->assertSee('name="code" value="'.$code.'"', false);
+        }
+        $this->assertDatabaseCount('applications', 0);
+    }
+
+    public function test_code_generator_retries_codes_used_by_active_and_soft_deleted_applications(): void
+    {
+        $sequence = new Randomizer(new Mt19937(123));
+        $active = (string) $sequence->getInt(10000000, 99999999);
+        $deleted = (string) $sequence->getInt(10000000, 99999999);
+        $available = (string) $sequence->getInt(10000000, 99999999);
+        foreach ([$active, $deleted] as $code) {
+            $application = Application::query()->forceCreate([
+                'public_id' => (string) Str::ulid(), 'code' => $code, 'name' => '占用代号测试',
+                'mode' => 'card_login', 'entitlement_kind' => 'duration', 'status' => 'active',
+                'client_secret_hash' => 'test-only',
+            ]);
+            if ($code === $deleted) {
+                $application->delete();
+            }
+        }
+
+        $generator = new ApplicationCodeGenerator(new Randomizer(new Mt19937(123)));
+        $this->assertSame($available, $generator->generate());
+        $this->assertSame(2, Application::withTrashed()->count());
+    }
+
+    public function test_submitting_a_suggested_code_still_checks_uniqueness(): void
+    {
+        $this->actingAs($this->administrator(), 'admin');
+        $code = $this->get('/private-console/applications/create')->assertOk()->viewData('suggestedCode');
+        Application::query()->forceCreate([
+            'public_id' => (string) Str::ulid(), 'code' => $code, 'name' => '已占用的代号',
+            'mode' => 'card_login', 'entitlement_kind' => 'duration', 'status' => 'active',
+            'client_secret_hash' => 'test-only',
+        ]);
+
+        $this->from('/private-console/applications/create')
+            ->post('/private-console/applications', [
+                'code' => $code, 'name' => '重复代号测试', 'mode' => 'card_login',
+            ])->assertRedirect('/private-console/applications/create')->assertSessionHasErrors('code');
+        $this->get('/private-console/applications/create')
+            ->assertOk()->assertSee('name="code" value="'.$code.'"', false);
+        $this->assertDatabaseCount('applications', 1);
     }
 
     private function administrator(): Administrator

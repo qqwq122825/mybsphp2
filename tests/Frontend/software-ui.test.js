@@ -7,6 +7,20 @@ import { userBulkFields, userDetailModel } from '../../resources/js/admin-ui/rea
 
 const dom = html => new JSDOM(html, { url: 'http://localhost/admin/applications' }).window.document;
 
+test('software creation keeps the server-suggested code editable and submits manual overrides verbatim', () => {
+    const root = dom('<main data-element-config><form action="/admin/applications" method="post"><section class="form-panel"><label class="field"><span>软件代号</span><input name="code" value="12345678" inputmode="numeric" pattern="[0-9]+" maxlength="20" required></label></section></form></main>').querySelector('main');
+    const form = readSoftwareForm(root);
+    const model = formValues(form.groups.flatMap(group => group.fields));
+    const control = form.groups[0].fields[0].controls[0];
+    assert.equal(form.editing, false);
+    assert.equal(model.code, '12345678');
+    assert.equal(control.readonly, false);
+    assert.equal(control.inputmode, 'numeric');
+    assert.equal(Object.fromEntries(formSubmission(form, model)).code, '12345678');
+    model.code = '00123456';
+    assert.equal(Object.fromEntries(formSubmission(form, model)).code, '00123456');
+});
+
 test('software forms preserve hidden settings, CSRF, method, named values and readonly identity', () => {
     const root = dom(`<main data-element-config data-form-errors='{"name":["名称已存在"]}'><div data-config-form data-default-config-tab="limits"><h1>软件配置</h1><button data-config-tab="basic"><strong>基本配置</strong></button><button data-config-tab="limits"><strong>限开控制</strong></button><form action="/admin/applications/example" method="post"><input type="hidden" name="_token" value="csrf"><input type="hidden" name="_method" value="PUT"><input type="hidden" name="encryption_mode" value="hybrid_rsa_aes_hmac"><div data-config-panel="basic"><section class="form-panel"><h2>基本配置</h2><label class="software-basic-row"><strong>代号</strong><input value="1004" readonly></label><label class="software-basic-row"><strong>软件名称</strong><input name="name" value="客户端" maxlength="120" required></label><label class="software-basic-row"><strong>说明</strong><textarea name="description">&lt;script&gt; {{ text }}</textarea></label></section></div><div data-config-panel="limits"><section class="form-panel"><h2>限开控制</h2><label class="field"><span>扣除时长</span><input type="number" name="rebind_deduction_value" value="0" min="0" max="3650" required><select name="rebind_deduction_unit"><option value="hour">小时</option><option value="day" selected>天</option></select></label></section></div></form></div></main>`).querySelector('main');
     const form = readSoftwareForm(root);

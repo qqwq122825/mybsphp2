@@ -41,6 +41,7 @@ final class SoftwarePreview
         if (in_array($page, ['software-config', 'software-account-config', 'software-create'], true)) {
             return view('admin.applications.form', $common + [
                 'application' => $page === 'software-create' ? null : $application,
+                'suggestedCode' => '12345678',
                 'serverAddress' => 'http://127.0.0.1:8092/demo-gateway', 'objectiveCMacros' => "// 仅用于展示排版\n#define APP_CODE @\"1004\"\n#define COMM_KEY @\"DEMO-KEY\"",
             ])->render();
         }
