@@ -10,6 +10,7 @@ use App\Models\Administrator;
 use App\Models\AuditLog;
 use App\Models\Card;
 use App\Models\CardBatch;
+use App\Models\ClientSecuritySubjectState;
 use App\Models\GlobalSecurityBlock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -112,8 +113,13 @@ final class AdminSystemLogController extends Controller
             'clientTraceDetails' => $clientTraceDetails,
             'cardMakingBatches' => $cardMakingBatches,
             'cardCodesByPublicId' => $cardCodesByPublicId,
-            'blockedIpHashes' => in_array($type, ['protection', 'client-requests'], true)
-                ? GlobalSecurityBlock::query()->where('subject_type', 'ip')->pluck('subject_hash')
+            'blockedApplicationDeviceKeys' => $type === 'client-requests'
+                ? ClientSecuritySubjectState::query()
+                    ->whereIn('application_id', $logs->getCollection()->pluck('application_id')->filter()->unique())
+                    ->where('status', 'blocked')
+                    ->where(fn ($query) => $query->whereNull('blocked_until')->orWhere('blocked_until', '>', now()))
+                    ->get(['application_id', 'device_hash'])
+                    ->map(fn (ClientSecuritySubjectState $state): string => $state->application_id.':'.$state->device_hash)
                 : collect(),
             'blockedDeviceHashes' => $type === 'client-requests'
                 ? GlobalSecurityBlock::query()->where('subject_type', 'device')->pluck('subject_hash')

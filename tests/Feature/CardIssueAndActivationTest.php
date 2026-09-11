@@ -757,7 +757,7 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertDatabaseHas('ip_risk_states', [
             'application_id' => $application->getKey(),
             'ip_hash' => hash('sha256', '127.0.0.1'),
-            'level' => 'high', 'permanently_blocked' => true,
+            'level' => 'normal', 'permanently_blocked' => false,
             'last_device_hash' => hash('sha256', 'SECURITY-DEVICE'),
             'last_endpoint' => 'security.report',
         ]);
@@ -992,7 +992,7 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertDatabaseHas('ip_risk_states', [
             'application_id' => $application->getKey(),
             'ip_hash' => hash('sha256', '127.0.0.1'),
-            'level' => 'high', 'permanently_blocked' => true,
+            'level' => 'normal', 'permanently_blocked' => false,
             'last_device_hash' => hash('sha256', 'SEVERE-LAUNCH-DEVICE'),
             'last_endpoint' => 'client.launch.telemetry',
         ]);

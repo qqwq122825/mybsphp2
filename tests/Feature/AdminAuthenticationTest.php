@@ -129,7 +129,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('data-table-density-toggle', false)
             ->assertSee('data-table-export', false)
             ->assertDontSee('<th>结果</th>', false);
-        $this->get('/private-console/system-logs/protection')->assertOk()->assertSee('系统安全防护日志')->assertSee('后台登录失败：账号 admin，密码 wrong-password，密码不正确')->assertSee('后台登录失败：账号 qqq，密码 guess-secret，账号不存在')->assertSee('封禁此 IP')->assertDontSee('查看尝试')->assertDontSee('admin.login_failed');
+        $this->get('/private-console/system-logs/protection')->assertOk()->assertSee('系统安全防护日志')->assertSee('后台登录失败：账号 admin，密码 wrong-password，密码不正确')->assertSee('后台登录失败：账号 qqq，密码 guess-secret，账号不存在')->assertDontSee('封禁此 IP')->assertDontSee('查看尝试')->assertDontSee('admin.login_failed');
         $this->get('/private-console/system-logs/client-requests')
             ->assertOk()
             ->assertSee('客户端请求日志')
@@ -140,7 +140,7 @@ class AdminAuthenticationTest extends TestCase
         $this->get('/private-console/system-logs/blocklist-requests')
             ->assertOk()
             ->assertSee('黑名单请求日志')
-            ->assertSee('设备和 IP 已拉黑后仍继续登录的请求')
+            ->assertSee('设备已拉黑后仍继续登录的请求')
             ->assertDontSee('快速拉黑')
             ->assertDontSee('>处置</th>', false);
 
@@ -173,7 +173,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertOk()
             ->assertSee('系统安全防护日志')
             ->assertSee('后台登录失败：账号 admin，密码 wrong-password，密码不正确')
-            ->assertSee('封禁此 IP')
+            ->assertDontSee('封禁此 IP')
             ->assertDontSee('查看尝试')
             ->assertDontSee('admin.login_failed')
             ->assertDontSee('DEVICE_MISMATCH')
@@ -235,14 +235,14 @@ class AdminAuthenticationTest extends TestCase
                 'note' => '客户端请求日志快速拉黑',
             ])
             ->assertRedirect('/private-console/system-logs/client-requests?view=simple')
-            ->assertSessionHas('success', '已快速拉黑该设备和 IP，任意软件登录将显示卡密不存在。');
+            ->assertSessionHas('success', '已快速拉黑该设备，任意软件登录将显示卡密不存在。');
         $this->assertDatabaseHas('global_security_blocks', [
             'subject_type' => 'device',
             'subject_hash' => GlobalSecurityBlock::hashValue('DIAGNOSTIC-DEVICE'),
             'subject_value' => 'DIAGNOSTIC-DEVICE',
             'reason' => 'QUICK_BLOCK',
         ]);
-        $this->assertDatabaseHas('global_security_blocks', [
+        $this->assertDatabaseMissing('global_security_blocks', [
             'subject_type' => 'ip',
             'subject_hash' => GlobalSecurityBlock::hashValue('203.0.113.24'),
             'subject_value' => '203.0.113.24',
@@ -333,7 +333,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('后台登录失败：账号 admin，未填写二级密码')
             ->assertSee('后台登录失败：账号 admin，二级密码 wrong-secondary，二级密码不正确')
             ->assertDontSee('primary-secret')
-            ->assertSee('封禁此 IP');
+            ->assertDontSee('封禁此 IP');
     }
 
     public function test_login_rate_limit_is_applied_by_account_and_ip(): void

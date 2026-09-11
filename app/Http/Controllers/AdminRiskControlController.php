@@ -14,9 +14,10 @@ use App\Models\IpRiskState;
 use App\Models\RiskEvent;
 use App\Risk\IpRiskControlService;
 use App\Support\OperationalMode;
-use Illuminate\Pagination\LengthAwarePaginator;
+use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -109,12 +110,6 @@ final class AdminRiskControlController extends Controller
                 'events_24h' => RiskEvent::query()->where('created_at', '>=', now()->subDay())->count()
                     + ClientSecurityEvent::query()->where('created_at', '>=', now()->subDay())->count(),
                 'blocked_devices' => $blockedDeviceHashes->merge($globalDeviceHashes)->unique()->count(),
-                'blocked_ips' => GlobalSecurityBlock::query()->where('subject_type', 'ip')->pluck('subject_hash')
-                    ->merge(IpRiskState::query()->where(function ($query): void {
-                        $query->where('permanently_blocked', true)->orWhere('blocked_until', '>', now());
-                    })->pluck('ip_hash'))
-                    ->unique()
-                    ->count(),
             ],
         ]);
     }
@@ -169,7 +164,7 @@ final class AdminRiskControlController extends Controller
         $validated['low_action'] ??= (string) ($current?->low_action ?? 'observe');
 
         $application->riskPolicy()->updateOrCreate([], $validated);
-        $this->recordAdminAction($request, 'risk.policy_updated', 'risk_policy', $application->public_id, $application->getKey(), $validated, '更新 IP 封控策略');
+        $this->recordAdminAction($request, 'risk.policy_updated', 'risk_policy', $application->public_id, $application->getKey(), $validated, '更新设备封控策略');
 
         return back()->with('success', '封控策略已保存并立即生效。')->withFragment('probe');
     }
@@ -190,24 +185,18 @@ final class AdminRiskControlController extends Controller
     public function stateAction(Request $request, string $adminPath, IpRiskState $state): RedirectResponse
     {
         $validated = $request->validate([
-            'action' => ['required', Rule::in(['reset', 'block_1h', 'block_24h', 'block_permanent', 'set_low'])],
+            'action' => ['required', Rule::in(['reset', 'set_low'])],
             'note' => ['nullable', 'string', 'max:500'],
         ]);
 
         match ($validated['action']) {
             'reset' => $state->forceFill(['level' => 'normal', 'window_attempts' => 0, 'recent_attempt_timestamps' => [], 'window_started_at' => now(), 'blocked_until' => null, 'permanently_blocked' => false]),
-            'block_1h' => $state->forceFill(['level' => 'high', 'blocked_until' => now()->addHour(), 'permanently_blocked' => false]),
-            'block_24h' => $state->forceFill(['level' => 'high', 'blocked_until' => now()->addDay(), 'permanently_blocked' => false]),
-            'block_permanent' => $state->forceFill(['level' => 'high', 'blocked_until' => null, 'permanently_blocked' => true]),
             'set_low' => $state->forceFill(['level' => 'low', 'blocked_until' => null, 'permanently_blocked' => false]),
         };
         if (array_key_exists('note', $validated)) {
             $state->note = $validated['note'];
         }
         $state->save();
-        if ($validated['action'] === 'block_permanent') {
-            GlobalSecurityBlock::rememberIp((string) $state->ip, 'ADMIN_BLOCK', $validated['note'] ?? 'IP 已拉黑，全软件登录显示卡密不存在');
-        }
         if (in_array($validated['action'], ['reset', 'set_low'], true)) {
             GlobalSecurityBlock::query()
                 ->where('subject_type', 'ip')
@@ -320,10 +309,10 @@ final class AdminRiskControlController extends Controller
         );
 
         $message = match ($releaseScope) {
-            'device_only' => '设备黑名单已解除；关联卡密/账号与 IP 保持原状态。',
-            'device_credential' => '设备黑名单及关联卡密/账号已恢复；IP 保持原封控状态。',
-            'device_ip' => '设备黑名单及关联 IP 已解除；卡密/账号保持原状态。',
-            default => '设备、关联 IP 与安全冻结主体已经恢复；历史闪退总账保留，新异常将从当前基线重新计算。',
+            'device_only' => '设备黑名单已解除；关联卡密/账号保持原状态。',
+            'device_credential' => '设备黑名单及关联卡密/账号已恢复。',
+            'device_ip' => '设备黑名单已解除；卡密/账号保持原状态。',
+            default => '设备与安全冻结主体已经恢复；历史闪退总账保留，新异常将从当前基线重新计算。',
         };
 
         return back()->with('success', $message);
@@ -345,18 +334,6 @@ final class AdminRiskControlController extends Controller
                 'last_event_at' => now(),
             ])->save();
             GlobalSecurityBlock::rememberDeviceHash($deviceState->device_hash, null, 'ADMIN_BLOCK', '设备已拉黑，全软件登录显示卡密不存在');
-            IpRiskState::query()
-                ->where('last_device_hash', $deviceState->device_hash)
-                ->update([
-                    'level' => 'high',
-                    'blocked_until' => null,
-                    'permanently_blocked' => true,
-                    'note' => '后台将设备处置等级改为拉黑',
-                    'updated_at' => now(),
-                ]);
-            foreach (IpRiskState::query()->where('last_device_hash', $deviceState->device_hash)->get(['ip']) as $relatedIp) {
-                GlobalSecurityBlock::rememberIp((string) $relatedIp->ip, 'ADMIN_BLOCK', '随设备拉黑，全软件登录显示卡密不存在');
-            }
             $this->recordAdminAction(
                 $request,
                 'risk.device_blocked',
@@ -367,7 +344,7 @@ final class AdminRiskControlController extends Controller
                 '后台将设备处置等级改为拉黑',
             );
 
-            return back()->with('success', '已将该设备拉黑，并同步拉黑关联 IP。');
+            return back()->with('success', '已将该设备拉黑。IP 仅作日志记录。');
         }
 
         if ($deviceState->status === 'blocked') {
@@ -405,13 +382,11 @@ final class AdminRiskControlController extends Controller
     public function storeGlobalBlock(Request $request, string $adminPath): RedirectResponse
     {
         $validated = $request->validate([
-            'device_serial' => ['nullable', 'string', 'max:160', 'required_without:ip'],
-            'ip' => ['nullable', 'ip', 'required_without:device_serial'],
+            'device_serial' => ['required', 'string', 'max:160'],
             'note' => ['nullable', 'string', 'max:500'],
             'source' => ['nullable', Rule::in(['manual', 'quick'])],
         ]);
         $deviceSerial = trim((string) ($validated['device_serial'] ?? ''));
-        $ip = trim((string) ($validated['ip'] ?? ''));
         $source = ($validated['source'] ?? 'manual') === 'quick' ? 'quick' : 'manual';
         $reason = $source === 'quick' ? 'QUICK_BLOCK' : 'ADMIN_BLOCK';
         $note = $source === 'quick'
@@ -422,7 +397,6 @@ final class AdminRiskControlController extends Controller
 
         $created = [];
         $deviceExisted = false;
-        $ipExisted = false;
         $deviceHash = $deviceSerial !== '' ? GlobalSecurityBlock::hashValue($deviceSerial) : '';
         if ($deviceSerial !== '') {
             $block = GlobalSecurityBlock::query()->firstOrCreate(
@@ -449,55 +423,17 @@ final class AdminRiskControlController extends Controller
                 );
             }
         }
-        if ($ip !== '') {
-            $block = GlobalSecurityBlock::query()->firstOrCreate(
-                ['subject_type' => 'ip', 'subject_hash' => GlobalSecurityBlock::hashValue($ip)],
-                [
-                    'subject_value' => $ip,
-                    'reason' => $reason,
-                    'note' => $note,
-                    'administrator_id' => $administrator->getKey(),
-                ],
-            );
-            $ipExisted = ! $block->wasRecentlyCreated;
-            $created[] = 'ip:'.$block->getKey();
-            foreach (Application::query()->pluck('id') as $applicationId) {
-                $state = IpRiskState::query()->firstOrCreate(
-                    ['application_id' => $applicationId, 'ip_hash' => GlobalSecurityBlock::hashValue($ip)],
-                    [
-                        'public_id' => (string) \Illuminate\Support\Str::ulid(),
-                        'ip' => $ip,
-                        'window_started_at' => now(),
-                    ],
-                );
-                $state->forceFill([
-                    'ip' => $ip,
-                    'level' => 'high',
-                    'permanently_blocked' => true,
-                    'blocked_until' => null,
-                    'note' => '全软件 IP 黑名单',
-                    'last_seen_at' => now(),
-                    ...($deviceHash !== '' ? ['last_device_hash' => $deviceHash] : []),
-                ])->save();
-            }
-            if ($deviceHash !== '') {
-                IpRiskState::query()
-                    ->where('ip_hash', GlobalSecurityBlock::hashValue($ip))
-                    ->update(['last_device_hash' => $deviceHash]);
-            }
-        }
-
         $this->recordAdminAction(
             $request,
             'risk.global_block_created',
             'global_security_block',
             implode(',', $created),
             0,
-            ['device_serial' => $deviceSerial, 'ip' => $ip, 'note' => $note, 'source' => $source],
+            ['device_serial' => $deviceSerial, 'note' => $note, 'source' => $source],
             $source === 'quick' ? '客户端请求日志快速拉黑' : '后台主动添加全软件封禁',
         );
 
-        return back()->with('success', $this->globalBlockSuccessMessage($deviceSerial, $ip, $deviceExisted, $ipExisted, $source));
+        return back()->with('success', $this->globalBlockSuccessMessage($deviceExisted, $source));
     }
 
     public function destroyGlobalBlock(Request $request, string $adminPath, GlobalSecurityBlock $globalBlock): RedirectResponse
@@ -536,11 +472,11 @@ final class AdminRiskControlController extends Controller
             $snapshot['subject_hash'],
             0,
             $snapshot,
-            $snapshot['subject_type'] === 'device' ? '解除设备封控并释放关联 IP' : '解除 IP 封控',
+            $snapshot['subject_type'] === 'device' ? '解除设备封控' : '解除 IP 封控',
         );
 
         return back()->with('success', $snapshot['subject_type'] === 'device'
-            ? '已解除该设备及其关联 IP。'
+            ? '已解除该设备封控。'
             : '已解除该 IP 封控。');
     }
 
@@ -624,13 +560,11 @@ final class AdminRiskControlController extends Controller
     }
 
     /**
-     * @return Collection<int, array{key:string,kind:string,value:string,related:?string,reason:string,at:?\Carbon\CarbonInterface,timestamp:int}>
+     * @return Collection<int, array{key:string,kind:string,value:string,related:?string,reason:string,at:?CarbonInterface,timestamp:int}>
      */
     private function centerBlockRows(): Collection
     {
-        $global = GlobalSecurityBlock::query()->latest()->get();
-        $globalDevices = $global->where('subject_type', 'device')->values();
-        $globalIps = $global->where('subject_type', 'ip')->values();
+        $globalDevices = GlobalSecurityBlock::query()->where('subject_type', 'device')->latest()->get();
         $globalDeviceHashes = $globalDevices->pluck('subject_hash');
 
         $blockedDevices = ClientSecuritySubjectState::query()
@@ -642,24 +576,16 @@ final class AdminRiskControlController extends Controller
             ->values();
         $details = $this->resolveSecurityDeviceDetails($blockedDevices);
 
-        $blockedIps = IpRiskState::query()
-            ->where(function ($query): void {
-                $query->where('permanently_blocked', true)->orWhere('blocked_until', '>', now());
-            })
-            ->latest('last_seen_at')
-            ->get()
-            ->unique('ip_hash')
-            ->values();
-
-        $ipIndex = $this->blockedIpIndex($globalIps, $blockedIps);
+        // Associated addresses are diagnostic context, never additional block subjects.
+        $deviceHashes = $globalDeviceHashes->merge($blockedDevices->pluck('device_hash'))->unique();
+        $ipsByDevice = IpRiskState::query()->whereIn('last_device_hash', $deviceHashes)
+            ->latest('last_seen_at')->get(['last_device_hash', 'ip'])->groupBy('last_device_hash');
         $rows = collect();
-        $nestedIpHashes = collect();
 
         foreach ($globalDevices as $block) {
-            $linked = $ipIndex['by_device']->get((string) $block->subject_hash, collect());
-            $nestedIpHashes = $nestedIpHashes->merge($linked->pluck('hash'));
-            $at = $this->latestAt($block->updated_at ?? $block->created_at, $linked->pluck('at'));
-            $reason = $this->newestReasonLabel((string) $block->reason, $block->note, $block->updated_at ?? $block->created_at, $linked);
+            $linked = $ipsByDevice->get((string) $block->subject_hash, collect());
+            $at = $block->updated_at ?? $block->created_at;
+            $reason = $this->blockReasonLabel((string) $block->reason, $block->note);
             $rows->push([
                 'key' => 'global:'.$block->getKey(),
                 'kind' => 'device',
@@ -675,13 +601,12 @@ final class AdminRiskControlController extends Controller
             if ($globalDeviceHashes->contains($deviceState->device_hash)) {
                 continue;
             }
-            $linked = $ipIndex['by_device']->get((string) $deviceState->device_hash, collect());
-            $nestedIpHashes = $nestedIpHashes->merge($linked->pluck('hash'));
+            $linked = $ipsByDevice->get((string) $deviceState->device_hash, collect());
             $detail = $details[$deviceState->device_hash] ?? [];
             $identifier = $detail['identifier'] ?? null;
             $hashSummary = substr($deviceState->device_hash, 0, 12).'…'.substr($deviceState->device_hash, -8);
-            $at = $this->latestAt($deviceState->last_event_at ?? $deviceState->updated_at, $linked->pluck('at'));
-            $reason = $this->newestReasonLabel((string) $deviceState->reason_code, null, $deviceState->last_event_at ?? $deviceState->updated_at, $linked);
+            $at = $deviceState->last_event_at ?? $deviceState->updated_at;
+            $reason = $this->blockReasonLabel((string) $deviceState->reason_code, null);
             $rows->push([
                 'key' => 'device:'.$deviceState->getKey(),
                 'kind' => 'device',
@@ -693,104 +618,7 @@ final class AdminRiskControlController extends Controller
             ]);
         }
 
-        foreach ($ipIndex['by_hash'] as $item) {
-            if ($nestedIpHashes->contains($item['hash'])) {
-                continue;
-            }
-            $relatedDevice = null;
-            if (is_string($item['device_hash'] ?? null) && $item['device_hash'] !== '') {
-                $relatedDevice = $details[$item['device_hash']]['identifier']
-                    ?? $globalDevices->firstWhere('subject_hash', $item['device_hash'])?->subject_value;
-            }
-            $at = $item['at'];
-            $rows->push([
-                'key' => $item['key'],
-                'kind' => 'ip',
-                'value' => (string) $item['ip'],
-                'related' => $relatedDevice ?: null,
-                'reason' => $this->blockReasonLabel((string) $item['reason'], $item['note']),
-                'at' => $at,
-                'timestamp' => $item['timestamp'],
-            ]);
-        }
-
         return $rows->values();
-    }
-
-    /**
-     * @param  Collection<int, GlobalSecurityBlock>  $globalIps
-     * @param  Collection<int, IpRiskState>  $blockedIps
-     * @return array{by_hash: Collection<string, array<string, mixed>>, by_device: Collection<string, Collection<int, array<string, mixed>>>}
-     */
-    private function blockedIpIndex(Collection $globalIps, Collection $blockedIps): array
-    {
-        $ipHashes = $globalIps->pluck('subject_hash')->merge($blockedIps->pluck('ip_hash'))->unique()->filter()->values();
-        $deviceOf = [];
-        if ($ipHashes->isNotEmpty()) {
-            foreach (IpRiskState::query()
-                ->whereIn('ip_hash', $ipHashes)
-                ->whereNotNull('last_device_hash')
-                ->where('last_device_hash', '!=', '')
-                ->orderByDesc('last_seen_at')
-                ->get(['ip_hash', 'last_device_hash']) as $link) {
-                if (! isset($deviceOf[$link->ip_hash])) {
-                    $deviceOf[(string) $link->ip_hash] = (string) $link->last_device_hash;
-                }
-            }
-        }
-
-        $byHash = collect();
-        foreach ($globalIps as $block) {
-            $hash = (string) $block->subject_hash;
-            $at = $block->updated_at ?? $block->created_at;
-            $byHash->put($hash, [
-                'key' => 'global:'.$block->getKey(),
-                'hash' => $hash,
-                'ip' => (string) $block->subject_value,
-                'device_hash' => $deviceOf[$hash] ?? null,
-                'reason' => (string) $block->reason,
-                'note' => $block->note,
-                'at' => $at,
-                'timestamp' => $at?->getTimestamp() ?? 0,
-            ]);
-        }
-        foreach ($blockedIps as $state) {
-            $hash = (string) $state->ip_hash;
-            if ($byHash->has($hash)) {
-                $item = $byHash->get($hash);
-                $stateNote = trim((string) $state->note);
-                if ($stateNote !== '' && $this->isGenericBlockNote(is_string($item['note'] ?? null) ? $item['note'] : null)) {
-                    $item['note'] = $stateNote;
-                    $byHash->put($hash, $item);
-                }
-                continue;
-            }
-            $at = $state->last_seen_at ?? $state->updated_at;
-            $byHash->put($hash, [
-                'key' => 'ip:'.$state->getKey(),
-                'hash' => $hash,
-                'ip' => (string) $state->ip,
-                'device_hash' => $deviceOf[$hash] ?? (trim((string) $state->last_device_hash) !== '' ? (string) $state->last_device_hash : null),
-                'reason' => (string) ($state->note ?: $state->level),
-                'note' => $state->note,
-                'at' => $at,
-                'timestamp' => $at?->getTimestamp() ?? 0,
-            ]);
-        }
-
-        return [
-            'by_hash' => $byHash,
-            'by_device' => $byHash
-                ->filter(fn (array $item): bool => is_string($item['device_hash'] ?? null) && $item['device_hash'] !== '')
-                ->groupBy('device_hash'),
-        ];
-    }
-
-    private function latestAt(mixed $primary, Collection $others): mixed
-    {
-        return collect([$primary])->merge($others)->filter()->sortByDesc(
-            fn (mixed $value): int => $value instanceof \Carbon\CarbonInterface ? $value->getTimestamp() : 0,
-        )->first();
     }
 
     private function isGenericBlockNote(?string $note): bool
@@ -836,55 +664,6 @@ final class AdminRiskControlController extends Controller
             in_array($reason, ['ADMIN_BLOCK', 'GLOBAL_BLOCK'], true) => '手动添加',
             default => null,
         };
-    }
-
-    private function reasonCodeWeight(string $reason): int
-    {
-        return match ($reason) {
-            'C0', 'D0', 'D1', 'R0', 'S0', 'T1', 'IH', 'CRC', 'QUICK_BLOCK' => 3,
-            'ADMIN_BLOCK', 'GLOBAL_BLOCK' => 1,
-            default => 0,
-        };
-    }
-
-    private function noteDetailWeight(?string $note): int
-    {
-        $note = trim((string) $note);
-        if ($this->isGenericBlockNote($note)) {
-            return 0;
-        }
-        $weight = 1;
-        if (preg_match('/达到\s*\d+\s*次/u', $note) === 1) {
-            $weight += 3;
-        }
-        if (str_contains($note, '槽') || str_contains($note, 'ih') || str_contains($note, 'IH')) {
-            $weight += 2;
-        }
-
-        return $weight;
-    }
-
-    private function newestReasonLabel(string $reason, ?string $note, mixed $at, Collection $linked): string
-    {
-        $candidates = collect([[
-            'reason' => $reason,
-            'note' => $note,
-            'timestamp' => $at instanceof \Carbon\CarbonInterface ? $at->getTimestamp() : 0,
-        ]])->concat($linked->map(fn (array $item): array => [
-            'reason' => (string) ($item['reason'] ?? ''),
-            'note' => $item['note'] ?? null,
-            'timestamp' => (int) ($item['timestamp'] ?? 0),
-        ]));
-
-        $newest = $candidates->sortByDesc(
-            fn (array $item): int => ((int) $item['timestamp'] * 10) + $this->reasonCodeWeight((string) ($item['reason'] ?? '')),
-        )->first() ?? ['reason' => $reason, 'note' => $note];
-        $reasonCode = (string) ($newest['reason'] ?? '');
-        $bestNote = $candidates->sortByDesc(
-            fn (array $item): int => ($this->noteDetailWeight(is_string($item['note'] ?? null) ? $item['note'] : null) * 1_000_000_000) + (int) $item['timestamp'],
-        )->first()['note'] ?? $newest['note'];
-
-        return $this->blockReasonLabel($reasonCode, is_string($bestNote ?? null) ? $bestNote : null);
     }
 
     private function releaseLinkedIps(string $deviceHash): void
@@ -978,39 +757,12 @@ final class AdminRiskControlController extends Controller
         return $category;
     }
 
-    private function globalBlockSuccessMessage(
-        string $deviceSerial,
-        string $ip,
-        bool $deviceExisted,
-        bool $ipExisted,
-        string $source,
-    ): string {
-        $hasDevice = $deviceSerial !== '';
-        $hasIp = $ip !== '';
+    private function globalBlockSuccessMessage(bool $deviceExisted, string $source): string
+    {
         if ($source === 'quick') {
-            if ($hasDevice && $hasIp && $deviceExisted && ! $ipExisted) {
-                return '设备已在黑名单中，IP 已进入黑名单。任意软件登录将显示卡密不存在。';
-            }
-            if ($hasDevice && $hasIp && ! $deviceExisted && $ipExisted) {
-                return 'IP 已在黑名单中，设备已拉黑。任意软件登录将显示卡密不存在。';
-            }
-            if ($hasDevice && $hasIp && $deviceExisted && $ipExisted) {
-                return '该设备和 IP 已在黑名单中。';
-            }
-            if ($hasDevice && $deviceExisted) {
-                return '设备已在黑名单中。';
-            }
-            if ($hasIp && $ipExisted) {
-                return 'IP 已在黑名单中。';
-            }
-            if ($hasDevice && $hasIp) {
-                return '已快速拉黑该设备和 IP，任意软件登录将显示卡密不存在。';
-            }
-            if ($hasDevice) {
-                return '已快速拉黑该设备，任意软件登录将显示卡密不存在。';
-            }
-
-            return '已快速拉黑该 IP，任意软件登录将显示卡密不存在。';
+            return $deviceExisted
+                ? '设备已在黑名单中。'
+                : '已快速拉黑该设备，任意软件登录将显示卡密不存在。';
         }
 
         return '已拉黑，任意软件登录将显示卡密不存在。';

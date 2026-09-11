@@ -70,7 +70,10 @@ class AdminTablePresentationTest extends TestCase
             $this->assertStringContainsString('data-table-export', $html);
             if ($page !== 'blocklist') {
                 $this->assertStringContainsString('admin-action-column', $html);
-                $this->assertStringContainsString('is-muted', $html);
+                if ($page !== 'protection') {
+                    $this->assertStringContainsString('is-muted', $html);
+                }
+                $this->assertStringNotContainsString('name="ip"', $html);
             }
             if ($page !== 'protection') {
                 $this->assertStringContainsString('data-client-trace-detail', $html);

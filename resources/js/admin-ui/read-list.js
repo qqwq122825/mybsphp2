@@ -77,15 +77,15 @@ export function readAdminList(root) {
     return {
         title: shell.querySelector('h2').textContent,
         subtitle: shell.querySelector('.admin-table-shell-header small, .bsphp-mode-chip')?.textContent || '',
-        metrics: metricValues.length ? [{ label: '近 24 小时', value: metricValues[0], suffix: '次' }, { label: '封控设备', value: metricValues[1], suffix: '台' }, { label: '封控 IP', value: metricValues[2], suffix: '个' }] : [],
+        metrics: metricValues.length ? [{ label: '近 24 小时', value: metricValues[0], suffix: '次' }, { label: '封控设备', value: metricValues[1], suffix: '台' }] : [],
         columns: headers.map((cell, index) => {
             const selection = !!cell.querySelector('[data-card-select-all]');
             const action = cell.classList.contains('admin-action-column') || cell.classList.contains('bsphp-user-action-column');
             const detail = cell.classList.contains('admin-detail-column');
             const label = cell.textContent.trim();
-            const widths = { '类型': 80, '时间': 156, '时间 / IP': 224, '封控对象': 220, '关联': 240, '原因': 260, '真实原因': 220, '客户端提示': 132, '设备': 200, '软件 / 卡密': 190, '设备对比': 250, '响应摘要': 180, '结果': 120, '记录时间': 178, '登录ip': 220, '信息': 260 };
+            const widths = { '类型': 80, '时间': 156, '时间 / IP': 224, '封控对象': 220, '关联': 240, '日志 IP': 240, '原因': 260, '真实原因': 220, '客户端提示': 132, '设备': 200, '软件 / 卡密': 190, '设备对比': 250, '响应摘要': 180, '结果': 120, '记录时间': 178, '登录ip': 220, '信息': 260 };
             const isRisk = root.dataset.listKind === 'risk';
-            if (isRisk) Object.assign(widths, { '类型': 72, '封控对象': 200, '关联': 210, '原因': 190, '时间': 140 });
+            if (isRisk) Object.assign(widths, { '类型': 72, '封控对象': 200, '关联': 210, '日志 IP': 210, '原因': 190, '时间': 140 });
             if (root.dataset.listKind === 'users') Object.assign(widths, { '充值卡号(激活码)': 230, '用户名': 160, '状态': 86, '账号多开': 100, '机器用量': 100, '到期时间': 170, '有效期': 144, '最后在线': 150, '绑定特征': 180, '备注': 180 });
             return { key: index, label, selection, action, detail, width: selection ? 48 : action ? (isRisk ? 100 : 116) : detail ? 128 : undefined, minWidth: widths[label] || 120 };
         }),

@@ -22,7 +22,7 @@
         <input type="hidden" name="view" value="{{ $clientLogMode }}">
     @endif
 </form>
-<x-admin.table-shell :title="$title" :subtitle="$isBlocklistRequestLog ? '设备和 IP 已拉黑后仍继续登录的请求；客户端仍显示卡密不存在' : ($isClientRequestLog ? ($isClientSimpleLog ? '错误、万能卡密，以及全部模式下的正常登录；卡密不存在、空卡密、参数错误也会进入此列表' : '详细请求由系统设置控制：简单模式关闭，诊断模式记报错与万能卡密，全部模式含正常登录') : ($isCardMakingLog ? null : ($logType === 'protection' ? '后台登录失败、代理登录失败与系统封禁事件' : '系统审计数据查询')))" panel-class="bsphp-log-panel">
+<x-admin.table-shell :title="$title" :subtitle="$isBlocklistRequestLog ? '设备已拉黑后仍继续登录的请求；客户端仍显示卡密不存在' : ($isClientRequestLog ? ($isClientSimpleLog ? '错误、万能卡密，以及全部模式下的正常登录；卡密不存在、空卡密、参数错误也会进入此列表' : '详细请求由系统设置控制：简单模式关闭，诊断模式记报错与万能卡密，全部模式含正常登录') : ($isCardMakingLog ? null : ($logType === 'protection' ? '后台登录失败、代理登录失败与系统封禁事件' : '系统审计数据查询')))" panel-class="bsphp-log-panel">
     <x-slot:search><x-admin.filter-bar button-label="⌕" :icon-only="true">
         @if($isClientRequestLog)
             <x-slot:hidden>
@@ -97,10 +97,10 @@
                                 data-request-payload="{{ $requestPayload }}"
                                 data-response-payload="{{ $responsePayload }}">详细请求 <span aria-hidden="true">→</span></x-admin.table-action></td>
                     @unless($isBlocklistRequestLog)
-                    <td class="admin-action-column">@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice, 'blockIp' => (string) ($log->ip ?: '')])</td>
+                    <td class="admin-action-column">@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice])</td>
                     @endunless
                 </tr>
-            @empty<tr><td class="empty-cell" colspan="{{ $isBlocklistRequestLog ? 7 : 8 }}">{{ $isBlocklistRequestLog ? '当前没有黑名单命中记录。设备和 IP 拉黑后仍继续登录会出现在这里。' : '当前没有需要客服介入的简要诊断记录。' }}</td></tr>@endforelse
+            @empty<tr><td class="empty-cell" colspan="{{ $isBlocklistRequestLog ? 7 : 8 }}">{{ $isBlocklistRequestLog ? '当前没有黑名单命中记录。设备拉黑后仍继续登录会出现在这里。' : '当前没有需要客服介入的简要诊断记录。' }}</td></tr>@endforelse
             </tbody>
             @elseif($isClientRequestLog)
             <thead><tr><th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th><th>时间 / IP</th><th>软件 / 卡密</th><th>设备对比</th><th>响应摘要</th><th>结果</th><th class="admin-detail-column">详情</th><th class="admin-action-column">处置</th></tr></thead>
@@ -148,7 +148,7 @@
                                 data-result-tone="{{ $log->result === 'success' ? 'success' : 'danger' }}"
                                 data-request-payload="{{ $requestPayload }}"
                                 data-response-payload="{{ $responsePayload }}">查看详情 <span aria-hidden="true">→</span></x-admin.table-action></td>
-                    <td class="admin-action-column">@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice, 'blockIp' => (string) ($log->ip ?: '')])</td>
+                    <td class="admin-action-column">@include('admin.logs.partials.quick-block', ['blockDevice' => $requestDevice])</td>
                 </tr>
             @empty<tr><td class="empty-cell" colspan="8">当前暂无{{ $title }}数据，可先在系统信息设置中开启诊断开关。</td></tr>@endforelse
             </tbody>
@@ -168,18 +168,7 @@
                     @unless($isCardMakingLog)<td><span class="log-result {{ $log->result === 'success' ? 'is-success' : 'is-danger' }}">{{ $log->result === 'success' ? '成功' : '拦截/失败' }}</span></td>@endunless
                     @if($isProtectionLog)
                         <td class="admin-action-column">
-                            @if($log->canBlockLoginIp() && $blockedIpHashes->contains(\App\Models\GlobalSecurityBlock::hashValue((string) $log->ip)))
-                                <span class="log-result is-muted">已封禁</span>
-                            @elseif($log->canBlockLoginIp())
-                                <form method="post" action="{{ route('admin.risk-control.global-blocks.store', ['adminPath' => $adminPath]) }}">
-                                    @csrf
-                                    <input type="hidden" name="ip" value="{{ $log->ip }}">
-                                    <input type="hidden" name="note" value="系统安全日志封禁">
-                                    <x-admin.table-action tone="danger" type="submit" onclick="return confirm('确定拉黑该 IP 吗？拉黑后任意软件登录显示卡密不存在。')">封禁此 IP</x-admin.table-action>
-                                </form>
-                            @else
-                                —
-                            @endif
+                            —
                         </td>
                     @endif
                 </tr>

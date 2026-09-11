@@ -57,14 +57,14 @@ final class AdminTablePreview
             return SoftwarePreview::render($page, $common, $request);
         }
         $at = CarbonImmutable::parse('2026-09-10 17:08:35');
-        $devices = ['G77VW4L9TG', '3CFDD33C-C703-42F0-9E00-3B36090270EC', 'NKQ2D3YHKW', 'DMPXX07AKD89', 'KWWP4R9G5Y', 'QF9VV04M76'];
+        $devices = ['DX3DRAQ2N741', '3CFDD33C-C703-42F0-9E00-3B36090270EC', 'NKQ2D3YHKW', 'DMPXX07AKD89', 'KWWP4R9G5Y', 'QF9VV04M76'];
         $ips = ['203.0.113.24', '2001:db8:2000:9872:f425:3ba4:a953:4363', '198.51.100.46', '192.0.2.247', '203.0.113.12', '2001:db8:846d:6400:5379:9235:1234:5678'];
         $rows = collect();
         for ($i = 0; $i < 12; $i++) {
-            $rows->push(['key' => 'global:'.($i + 1), 'kind' => $i === 5 ? 'ip' : 'device', 'value' => $i === 5 ? $ips[5] : $devices[$i % 6], 'related' => $i === 5 ? null : $ips[$i % 6].($i === 1 ? '、203.0.113.28' : ''), 'reason' => $i % 3 === 0 ? '套卡探测 INVALID_CARD 达到 3 次 / 120 秒' : '快速拉黑', 'at' => $at->subMinutes($i * 17)]);
+            $rows->push(['key' => 'global:'.($i + 1), 'kind' => 'device', 'value' => $devices[$i % 6], 'related' => $ips[$i % 6].($i === 1 ? '、203.0.113.28' : ''), 'reason' => $i % 3 === 0 ? '套卡探测 INVALID_CARD 达到 3 次 / 120 秒' : '快速拉黑', 'at' => $at->subMinutes($i * 17)]);
         }
         if (in_array($page, ['center', 'empty'], true)) {
-            return view('admin.risk-control.center', $common + ['metrics' => ['events_24h' => $page === 'empty' ? 0 : 8, 'blocked_devices' => $page === 'empty' ? 0 : 11, 'blocked_ips' => $page === 'empty' ? 0 : 13], 'blocks' => new LengthAwarePaginator($page === 'empty' ? [] : $rows, $page === 'empty' ? 0 : 32, 20, 1, ['path' => $request->url()])])->render();
+            return view('admin.risk-control.center', $common + ['metrics' => ['events_24h' => $page === 'empty' ? 0 : 8, 'blocked_devices' => $page === 'empty' ? 0 : 11], 'blocks' => new LengthAwarePaginator($page === 'empty' ? [] : $rows, $page === 'empty' ? 0 : 32, 20, 1, ['path' => $request->url()])])->render();
         }
         if ($page === 'administrators') {
             return view('admin.administrators.index', $common + ['administrators' => new LengthAwarePaginator([$administrator], 1, 20), 'roles' => collect([$role])])->render();
@@ -74,7 +74,7 @@ final class AdminTablePreview
             $success = $i === 3 && $page !== 'blocklist';
             $log = (new AuditLog)->forceFill([
                 'id' => 4363 - $i, 'public_id' => 'preview-'.$i, 'request_id' => 'preview-request-'.$i,
-                'ip' => $ips[$i % 6], 'created_at' => $at->subMinutes($i * 3),
+                'ip' => $i === 6 ? $ips[1] : $ips[$i % 6], 'created_at' => $at->subMinutes($i * 3),
                 'action' => $page === 'protection' ? 'admin.login_failed' : 'client.blocklist_hit', 'actor_role_snapshot' => 'client',
                 'before_data' => ['application' => ['name' => $i === 2 ? '桌面客户端 · 长名称样式验证' : '桌面客户端'], 'credential' => 'DEMO-CARD-'.str_pad((string) $i, 4, '0', STR_PAD_LEFT), 'device' => $devices[$i % 6]],
                 'after_data' => ['internal_code' => $success ? 'OK' : 'DEVICE_BLOCKED', 'internal_message' => $success ? '登录验证通过。' : '设备已进入安全封控。', 'public_message' => $success ? '登录成功' : '卡密不存在', 'http_status' => 200, 'diagnostic_code' => $success ? 'OK' : 'DEVICE_BLOCKED', 'bound_device' => $devices[$i % 6], 'username' => 'preview_user'],
@@ -95,7 +95,6 @@ final class AdminTablePreview
             'logs' => new LengthAwarePaginator($logs, 128, 20, 1, ['path' => $request->url()]),
             'clientTraceDetails' => collect(), 'cardCodesByPublicId' => collect(), 'cardMakingBatches' => collect(),
             'blockedDeviceHashes' => collect([GlobalSecurityBlock::hashValue($devices[0])]),
-            'blockedIpHashes' => collect([GlobalSecurityBlock::hashValue($ips[0])]),
         ])->render();
     }
 }

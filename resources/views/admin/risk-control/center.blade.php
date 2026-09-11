@@ -12,9 +12,9 @@
     @csrf
 </form>
 
-<x-admin.table-shell title="封控中心" subtitle="拉黑以设备为主，关联 IP 显示在同一行。解除设备时关联 IP 一并释放；只封 IP 时仍单独一行。任意软件登录都显示卡密不存在。" panel-class="bsphp-log-panel">
+<x-admin.table-shell title="封控中心" subtitle="仅按设备封控，IP 仅作日志记录，不参与封禁。设备换 IP 后仍受封控；同 IP 的其他设备不受影响。拉黑设备在任意软件登录都显示卡密不存在。" panel-class="bsphp-log-panel">
     <x-slot:headingMeta>
-        <p class="risk-center-metrics">近 24 小时 <b>{{ $metrics['events_24h'] }}</b> 次 · 设备 <b>{{ $metrics['blocked_devices'] }}</b> · IP <b>{{ $metrics['blocked_ips'] }}</b></p>
+        <p class="risk-center-metrics">近 24 小时 <b>{{ $metrics['events_24h'] }}</b> 次 · 设备 <b>{{ $metrics['blocked_devices'] }}</b></p>
     </x-slot:headingMeta>
     <x-slot:headingActions>
         <button class="button button-primary" type="button" data-window-open="add-risk-block">添加封禁</button>
@@ -25,7 +25,7 @@
                 <select name="subject_type" aria-label="搜索字段">
                     <option value="all" @selected(request('subject_type', 'all') === 'all')>全部</option>
                     <option value="device" @selected(request('subject_type') === 'device')>设备</option>
-                    <option value="ip" @selected(request('subject_type') === 'ip')>IP</option>
+                    <option value="ip" @selected(request('subject_type') === 'ip')>日志 IP</option>
                 </select>
             </x-slot:field>
             <x-slot:keyword>
@@ -41,7 +41,7 @@
     </x-slot:search>
     <x-slot:toolbar>
         <div>
-            <x-admin.table-action type="submit" form="risk-center-release-form" onclick="return confirm('确定解除选中的封控吗？设备行会同时释放关联 IP。')">解除选定</x-admin.table-action>
+            <x-admin.table-action type="submit" form="risk-center-release-form" onclick="return confirm('确定解除选中的设备封控吗？')">解除选定</x-admin.table-action>
         </div>
         <x-admin.table-tools />
     </x-slot:toolbar>
@@ -51,7 +51,7 @@
                 <th class="admin-select-column"><input type="checkbox" aria-label="全选" data-card-select-all></th>
                 <th>类型</th>
                 <th>封控对象</th>
-                <th>关联</th>
+                <th>日志 IP</th>
                 <th>原因</th>
                 <th>时间</th>
                 <th class="admin-action-column">处置</th>
@@ -69,7 +69,7 @@
                 <td class="risk-center-reason">{{ $block['reason'] }}</td>
                 <td class="admin-table-time"><span>{{ $block['at']?->format('Y-m-d') ?: '—' }}</span><small>{{ $block['at']?->format('H:i:s') }}</small></td>
                 <td class="admin-action-column">
-                    <x-admin.table-action type="submit" form="risk-center-release-form" name="block_keys[]" value="{{ $block['key'] }}" onclick="return confirm('{{ $block['kind'] === 'device' ? '确定解除该设备及其关联 IP 吗？' : '确定解除该 IP 吗？' }}')">解除</x-admin.table-action>
+                    <x-admin.table-action type="submit" form="risk-center-release-form" name="block_keys[]" value="{{ $block['key'] }}" onclick="return confirm('确定解除该设备封控吗？')">解除</x-admin.table-action>
                 </td>
             </tr>
         @empty
@@ -85,21 +85,16 @@
 </x-admin.table-shell>
 
 <x-admin.window-dialog id="add-risk-block" title="添加封禁" eyebrow="RISK BLOCK" :workspace="false" :maximized="false"
-                       :auto-open="$errors->has('device_serial') || $errors->has('ip') || $errors->has('note')"
+                       :auto-open="$errors->has('device_serial') || $errors->has('note')"
                        class="risk-block-dialog">
     <form method="post" action="{{ route('admin.risk-control.global-blocks.store', ['adminPath' => $adminPath]) }}">
         @csrf
         <div class="administrator-create-rows">
-            <p class="administrator-create-note">可只填设备、只填 IP，或两个都填。设备和 IP 会显示在同一行；解除设备时关联 IP 一并释放。拉黑后任意软件登录都显示卡密不存在。</p>
+            <p class="administrator-create-note">填写设备序列号，按设备拉黑；IP 仅作日志记录。拉黑后该设备在任意软件登录都显示卡密不存在。</p>
             <label class="administrator-create-row">
                 <strong>设备序列号</strong>
-                <input name="device_serial" data-error="{{ $errors->first('device_serial') }}" value="{{ old('device_serial') }}" placeholder="例如 D2QDT96KLH" maxlength="160">
+                <input name="device_serial" data-error="{{ $errors->first('device_serial') }}" value="{{ old('device_serial') }}" placeholder="例如 D2QDT96KLH" maxlength="160" required>
                 <small>{{ $errors->first('device_serial') ?: '按特征码拉黑' }}</small>
-            </label>
-            <label class="administrator-create-row">
-                <strong>IP 地址</strong>
-                <input name="ip" data-error="{{ $errors->first('ip') }}" value="{{ old('ip') }}" placeholder="例如 203.0.113.88">
-                <small>{{ $errors->first('ip') ?: '按登录 IP 拉黑' }}</small>
             </label>
             <label class="administrator-create-row">
                 <strong>备注</strong>
@@ -107,7 +102,7 @@
                 <small>仅后台可见</small>
             </label>
             <div class="administrator-create-actions">
-                <button class="button button-primary" type="submit" onclick="return confirm('确定拉黑所填设备或 IP 吗？')">确认拉黑</button>
+                <button class="button button-primary" type="submit" onclick="return confirm('确定拉黑所填设备吗？')">确认拉黑</button>
                 <button class="button button-secondary" type="button" data-window-action="close">取消</button>
             </div>
         </div>

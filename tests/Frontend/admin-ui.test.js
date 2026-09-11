@@ -51,3 +51,20 @@ test('CSV export escapes quotes and neutralizes spreadsheet formulas', () => {
     assert.equal(csvCell('设备'), '"设备"');
     assert.equal(contentText(readContent(dom('<td></td><div id="time"><span>2026-09-10</span><small>17:08:35</small></div>').querySelector('#time'))), '2026-09-10 17:08:35');
 });
+
+test('device-only risk metrics do not recreate an IP block counter', () => {
+    const document = dom(`<div id="root" data-list-kind="risk"><section class="admin-table-shell"><header><h2>封控中心</h2><p class="risk-center-metrics">近 24 小时 <b>4</b> 次 · 设备 <b>2</b></p></header><table><thead><tr><th>设备</th><th>日志 IP</th></tr></thead><tbody><tr><td>DX3DRAQ2N741</td><td>2001:db8::10</td></tr></tbody></table></section></div>`);
+    const page = readAdminList(document.querySelector('#root'));
+    assert.deepEqual(page.metrics, [
+        { label: '近 24 小时', value: 4, suffix: '次' },
+        { label: '封控设备', value: 2, suffix: '台' },
+    ]);
+    assert.equal(page.columns[1].minWidth, 210);
+});
+
+test('quick block action submits only the device and its audit context', () => {
+    const document = dom(`<form action="/admin/risk-control/global-blocks" method="post"><input type="hidden" name="_token" value="csrf"><input type="hidden" name="device_serial" value="DX3DRAQ2N741"><input type="hidden" name="source" value="quick"><input type="hidden" name="note" value="客户端请求日志快速拉黑"><button type="submit" onclick="return confirm('确定拉黑该请求的设备吗？')">快速拉黑</button></form>`);
+    const action = readAction(document.querySelector('button'));
+    assert.equal(action.confirm, '确定拉黑该请求的设备吗？');
+    assert.deepEqual(submissionFields(action, []), [['_token', 'csrf'], ['device_serial', 'DX3DRAQ2N741'], ['source', 'quick'], ['note', '客户端请求日志快速拉黑']]);
+});

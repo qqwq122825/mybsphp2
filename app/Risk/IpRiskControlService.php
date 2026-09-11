@@ -6,7 +6,6 @@ use App\Applications\DailyVerificationCodec;
 use App\Http\ApiResponse;
 use App\Models\Application;
 use App\Models\ClientSecuritySubjectState;
-use App\Models\GlobalSecurityBlock;
 use App\Models\IpRiskState;
 use App\Models\RiskEvent;
 use App\Models\RiskPolicy;
@@ -53,31 +52,15 @@ final class IpRiskControlService
 
         return DB::transaction(function () use ($application, $policy, $ip, $ipHash, $endpoint, $deviceId): RiskDecision {
             $state = $this->lockIpState($application, $ip, $ipHash);
-            $globalIpBlocked = GlobalSecurityBlock::ipBlocked($ip);
-            $activeBlock = $state->permanently_blocked
-                || ($state->blocked_until !== null && $state->blocked_until->isFuture())
-                || $globalIpBlocked;
-
+            // IP state is retained for diagnostics only, including legacy block records.
             $this->touchState($state, $endpoint, $deviceId, false);
+            $state->forceFill([
+                'level' => 'normal',
+                'permanently_blocked' => false,
+                'blocked_until' => null,
+            ])->save();
 
-            if ($activeBlock) {
-                $state->level = 'high';
-                if ($globalIpBlocked) {
-                    $state->permanently_blocked = true;
-                    $state->blocked_until = null;
-                    $state->note = $state->note ?: '命中全软件 IP 黑名单';
-                }
-                $state->save();
-
-                return new RiskDecision('high', 'block', (int) $state->window_attempts, $policy, $state);
-            }
-
-            if ($state->level !== 'normal' && $state->level !== 'high') {
-                $state->level = 'normal';
-            }
-            $state->save();
-
-            return new RiskDecision((string) $state->level, 'allow', (int) $state->window_attempts, $policy, $state);
+            return new RiskDecision('normal', 'allow', (int) $state->window_attempts, $policy, $state);
         }, 3);
     }
 
@@ -103,7 +86,6 @@ final class IpRiskControlService
 
         DB::transaction(function () use ($application, $policy, $ip, $ipHash, $normalizedDevice, $endpoint, $errorCode, $threshold, $now, $cutoff): void {
             $state = $this->lockIpState($application, $ip, $ipHash);
-            $ipAlreadyBlocked = $this->ipIsBlocked($state, $ip);
             $deviceAlreadyBlocked = $normalizedDevice !== '' && $this->deviceStates->isBlocked($application, $normalizedDevice);
             $ipProbes = $this->pruneProbes($state->recent_card_probes, $cutoff);
             $ipProbes[] = $now;
@@ -141,42 +123,18 @@ final class IpRiskControlService
                 ])->save();
             }
 
-            $ipHit = count($ipProbes) >= $threshold;
-            $deviceHit = $deviceProbes >= $threshold;
-            $shouldBlockIp = ! $ipAlreadyBlocked && ($ipHit || ($deviceHit && ! $deviceAlreadyBlocked));
-            $shouldBlockDevice = $normalizedDevice !== '' && ! $deviceAlreadyBlocked
-                && ($deviceHit || ($ipHit && ! $ipAlreadyBlocked));
-            if (! $shouldBlockIp && ! $shouldBlockDevice) {
-                $state->save();
-
+            $state->forceFill(['level' => 'normal', 'permanently_blocked' => false, 'blocked_until' => null])->save();
+            if ($normalizedDevice === '' || $deviceAlreadyBlocked || $deviceProbes < $threshold) {
                 return;
             }
 
-            if ($shouldBlockIp) {
-                $state->forceFill([
-                    'level' => 'high',
-                    'permanently_blocked' => true,
-                    'blocked_until' => null,
-                    'last_attempt_succeeded' => false,
-                    'note' => '套卡探测 '.$errorCode.' 达到 '.$threshold.' 次 / '.$policy->invalid_card_window_seconds.' 秒',
-                ]);
-                GlobalSecurityBlock::rememberIp($ip, 'C0', 'IP 已拉黑，全软件登录显示卡密不存在');
-            }
-            $state->save();
+            $this->deviceStates->block(
+                $application,
+                $normalizedDevice,
+                'C0',
+                '套卡探测 '.$errorCode.' 达到 '.$threshold.' 次 / '.$policy->invalid_card_window_seconds.' 秒，已拉黑设备。后续任意软件登录显示卡密不存在。',
+            );
 
-            if ($shouldBlockDevice) {
-                $this->deviceStates->block(
-                    $application,
-                    $normalizedDevice,
-                    'C0',
-                    '套卡探测达到阈值，已拉黑设备。后续任意软件登录显示卡密不存在。',
-                );
-            }
-
-            $blockedParts = array_values(array_filter([
-                $shouldBlockDevice ? '设备' : null,
-                $shouldBlockIp ? 'IP' : null,
-            ]));
             RiskEvent::query()->create([
                 'public_id' => (string) Str::ulid(),
                 'application_id' => $application->getKey(),
@@ -185,10 +143,10 @@ final class IpRiskControlService
                 'level' => 'high',
                 'action' => 'block',
                 'endpoint' => $endpoint,
-                'window_attempts' => count($ipProbes),
+                'window_attempts' => $deviceProbes,
                 'threshold' => $threshold,
-                'device_hash' => $normalizedDevice !== '' ? hash('sha256', $normalizedDevice) : null,
-                'reason' => '套卡探测命中：'.$errorCode.'，已拉黑当前'.implode('与', $blockedParts),
+                'device_hash' => hash('sha256', $normalizedDevice),
+                'reason' => '套卡探测命中：'.$errorCode.'，已拉黑当前设备',
             ]);
         }, 3);
     }
@@ -227,24 +185,22 @@ final class IpRiskControlService
                 ]);
             }
 
-            $alreadyBlocked = $state->permanently_blocked === true;
             $state->forceFill([
                 'ip' => $ip,
-                'level' => 'high',
+                'level' => 'normal',
                 'blocked_until' => null,
-                'permanently_blocked' => true,
+                'permanently_blocked' => false,
                 'last_device_hash' => $deviceHash,
                 'last_endpoint' => $endpoint,
                 'last_attempt_succeeded' => false,
                 'last_seen_at' => now(),
-                'note' => '客户端安全事件 '.$reasonCode.' 同步拉黑 IP',
+                'note' => '客户端安全事件 '.$reasonCode.'，IP 仅作日志记录',
             ])->save();
-            GlobalSecurityBlock::rememberIp($ip, $reasonCode, 'IP 已拉黑，全软件登录显示卡密不存在');
             if (trim($deviceId) !== '') {
                 $this->deviceStates->block($application, $deviceId, $reasonCode);
             }
 
-            if (! $alreadyBlocked) {
+            if ($deviceHash !== null) {
                 RiskEvent::query()->create([
                     'public_id' => (string) Str::ulid(),
                     'application_id' => $application->getKey(),
@@ -256,7 +212,7 @@ final class IpRiskControlService
                     'window_attempts' => (int) $state->window_attempts,
                     'threshold' => (int) $policy->high_threshold,
                     'device_hash' => $deviceHash,
-                    'reason' => '客户端安全事件 '.$reasonCode.' 同步拉黑设备与 IP',
+                    'reason' => '客户端安全事件 '.$reasonCode.' 拉黑设备',
                 ]);
             }
 
@@ -359,13 +315,6 @@ final class IpRiskControlService
         $column = self::OPTIONAL_PROBE_CODES[$errorCode] ?? null;
 
         return $column !== null && (bool) $policy->{$column};
-    }
-
-    private function ipIsBlocked(IpRiskState $state, string $ip): bool
-    {
-        return $state->permanently_blocked
-            || ($state->blocked_until !== null && $state->blocked_until->isFuture())
-            || GlobalSecurityBlock::ipBlocked($ip);
     }
 
     private function lockIpState(Application $application, string $ip, string $ipHash): IpRiskState

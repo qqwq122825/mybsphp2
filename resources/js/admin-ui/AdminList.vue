@@ -105,11 +105,11 @@ function runAction(action) {
 
 async function addBlock() {
     if (!await addForm.value.validate().catch(() => false)) return;
-    if (!addModel.value.device_serial?.trim() && !addModel.value.ip?.trim()) {
-        ElMessage.warning('请填写设备序列号或 IP 地址');
+    if (!addModel.value.device_serial?.trim()) {
+        ElMessage.warning('请填写设备序列号');
         return;
     }
-    await submit({ action: props.page.add.action, method: 'post', tone: 'danger', confirm: '确定拉黑所填设备或 IP 吗？' }, [...props.page.add.fields, ...Object.entries(addModel.value)]);
+    await submit({ action: props.page.add.action, method: 'post', tone: 'danger', confirm: '确定拉黑所填设备吗？' }, [...props.page.add.fields, ...Object.entries(addModel.value)]);
 }
 
 function exportRows() {

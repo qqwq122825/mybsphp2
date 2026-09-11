@@ -19,7 +19,6 @@ use App\Models\ClientSecuritySubjectState;
 use App\Models\GlobalSecurityBlock;
 use App\Models\IpRiskState;
 use App\Models\Role;
-use App\Models\SystemSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -59,7 +58,7 @@ class IpRiskControlTest extends TestCase
         $this->assertDatabaseCount('risk_events', 0);
     }
 
-    public function test_three_invalid_card_probes_in_one_minute_block_device_and_ip(): void
+    public function test_three_invalid_card_probes_in_one_minute_block_only_device(): void
     {
         [$application, $gateway] = $this->cardLoginApplication();
         $application->riskPolicy()->create([
@@ -96,8 +95,8 @@ class IpRiskControlTest extends TestCase
         ]);
         $this->assertDatabaseHas('ip_risk_states', [
             'application_id' => $application->getKey(),
-            'level' => 'high',
-            'permanently_blocked' => true,
+            'level' => 'normal',
+            'permanently_blocked' => false,
         ]);
         $this->assertDatabaseHas('risk_events', [
             'application_id' => $application->getKey(),
@@ -108,7 +107,7 @@ class IpRiskControlTest extends TestCase
             'subject_type' => 'device',
             'subject_hash' => hash('sha256', $device),
         ]);
-        $this->assertDatabaseHas('global_security_blocks', [
+        $this->assertDatabaseMissing('global_security_blocks', [
             'subject_type' => 'ip',
         ]);
 
@@ -161,7 +160,7 @@ class IpRiskControlTest extends TestCase
             'device_hash' => hash('sha256', $device), 'status' => 'blocked',
         ]);
         $this->assertDatabaseHas('ip_risk_states', [
-            'application_id' => $application->getKey(), 'permanently_blocked' => true,
+            'application_id' => $application->getKey(), 'permanently_blocked' => false,
         ]);
     }
 
@@ -209,7 +208,7 @@ class IpRiskControlTest extends TestCase
             'device_hash' => hash('sha256', $device), 'status' => 'blocked',
         ]);
         $this->assertDatabaseHas('ip_risk_states', [
-            'application_id' => $application->getKey(), 'permanently_blocked' => true,
+            'application_id' => $application->getKey(), 'permanently_blocked' => false,
         ]);
     }
 
@@ -241,7 +240,7 @@ class IpRiskControlTest extends TestCase
         $this->assertDatabaseHas('client_security_subject_states', [
             'device_hash' => hash('sha256', $device), 'status' => 'blocked',
         ]);
-        $this->assertDatabaseHas('global_security_blocks', [
+        $this->assertDatabaseMissing('global_security_blocks', [
             'subject_type' => 'ip',
         ]);
     }
@@ -285,11 +284,11 @@ class IpRiskControlTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'DEVICE_REQUIRED');
         $this->assertDatabaseHas('ip_risk_states', [
-            'application_id' => $application->getKey(), 'permanently_blocked' => true,
+            'application_id' => $application->getKey(), 'permanently_blocked' => false,
         ]);
     }
 
-    public function test_blocked_device_from_a_new_ip_is_counted_until_that_ip_is_blocked(): void
+    public function test_blocked_device_remains_blocked_on_new_ip_without_blocking_the_address(): void
     {
         [$application, $gateway] = $this->cardLoginApplication();
         $this->enableCardProbe($application);
@@ -300,7 +299,7 @@ class IpRiskControlTest extends TestCase
         $this->assertDatabaseHas('global_security_blocks', [
             'subject_type' => 'device', 'subject_hash' => hash('sha256', $device),
         ]);
-        $this->assertDatabaseHas('global_security_blocks', [
+        $this->assertDatabaseMissing('global_security_blocks', [
             'subject_type' => 'ip', 'subject_value' => '127.0.0.1',
         ]);
 
@@ -311,13 +310,13 @@ class IpRiskControlTest extends TestCase
             'subject_type' => 'ip', 'subject_hash' => hash('sha256', '198.51.100.88'),
         ]);
         $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FAKE-NEW-3', $device, '6'));
-        $this->assertDatabaseHas('global_security_blocks', [
+        $this->assertDatabaseMissing('global_security_blocks', [
             'subject_type' => 'ip', 'subject_hash' => hash('sha256', '198.51.100.88'),
             'subject_value' => '198.51.100.88',
         ]);
     }
 
-    public function test_blocked_ip_keeps_counting_until_a_new_device_is_blocked(): void
+    public function test_devices_sharing_an_ip_have_independent_probe_counts(): void
     {
         [$application, $gateway] = $this->cardLoginApplication();
         $this->enableCardProbe($application);
@@ -411,7 +410,7 @@ class IpRiskControlTest extends TestCase
                 'subject_value' => 'GLOBAL-SERIAL-001',
                 'reason' => 'ADMIN_BLOCK',
             ]);
-            $this->assertDatabaseHas('global_security_blocks', [
+            $this->assertDatabaseMissing('global_security_blocks', [
                 'subject_type' => 'ip',
                 'subject_value' => '203.0.113.88',
             ]);
@@ -436,7 +435,7 @@ class IpRiskControlTest extends TestCase
         }
     }
 
-    public function test_quick_block_keeps_an_existing_device_and_adds_the_ip(): void
+    public function test_quick_block_keeps_an_existing_device_without_adding_the_ip(): void
     {
         app(SystemAccessSynchronizer::class)->sync();
         $lockPath = storage_path('framework/testing/quick-block.lock');
@@ -466,7 +465,7 @@ class IpRiskControlTest extends TestCase
                     'note' => '客户端请求日志快速拉黑',
                 ])
                 ->assertRedirect('/private-console/system-logs/client-requests')
-                ->assertSessionHas('success', '设备已在黑名单中，IP 已进入黑名单。任意软件登录将显示卡密不存在。');
+                ->assertSessionHas('success', '设备已在黑名单中。');
 
             $this->assertDatabaseHas('global_security_blocks', [
                 'subject_type' => 'device',
@@ -474,24 +473,20 @@ class IpRiskControlTest extends TestCase
                 'reason' => 'ADMIN_BLOCK',
                 'note' => '事先手动添加',
             ]);
-            $this->assertDatabaseHas('global_security_blocks', [
+            $this->assertDatabaseMissing('global_security_blocks', [
                 'subject_type' => 'ip',
                 'subject_value' => '101.228.113.114',
                 'reason' => 'QUICK_BLOCK',
             ]);
-            $this->assertDatabaseHas('ip_risk_states', [
-                'ip' => '101.228.113.114',
-                'last_device_hash' => hash('sha256', 'PM4QG9NVT4'),
-                'permanently_blocked' => true,
-            ]);
+            $this->assertDatabaseMissing('ip_risk_states', ['ip' => '101.228.113.114']);
 
             $this->get('/private-console/risk-control/center')
                 ->assertOk()
-                ->assertSee('快速拉黑')
+                ->assertSee('事先手动添加')
                 ->assertSee('PM4QG9NVT4')
-                ->assertSee('101.228.113.114')
-                ->assertSee('拉黑以设备为主')
-                ->assertSee('确定解除该设备及其关联 IP 吗？')
+                ->assertDontSee('101.228.113.114')
+                ->assertSee('仅按设备封控')
+                ->assertSee('确定解除该设备封控吗？')
                 ->assertDontSee('当时设备')
                 ->assertDontSee('当时 IP');
 
@@ -510,10 +505,7 @@ class IpRiskControlTest extends TestCase
                 'subject_type' => 'ip',
                 'subject_value' => '101.228.113.114',
             ]);
-            $this->assertDatabaseHas('ip_risk_states', [
-                'ip' => '101.228.113.114',
-                'permanently_blocked' => false,
-            ]);
+            $this->assertDatabaseMissing('ip_risk_states', ['ip' => '101.228.113.114']);
         } finally {
             @unlink($lockPath);
         }
@@ -574,7 +566,7 @@ class IpRiskControlTest extends TestCase
 
             $this->get('/private-console/risk-control/center')
                 ->assertOk()
-                ->assertSee('套卡探测 INVALID_CARD 达到 3 次 / 60 秒')
+                ->assertSee('套卡探测')
                 ->assertSee('蜜罐 · 诱饵确认')
                 ->assertDontSee('IP 已拉黑，全软件登录显示卡密不存在');
         } finally {
@@ -666,11 +658,11 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('正常玩家不会在窗口内多次尝试，只有破解才会这样')
                 ->assertSee('当前规则')
                 ->assertSee('前 2 次只提示「卡密不存在」')
-                ->assertSee('第 3 次还在尝试就拉黑当前设备和 IP')
-                ->assertSee('填 3 表示前 2 次只提示卡密不存在，第 3 次再试就拉黑设备和 IP')
-                ->assertSee('未带设备号计入')
+                ->assertSee('第 3 次还在尝试就拉黑当前设备')
+                ->assertSee('填 3 表示前 2 次只提示卡密不存在，第 3 次再试就拉黑设备')
+                ->assertSee('未带设备号记录')
                 ->assertSee('乱打接口名计入')
-                ->assertSee('已拉黑的设备换新 IP')
+                ->assertSee('按同一设备累计次数，切换 IP 不重置')
                 ->assertDontSee('当前软件策略')
                 ->assertSee('上线运行：谨慎响应')
                 ->assertDontSee('返回软件配置')
@@ -694,14 +686,14 @@ class IpRiskControlTest extends TestCase
                 ->assertSee('封控中心')
                 ->assertSee('添加封禁')
                 ->assertSee('封控对象')
-                ->assertSee('关联')
+                ->assertSee('日志 IP')
                 ->assertSee('data-window-open="add-risk-block"', false)
                 ->assertSee('risk-block-dialog', false)
                 ->assertSee('按特征码拉黑')
-                ->assertSee('按登录 IP 拉黑')
+                ->assertDontSee('按登录 IP 拉黑')
                 ->assertSee('仅后台可见')
                 ->assertSee('risk-center-metrics', false)
-                ->assertSee('近 24 小时 <b>1</b> 次 · 设备 <b>1</b> · IP <b>1</b>', false)
+                ->assertSee('近 24 小时 <b>1</b> 次 · 设备 <b>1</b>', false)
                 ->assertSee('BLOCKED-DEVICE')
                 ->assertSee('2409:8a55:d336:d350:c5ac:6a09:45d4:572a')
                 ->assertSee('蜜罐 · 异常退出')
@@ -718,7 +710,7 @@ class IpRiskControlTest extends TestCase
                 'release_scope' => 'device_only',
             ])
                 ->assertRedirect()
-                ->assertSessionHas('success', '设备黑名单已解除；关联卡密/账号与 IP 保持原状态。');
+                ->assertSessionHas('success', '设备黑名单已解除；关联卡密/账号保持原状态。');
             $this->assertDatabaseHas('client_security_subject_states', [
                 'id' => $deviceState->getKey(), 'status' => 'observe', 'risk_score' => 0,
                 'reason_code' => 'ADMIN_RESET',
@@ -749,7 +741,7 @@ class IpRiskControlTest extends TestCase
                 'release_scope' => 'all',
             ])
                 ->assertRedirect()
-                ->assertSessionHas('success', '设备、关联 IP 与安全冻结主体已经恢复；历史闪退总账保留，新异常将从当前基线重新计算。');
+                ->assertSessionHas('success', '设备与安全冻结主体已经恢复；历史闪退总账保留，新异常将从当前基线重新计算。');
             $this->assertDatabaseHas('client_security_subject_states', [
                 'id' => $deviceState->getKey(), 'status' => 'observe', 'risk_score' => 0,
                 'reason_code' => 'ADMIN_RESET',
@@ -797,6 +789,172 @@ class IpRiskControlTest extends TestCase
         } finally {
             @unlink($lockPath);
         }
+    }
+
+    public function test_one_device_accumulates_probes_across_ipv4_and_ipv6(): void
+    {
+        [$application, $gateway] = $this->cardLoginApplication();
+        $this->enableCardProbe($application);
+        $device = 'DX3DRAQ2N741';
+        foreach (['198.51.100.10', '2001:db8::10', '2001:db8::11'] as $index => $ip) {
+            $this->withServerVariables(['REMOTE_ADDR' => $ip]);
+            $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FAKE-'.$index, $device, (string) $index));
+            $this->assertSame($index === 2, GlobalSecurityBlock::deviceBlocked($device));
+        }
+        $this->assertDatabaseMissing('global_security_blocks', ['subject_type' => 'ip']);
+        $this->assertDatabaseMissing('ip_risk_states', ['permanently_blocked' => true]);
+        $this->assertDatabaseHas('risk_events', [
+            'device_hash' => hash('sha256', $device), 'window_attempts' => 3, 'ip' => '2001:db8::11',
+        ]);
+
+        $this->makeLoginCard($application, 'NORMAL-SHARED-IP-CARD');
+        $this->postLegacyCardLogin($application, $gateway, 'NORMAL-SHARED-IP-CARD', 'OTHER-DEVICE', 'a')
+            ->assertOk()->assertJsonMissingPath('error');
+        $this->withServerVariables(['REMOTE_ADDR' => '2001:db8::12']);
+        $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'NORMAL-SHARED-IP-CARD', $device, 'b'));
+        $this->assertDatabaseCount('risk_events', 1);
+    }
+
+    public function test_shared_ip_probe_totals_never_trigger_a_device_block(): void
+    {
+        [$application, $gateway] = $this->cardLoginApplication();
+        $this->enableCardProbe($application);
+        foreach (['A', 'B', 'C', 'D'] as $device) {
+            $this->assertMaskedCardFailure($this->postLegacyCardLogin($application, $gateway, 'FAKE-'.$device, 'SHARED-'.$device, $device));
+        }
+        $this->assertDatabaseCount('global_security_blocks', 0);
+        $this->assertDatabaseMissing('client_security_subject_states', ['status' => 'blocked']);
+        $this->assertDatabaseCount('risk_events', 0);
+        $this->assertDatabaseHas('ip_risk_states', ['window_attempts' => 4, 'permanently_blocked' => false]);
+    }
+
+    public function test_legacy_ip_blocks_do_not_restrict_card_or_account_login(): void
+    {
+        [$application, $gateway] = $this->cardLoginApplication();
+        $accountApplication = $this->application('IP-OBSERVATION');
+        foreach (['198.51.100.10', '2001:db8::10'] as $index => $ip) {
+            GlobalSecurityBlock::rememberIp($ip, 'ADMIN_BLOCK');
+            foreach ([$application, $accountApplication] as $app) {
+                IpRiskState::query()->create([
+                    'public_id' => (string) Str::ulid(), 'application_id' => $app->getKey(),
+                    'ip' => $ip, 'ip_hash' => hash('sha256', $ip), 'level' => 'high',
+                    'permanently_blocked' => $index === 0,
+                    'blocked_until' => $index === 1 ? now()->addDay() : null,
+                ]);
+            }
+            $this->withServerVariables(['REMOTE_ADDR' => $ip]);
+            $this->makeLoginCard($application, 'LEGACY-IP-CARD-'.$index);
+            $this->postLegacyCardLogin($application, $gateway, 'LEGACY-IP-CARD-'.$index, 'LEGACY-IP-DEVICE-'.$index, (string) $index)
+                ->assertOk()->assertJsonMissingPath('error');
+            $payload = ['username' => 'ipuser'.$index, 'password' => 'secret123', 'device_id' => 'ACCOUNT-IP-'.$index];
+            $this->postJson('/api/v2/apps/'.$accountApplication->public_id.'/accounts/register', $payload)->assertCreated();
+            $this->postJson('/api/v2/apps/'.$accountApplication->public_id.'/accounts/login', $payload)
+                ->assertOk()->assertJsonMissingPath('error');
+        }
+        $this->assertDatabaseMissing('global_security_blocks', ['subject_type' => 'device']);
+        $this->assertDatabaseMissing('audit_logs', ['action' => 'client.blocklist_hit']);
+    }
+
+    public function test_log_block_status_depends_only_on_the_current_device_state(): void
+    {
+        [$application] = $this->cardLoginApplication();
+        [$otherApplication] = $this->cardLoginApplication();
+        $device = 'DX3DRAQ2N741';
+        $ips = ['198.51.100.10', '2001:db8::10'];
+        foreach (['client.auth_failure_masked', 'client.card_login_trace'] as $action) {
+            foreach ([$device, $device, 'OTHER-DEVICE', '', 'EXPIRED-DEVICE', 'FOREIGN-DEVICE'] as $index => $serial) {
+                AuditLog::query()->create([
+                    'public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(),
+                    'request_id' => (string) Str::ulid(), 'action' => $action, 'target_type' => 'application', 'actor_role_snapshot' => 'client', 'result' => 'failed',
+                    'ip' => $ips[$index % 2],
+                    'before_data' => ['device' => ' '.$serial.' ', 'application' => ['name' => $application->name]],
+                    'after_data' => ['internal_code' => 'INVALID_CARD', 'business_code' => 'INVALID_CARD'],
+                ]);
+            }
+        }
+        GlobalSecurityBlock::rememberIp($ips[0], 'C0');
+        GlobalSecurityBlock::rememberDevice($device, 'C0');
+        ClientSecuritySubjectState::query()->create([
+            'application_id' => $application->getKey(), 'device_hash' => hash('sha256', 'EXPIRED-DEVICE'),
+            'status' => 'blocked', 'blocked_until' => now()->subMinute(),
+        ]);
+        ClientSecuritySubjectState::query()->create([
+            'application_id' => $otherApplication->getKey(), 'device_hash' => hash('sha256', 'FOREIGN-DEVICE'),
+            'status' => 'blocked',
+        ]);
+        $lockPath = $this->signInDeviceRiskAdministrator();
+        try {
+            foreach (['global', 'application'] as $scope) {
+                if ($scope === 'application') {
+                    GlobalSecurityBlock::query()->where('subject_type', 'device')->delete();
+                    ClientSecuritySubjectState::query()->create([
+                        'application_id' => $application->getKey(), 'device_hash' => hash('sha256', $device),
+                        'status' => 'blocked', 'blocked_until' => now()->addHour(),
+                    ]);
+                }
+                foreach (['simple', 'detailed'] as $view) {
+                    $response = $this->get('/private-console/system-logs/client-requests?view='.$view)->assertOk();
+                    $html = $response->getContent();
+                    $this->assertSame(2, substr_count($html, '<span class="log-result is-muted">已封禁</span>'));
+                    $this->assertSame(3, substr_count($html, 'client-trace-block-button'));
+                    $response->assertDontSee('name="ip"', false);
+                }
+            }
+            ClientSecuritySubjectState::query()->where('device_hash', hash('sha256', $device))->update(['status' => 'observe']);
+            foreach (['simple', 'detailed'] as $view) {
+                $response = $this->get('/private-console/system-logs/client-requests?view='.$view)->assertOk();
+                $this->assertSame(5, substr_count($response->getContent(), 'client-trace-block-button'));
+                $response->assertDontSee('已封禁');
+            }
+            $this->get('/private-console/risk-control/center')->assertOk()
+                ->assertDontSee($ips[0])->assertDontSee('name="ip"', false)->assertSee('IP 仅作日志记录');
+        } finally {
+            @unlink($lockPath);
+        }
+    }
+
+    public function test_admin_ip_only_block_actions_are_rejected(): void
+    {
+        [$application] = $this->cardLoginApplication();
+        $state = IpRiskState::query()->create([
+            'public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(),
+            'ip' => '198.51.100.10', 'ip_hash' => hash('sha256', '198.51.100.10'),
+        ]);
+        $lockPath = $this->signInDeviceRiskAdministrator();
+        try {
+            foreach (['quick', 'manual'] as $source) {
+                $this->post('/private-console/risk-control/global-blocks', ['ip' => $state->ip, 'source' => $source])
+                    ->assertSessionHasErrors('device_serial');
+                $this->post('/private-console/risk-control/global-blocks', ['device_serial' => '   ', 'ip' => $state->ip, 'source' => $source])
+                    ->assertSessionHasErrors('device_serial');
+            }
+            foreach (['block_1h', 'block_24h', 'block_permanent'] as $action) {
+                $this->post('/private-console/risk-control/states/'.$state->public_id.'/action', ['action' => $action])
+                    ->assertSessionHasErrors('action');
+            }
+            $this->assertDatabaseCount('global_security_blocks', 0);
+            $this->assertFalse($state->refresh()->permanently_blocked);
+        } finally {
+            @unlink($lockPath);
+        }
+    }
+
+    private function signInDeviceRiskAdministrator(): string
+    {
+        app(SystemAccessSynchronizer::class)->sync();
+        $lockPath = storage_path('framework/testing/device-only-risk.lock');
+        @unlink($lockPath);
+        config(['mybsphp.installed' => false, 'mybsphp.install_lock' => $lockPath]);
+        app(InstallationManager::class)->writeLock([
+            'admin_path' => 'private-console', 'app_name' => '设备封控测试', 'secondary_password_enabled' => false,
+        ]);
+        $administrator = Administrator::query()->create([
+            'username' => 'device-only-admin', 'password' => 'secret', 'role' => 'super_admin', 'status' => 'active',
+        ]);
+        $administrator->roles()->attach(Role::query()->where('code', 'super_admin')->sole());
+        $this->actingAs($administrator, 'admin');
+
+        return $lockPath;
     }
 
     private function application(string $verificationData): Application

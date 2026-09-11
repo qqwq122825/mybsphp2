@@ -51,14 +51,14 @@
                         <p class="risk-probe-rule-note">
                             <strong>当前规则</strong>
                             {{ $probeWindow }} 秒内统计卡密不存在、空卡密、乱输入、已到期、已被其他设备绑定、已冻结、用户已冻结、已作废或已用尽；正常登录不计入。
-                            已拉黑的设备换新 IP、已拉黑的 IP 换新设备，也按同一次数计入，够了就把对面那一头拉黑。
+                            按同一设备累计次数，切换 IP 不重置；不同设备独立计数。IP 仅作日志记录，不参与封禁。
                             @if($countMissingDevice === '1' || $countUnknownApi === '1')
-                                当前还计入{{ $countMissingDevice === '1' ? '未带设备号' : '' }}{{ $countMissingDevice === '1' && $countUnknownApi === '1' ? '、' : '' }}{{ $countUnknownApi === '1' ? '乱打接口名' : '' }}，可在下方开关。
+                                当前还计入{{ $countMissingDevice === '1' ? '未带设备号记录（仅日志）' : '' }}{{ $countMissingDevice === '1' && $countUnknownApi === '1' ? '、' : '' }}{{ $countUnknownApi === '1' ? '乱打接口名' : '' }}，可在下方开关。
                             @else
-                                未带设备号、乱打接口名当前不计入，可在下方打开。
+                                未带设备号记录、乱打接口名计数当前关闭，可在下方打开。
                             @endif
                             正常玩家不会在窗口内多次尝试，只有破解才会这样。
-                            前 {{ $probeWarns }} 次只提示「卡密不存在」；第 {{ $probeThreshold }} 次还在尝试就拉黑当前设备和 IP。
+                            前 {{ $probeWarns }} 次只提示「卡密不存在」；第 {{ $probeThreshold }} 次还在尝试就拉黑当前设备。
                             拉黑后再登录仍显示卡密不存在。
                         </p>
                         <label class="software-basic-row">
@@ -76,7 +76,7 @@
                                        value="{{ old('invalid_card_window_seconds', $policy->invalid_card_window_seconds ?? 60) }}">
                                 <em>秒</em>
                             </div>
-                            <small>固定计入不存在、空卡密、乱输入、到期、绑机不符、冻结、作废；已拉黑后换新 IP 或新设备也计入。例如 60 秒。</small>
+                            <small>固定计入不存在、空卡密、乱输入、到期、绑机不符、冻结、作废；同一设备换 IP 继续累计，不同设备独立计数。例如 60 秒。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>错误次数阈值</strong>
@@ -85,15 +85,15 @@
                                        value="{{ old('invalid_card_threshold', $policy->invalid_card_threshold ?? 3) }}">
                                 <em>次</em>
                             </div>
-                            <small>填 3 表示前 2 次只提示卡密不存在，第 3 次再试就拉黑设备和 IP。</small>
+                            <small>填 3 表示前 2 次只提示卡密不存在，第 3 次再试就拉黑设备。</small>
                         </label>
                         <label class="software-basic-row">
-                            <strong>未带设备号计入</strong>
+                            <strong>未带设备号记录</strong>
                             <select name="probe_count_missing_device">
                                 <option value="1" @selected($countMissingDevice === '1')>计入</option>
                                 <option value="0" @selected($countMissingDevice === '0')>不计入</option>
                             </select>
-                            <small>客户端没带设备特征码。正式客户端一般都会带；关闭后只拦其它规则。</small>
+                            <small>缺少设备号仅记录请求，不触发封禁；正式客户端应携带设备特征码。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>乱打接口名计入</strong>
@@ -148,7 +148,7 @@
                                 <option value="observe" @selected(old('security_report_mode', $policy->security_report_mode) === 'observe')>观察 · 只记录</option>
                                 <option value="enforce" @selected(old('security_report_mode', $policy->security_report_mode) === 'enforce')>处置 · 高置信自动冻结</option>
                             </select>
-                            <small>控制 D0、D1、R0、S0、T1，以及登录可选字段 ih。处置模式下：诱饵槽确认立即拉黑；真槽完整性只观察。拉黑时同步设备和登录 IP，对外仍显示卡密不存在。</small>
+                            <small>控制 D0、D1、R0、S0、T1，以及登录可选字段 ih。处置模式下：诱饵槽确认立即拉黑；真槽完整性只观察。只拉黑设备，登录 IP 仅作日志记录，对外仍显示卡密不存在。</small>
                         </label>
                         <label class="software-basic-row">
                             <strong>异常退出窗口</strong>
