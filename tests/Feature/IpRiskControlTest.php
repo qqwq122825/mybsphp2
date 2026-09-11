@@ -566,9 +566,42 @@ class IpRiskControlTest extends TestCase
 
             $this->get('/private-console/risk-control/center')
                 ->assertOk()
-                ->assertSee('套卡探测')
+                ->assertSee('套卡探测达到阈值')
                 ->assertSee('蜜罐 · 诱饵确认')
                 ->assertDontSee('IP 已拉黑，全软件登录显示卡密不存在');
+        } finally {
+            @unlink($lockPath);
+        }
+    }
+
+    public function test_control_center_trims_reason_punctuation_without_splitting_utf8_characters(): void
+    {
+        $cases = [
+            ['C0', '套卡探测达到阈值，已拉黑设备。后续任意软件登录显示卡密不存在。', '套卡探测达到阈值'],
+            ['ADMIN_BLOCK', '值班复核值', '值班复核值'],
+            ['ADMIN_BLOCK', " \t。；;值班复核值；。;\r\n", '值班复核值'],
+            ['ADMIN_BLOCK', '值班；复核。仍在观察', '值班；复核。仍在观察'],
+            ['ADMIN_BLOCK', '人工核查😀', '人工核查😀'],
+            ['ADMIN_BLOCK', " \t。；;\r\n", '手动添加'],
+        ];
+        foreach ($cases as $index => [$reason, $note]) {
+            GlobalSecurityBlock::rememberDevice('UTF8-REASON-'.$index, $reason, $note);
+        }
+
+        $lockPath = $this->signInDeviceRiskAdministrator();
+        try {
+            $response = $this->get('/private-console/risk-control/center')->assertOk();
+            $rows = $response->viewData('blocks')->getCollection()->keyBy('value');
+            foreach ($cases as $index => [$reason, $note, $expected]) {
+                $actual = $rows->get('UTF8-REASON-'.$index)['reason'];
+                $this->assertTrue(mb_check_encoding($actual, 'UTF-8'));
+                $this->assertSame($expected, $actual);
+                $response->assertSee($expected);
+                $this->assertDatabaseHas('global_security_blocks', [
+                    'subject_value' => 'UTF8-REASON-'.$index, 'note' => $note,
+                ]);
+            }
+            $response->assertDontSee("\u{FFFD}");
         } finally {
             @unlink($lockPath);
         }

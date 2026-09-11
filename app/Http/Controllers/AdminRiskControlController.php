@@ -641,7 +641,8 @@ final class AdminRiskControlController extends Controller
         }
         $note = preg_replace('/[。．]?后续任意软件登录显示卡密不存在。?/u', '', $note) ?? $note;
         $note = preg_replace('/[，,]?已拉黑(?:当前)?设备。?/u', '', $note) ?? $note;
-        $note = trim($note, " \t。；;");
+        // PHP trim() treats its character mask as bytes, which can split Chinese UTF-8 characters.
+        $note = preg_replace('/\A[\s。；;]+|[\s。；;]+\z/u', '', $note) ?? $note;
 
         return $note === '' ? null : $note;
     }
