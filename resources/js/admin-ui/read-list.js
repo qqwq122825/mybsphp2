@@ -55,7 +55,7 @@ export function readAdminList(root) {
             disabled: checkbox?.disabled ?? false,
             cells: [...row.cells].map(cell => {
                 const content = readContent(cell);
-                return { content, text: contentText(content), mono: !!cell.querySelector(':scope > code') };
+                return { content, text: contentText(content), mono: !!cell.querySelector(':scope > code'), ellipsis: cell.hasAttribute('data-cell-ellipsis') };
             }),
         };
     });

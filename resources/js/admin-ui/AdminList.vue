@@ -172,7 +172,7 @@ function printTable() { window.print(); }
                     <el-table-column v-if="column.selection" type="selection" :width="48" :selectable="row => !row.disabled" />
                     <el-table-column v-else :label="column.label" :width="column.width" :min-width="column.minWidth" :fixed="column.action || (column.detail && !hasActionColumn) ? 'right' : false" :align="column.action || column.detail ? 'center' : 'left'">
                         <template #default="scope">
-                            <div class="ep-cell" :class="{ 'ep-cell-mono': scope.row.cells[column.key].mono }"><server-content :nodes="scope.row.cells[column.key].content" @action="runAction" /></div>
+                            <div class="ep-cell" :class="{ 'ep-cell-mono': scope.row.cells[column.key].mono, 'ep-cell-ellipsis': scope.row.cells[column.key].ellipsis }"><server-content :nodes="scope.row.cells[column.key].content" @action="runAction" /></div>
                         </template>
                     </el-table-column>
                 </template>

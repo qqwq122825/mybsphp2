@@ -61,7 +61,7 @@ final class AdminTablePreview
         $ips = ['203.0.113.24', '2001:db8:2000:9872:f425:3ba4:a953:4363', '198.51.100.46', '192.0.2.247', '203.0.113.12', '2001:db8:846d:6400:5379:9235:1234:5678'];
         $rows = collect();
         for ($i = 0; $i < 12; $i++) {
-            $rows->push(['key' => 'global:'.($i + 1), 'kind' => 'device', 'value' => $devices[$i % 6], 'related' => $ips[$i % 6].($i === 1 ? '、203.0.113.28' : ''), 'reason' => $i % 3 === 0 ? '套卡探测 INVALID_CARD 达到 3 次 / 120 秒' : '快速拉黑', 'at' => $at->subMinutes($i * 17)]);
+            $rows->push(['key' => 'global:'.($i + 1), 'kind' => 'device', 'value' => $devices[$i % 6], 'related' => $i === 1 ? implode('、', array_merge([$ips[1]], $ips, ['203.0.113.28'])) : $ips[$i % 6], 'reason' => $i % 3 === 0 ? '套卡探测 INVALID_CARD 达到 3 次 / 120 秒' : '快速拉黑', 'at' => $at->subMinutes($i * 17)]);
         }
         if (in_array($page, ['center', 'empty'], true)) {
             return view('admin.risk-control.center', $common + ['metrics' => ['events_24h' => $page === 'empty' ? 0 : 8, 'blocked_devices' => $page === 'empty' ? 0 : 11], 'blocks' => new LengthAwarePaginator($page === 'empty' ? [] : $rows, $page === 'empty' ? 0 : 32, 20, 1, ['path' => $request->url()])])->render();

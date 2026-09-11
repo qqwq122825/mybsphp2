@@ -16,6 +16,8 @@
 .ep-cell small { display:block; margin-top:4px; color:var(--el-text-color-secondary); font-size:12px; }
 .ep-cell code, .ep-cell-mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
 .ep-cell .el-button { white-space:nowrap; }
+.ep-cell-ellipsis { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; overflow-wrap:normal; }
+.risk-center-related[data-cell-ellipsis] > code { display:block; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; overflow-wrap:normal; }
 .ep-device-line { display:flex; align-items:baseline; gap:8px; }
 .ep-device-line b { flex-shrink:0; color:var(--el-text-color-secondary); font-size:12px; }
 .ep-pagination { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; color:var(--el-text-color-secondary); font-size:13px; }

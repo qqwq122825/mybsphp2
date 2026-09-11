@@ -52,7 +52,7 @@ class AdminTablePresentationTest extends TestCase
         $this->assertStringContainsString('3CFDD33C-C703-42F0-9E00-3B36090270EC', $html);
         $this->assertStringContainsString('2001:db8:2000:9872:f425:3ba4:a953:4363', $html);
         $this->assertStringContainsString('aria-pressed="false"', $html);
-        $this->assertStringContainsString('risk-center-related', $html);
+        $this->assertStringContainsString('class="risk-center-related" data-cell-ellipsis', $html);
         $this->assertStringContainsString('当前没有封控记录。', AdminTablePreview::render('empty'));
     }
 

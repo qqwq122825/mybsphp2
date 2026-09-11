@@ -65,7 +65,7 @@
                 </td>
                 <td><span class="admin-type-tag {{ $block['kind'] === 'device' ? '' : 'is-neutral' }}">{{ $block['kind'] === 'device' ? '设备' : 'IP' }}</span></td>
                 <td class="risk-center-subject"><strong><code>{{ $block['value'] }}</code></strong></td>
-                <td class="risk-center-related"><code>{{ $block['related'] ?: '—' }}</code></td>
+                <td class="risk-center-related" data-cell-ellipsis><code>{{ $block['related'] ?: '—' }}</code></td>
                 <td class="risk-center-reason">{{ $block['reason'] }}</td>
                 <td class="admin-table-time"><span>{{ $block['at']?->format('Y-m-d') ?: '—' }}</span><small>{{ $block['at']?->format('H:i:s') }}</small></td>
                 <td class="admin-action-column">

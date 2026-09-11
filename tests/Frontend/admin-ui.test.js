@@ -68,3 +68,15 @@ test('quick block action submits only the device and its audit context', () => {
     assert.equal(action.confirm, '确定拉黑该请求的设备吗？');
     assert.deepEqual(submissionFields(action, []), [['_token', 'csrf'], ['device_serial', 'DX3DRAQ2N741'], ['source', 'quick'], ['note', '客户端请求日志快速拉黑']]);
 });
+
+test('long risk IP lists opt into single-line ellipsis while keeping the full export value', () => {
+    const ips = ['2001:db8:2000:9872:f425:3ba4:a953:4363', '203.0.113.28', '2001:db8:846d:6400:5379:9235:1234:5678'].join('、');
+    const document = dom(`<div id="root" data-list-kind="risk"><section class="admin-table-shell"><header><h2>封控中心</h2></header><table><thead><tr><th>封控对象</th><th>日志 IP</th><th>原因</th></tr></thead><tbody><tr><td><code>DX3DRAQ2N741</code></td><td class="risk-center-related" data-cell-ellipsis><code>${ips}</code></td><td>套卡探测达到阈值</td></tr><tr><td><code>NO-IP-DEVICE</code></td><td class="risk-center-related" data-cell-ellipsis><code>—</code></td><td>手动添加</td></tr></tbody></table></section></div>`);
+    const page = readAdminList(document.querySelector('#root'));
+    assert.equal(page.rows[0].cells[1].ellipsis, true);
+    assert.equal(page.rows[0].cells[1].text, ips);
+    assert.equal(contentText(page.rows[0].cells[1].content), ips);
+    assert.equal(page.rows[0].cells[0].ellipsis, false);
+    assert.equal(page.rows[0].cells[2].ellipsis, false);
+    assert.equal(page.rows[1].cells[1].text, '—');
+});
