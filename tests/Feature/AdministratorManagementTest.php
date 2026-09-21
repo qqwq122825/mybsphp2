@@ -94,6 +94,9 @@ class AdministratorManagementTest extends TestCase
         $this->assertFalse($manager->hasRole('agent'));
 
         $this->put('/private-console/administrators/'.$manager->getKey(), [
+            'username' => 'manager-renamed',
+            'secondary_password' => 'new-second-secret',
+            'secondary_password_confirmation' => 'new-second-secret',
             'role_code' => 'admin',
             'status' => 'frozen',
             'password' => '',
@@ -101,6 +104,8 @@ class AdministratorManagementTest extends TestCase
         ])->assertRedirect();
 
         $this->assertSame('frozen', $manager->fresh()->status);
+        $this->assertSame('manager-renamed', $manager->fresh()->username);
+        $this->assertTrue(Hash::check('new-second-secret', $manager->fresh()->secondary_password));
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'administrator.updated',
             'target_id' => (string) $manager->getKey(),
@@ -113,6 +118,32 @@ class AdministratorManagementTest extends TestCase
         $this->delete('/private-console/administrators/'.$managerId)->assertRedirect('/private-console/administrators');
         $this->assertDatabaseMissing('administrators', ['id' => $managerId]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'administrator.deleted', 'target_id' => (string) $managerId]);
+    }
+
+    public function test_edit_validates_unique_username_distinct_confirmed_passwords_and_revokes_token(): void
+    {
+        $root = Administrator::query()->create(['username' => 'root-admin', 'password' => 'primary-secret', 'role' => 'super_admin', 'status' => 'active']);
+        $root->roles()->attach(Role::query()->where('code', 'super_admin')->sole());
+        $manager = Administrator::query()->create(['username' => 'manager-one', 'password' => 'manager-secret', 'role' => 'admin', 'status' => 'active']);
+        $manager->roles()->attach(Role::query()->where('code', 'admin')->sole());
+        $manager->forceFill(['admin_session_token_hash' => hash('sha256', 'old-token')])->save();
+        $this->actingAs($root, 'admin');
+        $url = '/private-console/administrators/'.$manager->getKey();
+        $base = ['role_code' => 'admin', 'status' => 'active'];
+        $this->put($url, $base + ['username' => 'root-admin'])->assertSessionHasErrors('username');
+        $this->put($url, $base + ['username' => '1invalid'])->assertSessionHasErrors('username');
+        $this->put($url, $base + ['secondary_password' => 'second-secret', 'secondary_password_confirmation' => 'mismatch'])->assertSessionHasErrors('secondary_password');
+        $this->assertNull(session('_old_input.secondary_password'));
+        $this->assertNull(session('_old_input.secondary_password_confirmation'));
+        $this->put($url, $base + ['secondary_password' => 'manager-secret', 'secondary_password_confirmation' => 'manager-secret'])->assertSessionHasErrors('secondary_password');
+        $this->assertSame(hash('sha256', 'old-token'), $manager->fresh()->admin_session_token_hash);
+        $this->put($url, $base + ['username' => 'renamed-manager', 'secondary_password' => 'second-secret', 'secondary_password_confirmation' => 'second-secret'])->assertRedirect();
+        $this->assertNull($manager->fresh()->admin_session_token_hash);
+        $this->assertTrue($manager->fresh()->secondary_password_required);
+        $this->assertTrue(Hash::check('second-secret', $manager->fresh()->secondary_password));
+        $this->put($url, $base + ['password' => 'second-secret', 'password_confirmation' => 'second-secret'])->assertSessionHasErrors('secondary_password');
+        $this->assertSame('renamed-manager', $manager->fresh()->username);
+        $this->assertArrayNotHasKey('admin_session_token_hash', $manager->fresh()->toArray());
     }
 
     public function test_agent_accounts_are_managed_separately_from_administrators(): void
@@ -269,8 +300,10 @@ class AdministratorManagementTest extends TestCase
         $this->assertTrue($root->secondary_password_required);
         $this->assertTrue(Hash::check('second-secret', (string) $root->secondary_password));
 
+        $this->actingAs($root, 'admin');
         $this->put('/private-console/administrators/security', [
             'current_password' => 'primary-secret',
+            'current_secondary_password' => 'second-secret',
             'secondary_action' => 'disable',
         ])->assertRedirect();
 

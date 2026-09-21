@@ -26,9 +26,18 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
     'last_login_at',
     'last_login_ip_hash',
 ])]
-#[Hidden(['password', 'secondary_password'])]
+#[Hidden(['password', 'secondary_password', 'admin_session_token_hash'])]
 class Administrator extends Authenticatable
 {
+    protected static function booted(): void
+    {
+        static::updating(function (Administrator $administrator): void {
+            if ($administrator->isDirty(['username', 'password', 'secondary_password', 'secondary_password_required', 'status', 'role'])) {
+                $administrator->admin_session_token_hash = null;
+            }
+        });
+    }
+
     public function agentTransactions(): HasMany
     {
         return $this->hasMany(AgentTransaction::class, 'agent_id');

@@ -6,6 +6,7 @@
 @php($canUpdateAdministrators = \Illuminate\Support\Facades\Gate::allows('administrators.update'))
 <x-admin.table-shell title="系统管理员" subtitle="管理后台登录账号与角色权限" panel-class="administrator-list-panel">
     <x-slot:headingActions>
+        <a class="button button-secondary" href="{{ route('admin.administrators.security', ['adminPath' => $adminPath]) }}">个人安全设置</a>
         @can('administrators.create')<a class="button button-primary" href="{{ route('admin.administrators.create', ['adminPath' => $adminPath]) }}">添加管理员</a>@endcan
     </x-slot:headingActions>
     <x-slot:search><x-admin.filter-bar>
@@ -34,7 +35,9 @@
                         data-update-url="{{ route('admin.administrators.update',['adminPath'=>$adminPath,'managedAdministrator'=>$managed]) }}"
                         data-delete-url="{{ route('admin.administrators.destroy',['adminPath'=>$adminPath,'managedAdministrator'=>$managed]) }}">
                         {{ $isSystemAdministrator || $managed->is($administrator) || !$canUpdateAdministrators ? '查看' : '操作' }}
-                    </button></td>
+                    </button>
+                    @if($managed->is($administrator))<a class="admin-table-action" href="{{ route('admin.administrators.security', ['adminPath' => $adminPath]) }}">修改账号</a>@endif
+                    </td>
                 </tr>
             @empty<tr><td colspan="6" class="empty-cell">暂无管理员数据。</td></tr>@endforelse
             </tbody>
@@ -48,15 +51,18 @@
     <x-slot:heading><small>ADMINISTRATOR</small><h3 data-admin-manage-title>管理员操作</h3></x-slot:heading>
         <form method="post" data-admin-update-form>@csrf @method('PUT')
             <div class="administrator-dialog-fields">
+                <label><span>管理员用户名</span><input name="username" data-admin-username required minlength="3" maxlength="32" pattern="[A-Za-z][A-Za-z0-9_-]+" autocomplete="username"></label>
                 <label><span>角色权限</span><select name="role_code" data-admin-role>@foreach($roles as $role)<option value="{{ $role->code }}">{{ $role->name }}</option>@endforeach</select></label>
                 <label><span>账号状态</span><select name="status" data-admin-status><option value="active">启用</option><option value="frozen">冻结</option></select></label>
-                <div><label><span>新登录密码（可选）</span><input type="password" name="password" minlength="6"></label><label><span>确认新密码</span><input type="password" name="password_confirmation" minlength="6"></label></div>
-                <p data-admin-protected-note hidden>该账号是系统管理员或当前登录账号，仅供查看。</p>
+                <div><label><span>新登录密码（可选）</span><input type="password" name="password" minlength="6" maxlength="128" autocomplete="new-password"></label><label><span>确认新密码</span><input type="password" name="password_confirmation" minlength="6" maxlength="128" autocomplete="new-password"></label></div>
+                <div><label><span>新二级密码（留空保持原设置）</span><input type="password" name="secondary_password" minlength="6" maxlength="128" autocomplete="new-password"></label><label><span>确认新二级密码</span><input type="password" name="secondary_password_confirmation" minlength="6" maxlength="128" autocomplete="new-password"></label></div>
+                <p>设置二级密码后，登录时须同时验证两个不同密码。修改账号信息后旧登录会话失效。</p>
+                <p data-admin-protected-note hidden>该账号受保护；当前账号请使用上方“个人安全设置”。</p>
             </div>
             <footer><button type="button" data-admin-manage-close>取消</button><button class="button button-primary" type="submit" data-admin-save>保存修改</button></footer>
         </form>
         @can('administrators.delete')<form method="post" data-admin-delete-form onsubmit="return confirm('确定删除该后台管理员吗？')">@csrf @method('DELETE')<button class="administrator-dialog-delete" type="submit" data-admin-delete>删除账号</button></form>@endcan
 </x-admin.window-dialog>
-<script>(()=>{const d=document.querySelector('[data-admin-manage-dialog]');if(!d)return;const update=d.querySelector('[data-admin-update-form]'),del=d.querySelector('[data-admin-delete-form]'),role=d.querySelector('[data-admin-role]'),status=d.querySelector('[data-admin-status]'),save=d.querySelector('[data-admin-save]'),deleteButton=d.querySelector('[data-admin-delete]'),note=d.querySelector('[data-admin-protected-note]');document.querySelectorAll('[data-admin-manage]').forEach(button=>button.addEventListener('click',()=>{const locked=button.dataset.protected==='1';d.querySelector('[data-admin-manage-title]').textContent=button.dataset.title;update.action=button.dataset.updateUrl;if(del)del.action=button.dataset.deleteUrl;role.value=button.dataset.role;status.value=button.dataset.status;[role,status,...update.querySelectorAll('input[type=password]')].forEach(field=>field.disabled=locked);save.hidden=locked;if(deleteButton)deleteButton.hidden=locked;note.hidden=!locked;d.dispatchEvent(new CustomEvent('admin-window:open',{bubbles:true}))}));d.querySelectorAll('[data-admin-manage-close]').forEach(b=>b.addEventListener('click',()=>d.close()));d.addEventListener('click',e=>{if(e.target===d&&d.dataset.windowScope!=='workspace')d.close()})})();</script>
+<script>(()=>{const d=document.querySelector('[data-admin-manage-dialog]');if(!d)return;const update=d.querySelector('[data-admin-update-form]'),del=d.querySelector('[data-admin-delete-form]'),role=d.querySelector('[data-admin-role]'),status=d.querySelector('[data-admin-status]'),save=d.querySelector('[data-admin-save]'),deleteButton=d.querySelector('[data-admin-delete]'),note=d.querySelector('[data-admin-protected-note]');document.querySelectorAll('[data-admin-manage]').forEach(button=>button.addEventListener('click',()=>{update.reset();const locked=button.dataset.protected==='1';const username=update.querySelector('[data-admin-username]');username.value=button.dataset.title;d.querySelector('[data-admin-manage-title]').textContent=button.dataset.title;update.action=button.dataset.updateUrl;if(del)del.action=button.dataset.deleteUrl;role.value=button.dataset.role;status.value=button.dataset.status;[username,role,status,...update.querySelectorAll('input[type=password]')].forEach(field=>field.disabled=locked);save.hidden=locked;if(deleteButton)deleteButton.hidden=locked;note.hidden=!locked;d.dispatchEvent(new CustomEvent('admin-window:open',{bubbles:true}))}));d.querySelectorAll('[data-admin-manage-close]').forEach(b=>b.addEventListener('click',()=>d.close()));d.addEventListener('click',e=>{if(e.target===d&&d.dataset.windowScope!=='workspace')d.close()})})();</script>
 
 @endsection

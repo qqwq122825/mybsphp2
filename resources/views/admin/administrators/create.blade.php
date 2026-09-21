@@ -40,7 +40,7 @@
                 <strong>二级密码</strong>
                 <input type="password" name="secondary_password" minlength="6" maxlength="128"
                        autocomplete="new-password" placeholder="选填，至少6位">
-                <small>敏感操作验证密码，留空表示暂不开启</small>
+                <small>登录时额外验证的独立密码，留空表示暂不开启</small>
             </label>
 
             <label class="administrator-create-row">

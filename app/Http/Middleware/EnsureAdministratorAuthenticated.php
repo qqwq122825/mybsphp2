@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Auth\AdminSession;
 use App\Models\Administrator;
 use Closure;
 use Illuminate\Http\Request;
@@ -14,13 +15,24 @@ final class EnsureAdministratorAuthenticated
     {
         $administrator = Auth::guard('admin')->user();
 
-        if (! $administrator instanceof Administrator) {
+        $administrator = $administrator instanceof Administrator ? $administrator->fresh() : null;
+
+        if (! $administrator instanceof Administrator
+            || ! app(AdminSession::class)->valid($request, $administrator)) {
+            Auth::guard('admin')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
             return redirect('/'.(string) $request->route('adminPath'));
         }
 
+        Auth::guard('admin')->setUser($administrator);
         Auth::shouldUse('admin');
         $administrator->loadMissing('roles.permissions');
 
-        return $next($request);
+        $response = $next($request);
+        $response->headers->set('Cache-Control', 'no-store, private');
+
+        return $response;
     }
 }

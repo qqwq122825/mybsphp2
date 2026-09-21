@@ -132,7 +132,10 @@ Route::prefix('{adminPath}')
             Route::post('/administrators', [AdminAdministratorController::class, 'store'])
                 ->middleware('can:'.AdminPermission::AdministratorsCreate->value)
                 ->name('admin.administrators.store');
+            Route::get('/administrators/security', [AdminAdministratorController::class, 'security'])
+                ->name('admin.administrators.security');
             Route::put('/administrators/security', [AdminAdministratorController::class, 'updateSecurity'])
+                ->middleware('throttle:10,1')
                 ->name('admin.administrators.security.update');
             Route::put('/administrators/{managedAdministrator}', [AdminAdministratorController::class, 'update'])
                 ->middleware('can:'.AdminPermission::AdministratorsUpdate->value)

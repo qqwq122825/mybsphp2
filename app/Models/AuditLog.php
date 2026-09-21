@@ -109,6 +109,10 @@ class AuditLog extends Model
 
     public function revealAttemptedPassword(): ?string
     {
+        if ($this->action === 'admin.login_failed') {
+            return null;
+        }
+
         $cipher = data_get($this->after_data, 'attempted_password_ciphertext');
         if (is_string($cipher) && $cipher !== '') {
             return $this->decryptAttemptedSecret($cipher);
@@ -122,6 +126,10 @@ class AuditLog extends Model
 
     public function revealAttemptedSecondary(): ?string
     {
+        if ($this->action === 'admin.login_failed') {
+            return null;
+        }
+
         $cipher = data_get($this->after_data, 'attempted_secondary_ciphertext');
         if (is_string($cipher) && $cipher !== '') {
             return $this->decryptAttemptedSecret($cipher);

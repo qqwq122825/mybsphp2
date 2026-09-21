@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Auth\AdminSession;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\AuditLog;
 use App\Models\GlobalSecurityBlock;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -77,7 +80,8 @@ class AdminAuthenticationTest extends TestCase
         ]);
         $failedLogin = AuditLog::query()->where('action', 'admin.login_failed')->where('reason', '密码不正确')->latest('id')->firstOrFail();
         $this->assertNotSame('wrong-password', data_get($failedLogin->after_data, 'attempted_secret_ciphertext'));
-        $this->assertSame('wrong-password', $failedLogin->revealAttemptedLoginSecret());
+        $this->assertNull($failedLogin->revealAttemptedLoginSecret());
+        $this->assertSame(['username' => 'admin'], $failedLogin->after_data);
 
         $this->post('/private-console/login', [
             'username' => 'admin',
@@ -129,7 +133,7 @@ class AdminAuthenticationTest extends TestCase
             ->assertSee('data-table-density-toggle', false)
             ->assertSee('data-table-export', false)
             ->assertDontSee('<th>结果</th>', false);
-        $this->get('/private-console/system-logs/protection')->assertOk()->assertSee('系统安全防护日志')->assertSee('后台登录失败：账号 admin，密码 wrong-password，密码不正确')->assertSee('后台登录失败：账号 qqq，密码 guess-secret，账号不存在')->assertDontSee('封禁此 IP')->assertDontSee('查看尝试')->assertDontSee('admin.login_failed');
+        $this->get('/private-console/system-logs/protection')->assertOk()->assertSee('系统安全防护日志')->assertSee('后台登录失败：账号 admin，密码不正确')->assertSee('后台登录失败：账号 qqq，账号不存在')->assertDontSee('封禁此 IP')->assertDontSee('查看尝试')->assertDontSee('admin.login_failed');
         $this->get('/private-console/system-logs/client-requests')
             ->assertOk()
             ->assertSee('客户端请求日志')
@@ -172,7 +176,7 @@ class AdminAuthenticationTest extends TestCase
         $this->get('/private-console/system-logs/protection')
             ->assertOk()
             ->assertSee('系统安全防护日志')
-            ->assertSee('后台登录失败：账号 admin，密码 wrong-password，密码不正确')
+            ->assertSee('后台登录失败：账号 admin，密码不正确')
             ->assertDontSee('封禁此 IP')
             ->assertDontSee('查看尝试')
             ->assertDontSee('admin.login_failed')
@@ -331,7 +335,7 @@ class AdminAuthenticationTest extends TestCase
         $this->get('/private-console/system-logs/protection')
             ->assertOk()
             ->assertSee('后台登录失败：账号 admin，未填写二级密码')
-            ->assertSee('后台登录失败：账号 admin，二级密码 wrong-secondary，二级密码不正确')
+            ->assertSee('后台登录失败：账号 admin，二级密码不正确')
             ->assertDontSee('primary-secret')
             ->assertDontSee('封禁此 IP');
     }
@@ -359,6 +363,82 @@ class AdminAuthenticationTest extends TestCase
         $message = session('errors')?->first('login');
         $this->assertIsString($message);
         $this->assertStringContainsString('秒后重试', $message);
+    }
+
+    public function test_new_login_replaces_old_token_and_old_logout_does_not_revoke_new_login(): void
+    {
+        $this->install();
+        $admin = $this->administrator();
+        $credentials = ['username' => 'admin', 'password' => 'primary-secret'];
+        $this->post('/private-console/login', $credentials)->assertRedirect('/private-console/dashboard');
+        $old = session()->all();
+        $this->post('/private-console/login', $credentials)->assertRedirect('/private-console/dashboard');
+        $new = session()->all();
+        $this->assertNotSame($old[AdminSession::KEY], $new[AdminSession::KEY]);
+        $this->assertSame(hash('sha256', $new[AdminSession::KEY]), $admin->fresh()->admin_session_token_hash);
+
+        $this->switchBrowser($old);
+        $this->post('/private-console/logout')->assertRedirect('/private-console');
+        $this->assertSame(hash('sha256', $new[AdminSession::KEY]), $admin->fresh()->admin_session_token_hash);
+        $this->switchBrowser($old);
+        $this->get('/private-console/dashboard')->assertRedirect('/private-console');
+        $this->switchBrowser($new);
+        $this->get('/private-console/dashboard')->assertOk();
+        $this->post('/private-console/logout')->assertRedirect('/private-console');
+        $this->assertNull($admin->fresh()->admin_session_token_hash);
+        $this->switchBrowser($new);
+        $this->get('/private-console/dashboard')->assertRedirect('/private-console');
+    }
+
+    public function test_missing_token_and_frozen_account_are_rejected(): void
+    {
+        $this->install();
+        $admin = $this->administrator();
+        $this->post('/private-console/login', ['username' => 'admin', 'password' => 'primary-secret']);
+        $browser = session()->all();
+        $missing = $browser;
+        unset($missing[AdminSession::KEY]);
+        $this->switchBrowser($missing);
+        $this->get('/private-console/dashboard')->assertRedirect('/private-console');
+        $admin->update(['status' => 'frozen']);
+        $this->assertNull($admin->fresh()->admin_session_token_hash);
+        $this->switchBrowser($browser);
+        $this->get('/private-console/dashboard')->assertRedirect('/private-console');
+    }
+
+    public function test_password_reset_invalidates_session_and_inflight_login(): void
+    {
+        $this->install();
+        $admin = $this->administrator();
+        $this->post('/private-console/login', ['username' => 'admin', 'password' => 'primary-secret']);
+        $stale = $admin->fresh();
+        $admin->update(['password' => 'replacement-secret']);
+        $this->assertNull($admin->fresh()->admin_session_token_hash);
+        $request = Request::create('/');
+        $request->setLaravelSession(session()->driver());
+        $this->assertFalse(app(AdminSession::class)->issue($request, $stale));
+        $this->get('/private-console/dashboard')->assertRedirect('/private-console');
+    }
+
+    public function test_self_security_requires_both_existing_passwords_and_reauthenticates_after_rename(): void
+    {
+        $this->install();
+        $admin = $this->administrator('second-secret');
+        $this->post('/private-console/login', ['username' => 'admin', 'password' => 'primary-secret', 'secondary_password' => 'second-secret']);
+        $this->get('/private-console/administrators/security')->assertOk()->assertSee('当前二级密码');
+        $data = ['username' => 'renamed-admin', 'current_password' => 'primary-secret', 'secondary_action' => 'keep'];
+        $this->put('/private-console/administrators/security', $data)->assertSessionHasErrors('current_secondary_password');
+        $this->put('/private-console/administrators/security', $data + ['current_secondary_password' => 'second-secret'])->assertRedirect('/private-console');
+        $this->assertGuest('admin');
+        $this->assertNull($admin->fresh()->admin_session_token_hash);
+        $this->post('/private-console/login', ['username' => 'renamed-admin', 'password' => 'primary-secret', 'secondary_password' => 'second-secret'])->assertRedirect('/private-console/dashboard');
+    }
+
+    private function switchBrowser(array $session): void
+    {
+        Auth::forgetGuards();
+        $this->flushSession();
+        $this->withSession($session);
     }
 
     private function install(bool $secondaryPasswordEnabled = false): void

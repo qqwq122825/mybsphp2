@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
+use App\Auth\AdminSession;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
-use App\Models\AuditLog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,9 +21,10 @@ final class AdminAuthController extends Controller
         private readonly AuditLogger $audit,
     ) {}
 
-    public function show(string $adminPath): View|RedirectResponse
+    public function show(Request $request, string $adminPath): View|RedirectResponse
     {
-        if (Auth::guard('admin')->check()) {
+        if (($user = Auth::guard('admin')->user()) instanceof Administrator
+            && app(AdminSession::class)->valid($request, $user->fresh() ?? $user)) {
             return redirect()->route('admin.dashboard', ['adminPath' => $adminPath]);
         }
 
@@ -77,7 +78,7 @@ final class AdminAuthController extends Controller
                 action: 'admin.login_failed',
                 targetType: 'administrator',
                 targetId: $administrator instanceof Administrator ? (string) $administrator->getKey() : null,
-                after: $this->failedLoginAfterData($validated, $failureReason),
+                after: ['username' => $validated['username']],
                 reason: $failureReason,
                 result: 'failed',
                 actorRole: 'guest',
@@ -97,6 +98,10 @@ final class AdminAuthController extends Controller
 
         foreach ($keys as $key) {
             RateLimiter::clear($key);
+        }
+
+        if (! app(AdminSession::class)->issue($request, $administrator)) {
+            return back()->withErrors(['login' => '账号状态已变更，请重新登录。'])->onlyInput('username');
         }
 
         Auth::guard('admin')->login($administrator);
@@ -123,6 +128,7 @@ final class AdminAuthController extends Controller
         $administrator = Auth::guard('admin')->user();
 
         if ($administrator instanceof Administrator) {
+            app(AdminSession::class)->revoke($request, $administrator);
             $this->audit->record(new AuditEvent(
                 action: 'admin.logout',
                 targetType: 'administrator',
@@ -166,22 +172,6 @@ final class AdminAuthController extends Controller
         }
 
         return null;
-    }
-
-    /**
-     * @param  array{username: string, password: string, secondary_password?: string|null}  $validated
-     * @return array<string, mixed>
-     */
-    private function failedLoginAfterData(array $validated, string $failureReason): array
-    {
-        $after = ['username' => $validated['username']];
-
-        return AuditLog::withAttemptedCredentials(
-            $after,
-            (string) $validated['password'],
-            (string) ($validated['secondary_password'] ?? ''),
-            $failureReason,
-        );
     }
 
     /**
