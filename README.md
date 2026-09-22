@@ -3,6 +3,10 @@
 PHP 8.3、Laravel 13 和 MySQL 8 的正式业务工程。根目录中的旧 PHP 页面只作为历史
 协议与 UI 参考。
 
+## DFMProxy v133.4 联动
+
+软件配置新增“代理联动”：随机单入口、独立节点密钥、已激活用户与秒级有效期同步。部署需要新增表迁移及 `npm run build`，详情见 [接入与部署说明](docs/dfmproxy-link-v1334.md)。默认关闭，原客户端登录接口保持独立。
+
 ## 本地环境
 
 - PHP 8.3，包含 `pdo_mysql`、OpenSSL、Mbstring、JSON、Ctype、Tokenizer、XML。

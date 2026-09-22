@@ -26,7 +26,7 @@ class AttachRequestId
         Log::shareContext([
             'request_id' => $requestId,
             'method' => $request->method(),
-            'path' => '/'.ltrim($request->path(), '/'),
+            'path' => $request->is('lk_*') ? '/lk_[redacted]' : '/'.ltrim($request->path(), '/'),
             'ip_hash' => hash('sha256', (string) $request->ip()),
         ]);
 
@@ -40,6 +40,9 @@ class AttachRequestId
             ]);
 
             $response->headers->set('X-Request-ID', $requestId);
+            if ($request->is('lk_*')) {
+                $response->headers->set('Cache-Control', 'no-store');
+            }
 
             return $response;
         } catch (Throwable $exception) {

@@ -79,6 +79,7 @@ export function readSoftwareForm(root) {
         back: readLink(root.querySelector('.page-heading > a')),
         action: form.action, method: form.method, fields: hiddenFields(form), groups,
         errors: readErrors(root), activeTab: root.querySelector('[data-default-config-tab]')?.dataset.defaultConfigTab || 'basic',
+        proxy: JSON.parse(root.querySelector('[data-proxy-link-config]')?.textContent || 'null'),
         tabs: editing ? [...root.querySelectorAll('[data-config-tab]')].map(tab => ({ name: tab.dataset.configTab, label: text(tab, 'strong') })) : [{ name: 'basic', label: '软件基本信息' }],
         submitLabel: text(form, 'button[type="submit"]'), submitHelp: text(form, '.form-submit-bar > span'),
     };

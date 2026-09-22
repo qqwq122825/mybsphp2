@@ -4,6 +4,7 @@ import { ElAlert, ElButton, ElCard, ElCollapse, ElCollapseItem, ElConfigProvider
 import { ArrowLeft, Check, DocumentCopy } from '@element-plus/icons-vue';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import FormFields from './FormFields.vue';
+import ProxyLink from './ProxyLink.vue';
 import { formSubmission, formValues } from './read-software';
 import { copyText, submitForm } from './forms';
 
@@ -36,6 +37,7 @@ async function save() {
             <el-form ref="formRef" :model="model" label-position="top" @submit.prevent.stop="save">
                 <el-tabs v-model="activeTab">
                     <el-tab-pane v-for="tab in page.tabs" :key="tab.name" :label="tab.label" :name="tab.name">
+                        <proxy-link v-if="tab.name === 'proxy' && page.proxy" :page="page.proxy" :preview="preview" />
                         <section v-for="(group, groupIndex) in page.groups.filter(group => group.tab === tab.name)" :key="groupIndex" class="ep-config-section">
                             <h3>{{ group.title }}</h3>
                             <div v-if="group.connections.length" class="ep-connection-list">
@@ -47,7 +49,7 @@ async function save() {
                         </section>
                     </el-tab-pane>
                 </el-tabs>
-                <div class="ep-settings-footer"><span class="ep-field-help">{{ page.submitHelp }}</span><el-button type="primary" native-type="submit" :icon="Check" :loading="busy">{{ page.submitLabel }}</el-button></div>
+                <div v-show="activeTab !== 'proxy'" class="ep-settings-footer"><span class="ep-field-help">{{ page.submitHelp }}</span><el-button type="primary" native-type="submit" :icon="Check" :loading="busy">{{ page.submitLabel }}</el-button></div>
             </el-form>
         </el-card>
     </el-config-provider>

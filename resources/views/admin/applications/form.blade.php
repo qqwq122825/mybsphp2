@@ -79,7 +79,8 @@
                 ->contains(fn (string $field): bool => $errors->has($field));
             $limitError = collect(['max_bound_devices', 'max_concurrent_sessions', 'heartbeat_interval_seconds', 'connection_timeout_seconds', 'rebind_deduction_value', 'rebind_deduction_unit'])
                 ->contains(fn (string $field): bool => $errors->has($field));
-            $defaultConfigTab = $communicationError ? 'communication' : ($limitError ? 'limits' : 'basic');
+            $defaultConfigTab = request('config_tab') === 'proxy' || $errors->hasAny(['enabled', 'permission', 'action'])
+                ? 'proxy' : ($communicationError ? 'communication' : ($limitError ? 'limits' : 'basic'));
         @endphp
         <div class="software-config-form" data-config-form
              data-default-config-tab="{{ $defaultConfigTab }}">
@@ -101,6 +102,9 @@
                 </button>
                 <button type="button" role="tab" data-config-tab="limits" aria-controls="software-panel-limits">
                     <span>03</span><strong>限开控制</strong><small>设备绑定和并发限制</small>
+                </button>
+                <button type="button" role="tab" data-config-tab="proxy" aria-controls="software-panel-proxy">
+                    <span>04</span><strong>代理联动</strong><small>随机入口和用户有效期同步</small>
                 </button>
             </nav>
 
@@ -316,6 +320,8 @@
                 <button class="button button-primary" type="submit">确认保存</button>
             </div>
             </form>
+
+            @include('admin.applications.proxy-link')
 
         </div>
     @endif

@@ -23,6 +23,7 @@ final class CanaryIntegrityHintService
         string $device,
         string $rawHint,
         string $ip,
+        string $source = 'login.ih',
     ): array {
         $noop = [
             'should_block' => false,
@@ -43,12 +44,15 @@ final class CanaryIntegrityHintService
         }
 
         // cm=1（TEXT CRC 失配）在处置模式下与诱饵确认一样拉黑。
-        $shouldBlock = $mode === 'enforce' && ($hint->decoyConfirmed || $hint->crcMismatch);
+        $shouldBlock = $mode === 'enforce' && ($hint->decoyConfirmed || $hint->crcMismatch || $hint->structuralMismatch);
         $action = $shouldBlock ? 'freeze' : 'observe';
-        $eventCode = $hint->decoyConfirmed ? 'D0' : ($hint->crcMismatch ? 'CRC' : 'I0');
+        $eventCode = $hint->decoyConfirmed ? 'D0' : ($hint->crcMismatch ? 'CRC' : ($hint->structuralMismatch ? 'T0' : 'I0'));
         $message = $shouldBlock ? $hint->blockNote() : $hint->observeNote();
+        if ($source === 'heartbeat.ih') {
+            $message = str_replace('登录 ih', '心跳 ih', $message);
+        }
 
-        DB::transaction(function () use ($application, $device, $ip, $hint, $shouldBlock, $action, $eventCode, $message): void {
+        DB::transaction(function () use ($application, $device, $ip, $hint, $shouldBlock, $action, $eventCode, $message, $source): void {
             $eventId = 'ih-'.substr(hash('sha256', $application->getKey().'|'.hash('sha256', $device)), 0, 29);
             $event = ClientSecurityEvent::query()
                 ->where('application_id', $application->getKey())
@@ -62,22 +66,18 @@ final class CanaryIntegrityHintService
                 'application_account_id' => null,
                 'event_id' => $eventId,
                 'event_code' => $eventCode,
-                'severity' => $hint->decoyConfirmed ? 'high' : 'medium',
+                'severity' => ($hint->decoyConfirmed || $hint->crcMismatch || $hint->structuralMismatch) ? 'high' : 'medium',
                 'ip_hash' => hash('sha256', $ip),
                 'device_hash' => hash('sha256', $device),
-                'evidence' => $hint->evidence('login.ih'),
+                'evidence' => $hint->evidence($source),
                 'action' => $action,
                 'created_at' => now(),
             ];
             if ($event instanceof ClientSecurityEvent) {
                 if ($shouldBlock && $event->action !== 'freeze') {
                     $event->forceFill($values)->save();
-                } else {
-                    $event->forceFill([
-                        'evidence' => $values['evidence'],
-                        'severity' => $values['severity'],
-                        'ip_hash' => $values['ip_hash'],
-                    ])->save();
+                } elseif ($event->action !== 'freeze') {
+                    $event->forceFill($values)->save();
                 }
             } else {
                 ClientSecurityEvent::query()->create([
@@ -92,7 +92,7 @@ final class CanaryIntegrityHintService
                     $application,
                     $ip,
                     $device,
-                    'login.ih',
+                    $source,
                     $eventCode,
                 );
             } else {
@@ -140,7 +140,11 @@ final class CanaryIntegrityHintService
         }
         $suffix = $detail === [] ? '' : '（'.implode(' ', $detail).'）';
 
-        if ($decoy) {
+        if ($eventCode === 'CRC' || ($eventCode === 'I0' && $kind === 'text' && $this->truthy($evidence['cm'] ?? null))) {
+            $note = 'security.report '.$eventCode.'：TEXT CRC 失配'.$suffix.'，已拉黑设备。后续任意软件登录显示卡密不存在。';
+        } elseif ($eventCode === 'T0' && $kind === 'text' && $this->truthy($evidence['tm'] ?? null)) {
+            $note = 'security.report T0：结构完整性异常'.$suffix.'，已拉黑设备。后续任意软件登录显示卡密不存在。';
+        } elseif ($decoy) {
             $note = 'security.report '.$eventCode.'：诱饵命中'.$suffix.'，已拉黑设备。后续任意软件登录显示卡密不存在。';
         } elseif ($realSlot) {
             $note = 'security.report '.$eventCode.'：真槽完整性信号'.$suffix.'，先观察不自动拉黑。';
@@ -156,9 +160,18 @@ final class CanaryIntegrityHintService
         ];
     }
 
+    /** @param array<string, mixed> $evidence */
     public function shouldFreezeReport(string $eventCode, string $mappedAction, string $mode, array $evidence): bool
     {
-        if ($mode !== 'enforce' || $mappedAction !== 'freeze') {
+        if ($mode !== 'enforce') {
+            return false;
+        }
+        if (($evidence['kind'] ?? null) === 'text'
+            && (($eventCode === 'I0' && $this->truthy($evidence['cm'] ?? null))
+                || ($eventCode === 'T0' && $this->truthy($evidence['tm'] ?? null)))) {
+            return true;
+        }
+        if ($mappedAction !== 'freeze') {
             return false;
         }
         if ($eventCode !== 'D0') {

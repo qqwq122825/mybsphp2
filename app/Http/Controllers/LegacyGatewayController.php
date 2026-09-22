@@ -166,20 +166,32 @@ final class LegacyGatewayController extends Controller
                 if (! is_array($evidence)) {
                     $evidence = ['digest' => $evidenceRaw];
                 }
-                $securityReports->report(
+                $reportAction = $securityReports->report(
                     $application, $sessionHandle, $device,
                     $this->firstParameter($parameters, ['report_token']),
                     $this->firstParameter($parameters, ['event_id']),
                     $this->firstParameter($parameters, ['event_code']),
                     $evidence, (string) ($request->ip() ?: '0.0.0.0'),
                 );
-                $result = ['legacy_response' => implode('|', ['01', 'accepted', $appsafecode, now()->utc()->toISOString()])];
+                // Append only: old clients keep reading the first four fields.
+                $result = ['legacy_response' => implode('|', ['01', 'accepted', $appsafecode, now()->utc()->toISOString(), $reportAction])];
             } elseif (in_array($api, ['timeout.ic', 'timeout.lg'], true)) {
                 $expected = $application->mode === 'account_recharge' ? 'timeout.lg' : 'timeout.ic';
                 if ($api !== $expected) {
                     throw new AccountAuthException('MODE_MISMATCH', '心跳接口后缀与软件模式不一致。', 409);
                 }
+                // Validate session/device binding before allowing telemetry to
+                // change the device state. Never trust an arbitrary request key.
                 $heartbeat = $clientSessions->heartbeat($application, $sessionHandle, $device);
+                if ($heartbeat['code'] === '5031') {
+                    $hintDecision = $canaryHints->inspectLogin(
+                        $application, $device, $this->firstParameter($parameters, ['ih']),
+                        (string) ($request->ip() ?: '0.0.0.0'), 'heartbeat.ih',
+                    );
+                    if ($hintDecision['should_block']) {
+                        $heartbeat = $clientSessions->heartbeat($application, $sessionHandle, $device);
+                    }
+                }
                 $heartbeatToken = $heartbeat['code'] === '5031'
                     ? $securityReports->rotateToken($application, $heartbeat['handle'])
                     : '';

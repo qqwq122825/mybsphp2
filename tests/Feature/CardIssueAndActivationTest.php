@@ -239,7 +239,8 @@ class CardIssueAndActivationTest extends TestCase
         $this->assertStringContainsString('icid='.rawurlencode($credential['code']), (string) data_get($successLog->before_data, 'request_query'));
         $this->assertSame('TRACE-DEVICE-A', data_get($successLog->after_data, 'returned_device'));
         $this->assertTrue(data_get($successLog->after_data, 'request_device_matches_binding'));
-        $this->assertStringContainsString($credential['code'], (string) data_get($successLog->after_data, 'legacy_response'));
+        // The wire login deliberately uses xx instead of echoing the card.
+        $this->assertStringStartsWith('01|xx|', (string) data_get($successLog->after_data, 'legacy_response'));
         $successJson = json_encode([$successLog->before_data, $successLog->after_data], JSON_THROW_ON_ERROR);
         $this->assertStringContainsString($credential['code'], $successJson);
         $this->assertStringContainsString('TRACE-SAFE-A', $successJson);

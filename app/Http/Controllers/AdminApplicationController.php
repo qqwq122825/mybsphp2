@@ -14,6 +14,8 @@ use App\Models\ApplicationAccount;
 use App\Models\Card;
 use App\Models\CardBatch;
 use App\Models\CardType;
+use App\Models\ProxyCredential;
+use App\Models\ProxyLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -117,14 +119,34 @@ final class AdminApplicationController extends Controller
 
     public function edit(string $adminPath, Application $application): View
     {
+        request()->validate(['proxy_search' => ['nullable', 'string', 'max:80'], 'proxy_page' => ['nullable', 'integer', 'min:1']]);
         $application = $this->credentials->ensure($application);
         $application->load('legacyConfig');
+        $subjectId = preg_replace('/^(card|account):/', '', (string) request('proxy_search', ''));
+        $proxyCredentials = $application->mode === 'card_login'
+            ? $application->cards()->whereNotNull('activated_at')->where('expires_at', '>', now())
+                ->when($subjectId !== '', fn ($q) => $q->where('public_id', $subjectId))
+                ->orderBy('id')->paginate(30, ['*'], 'proxy_page')->withQueryString()
+                ->through(fn ($card) => new ProxyCredential([
+                    'subject_type' => 'card', 'subject_id' => $card->public_id,
+                    'username' => $card->code_ciphertext, 'password_ciphertext' => $card->code_ciphertext,
+                ]))
+            : ProxyCredential::query()->where('application_id', $application->id)
+                ->when($subjectId !== '', fn ($q) => $q->where('subject_id', $subjectId))
+                ->orderBy('id')->paginate(30, ['*'], 'proxy_page')->withQueryString()
+                ->through(function ($credential) {
+                    $credential->username = $credential->password_ciphertext;
+
+                    return $credential;
+                });
 
         return view('admin.applications.form', [
             ...$this->layout($adminPath),
             'application' => $application,
             'serverAddress' => $this->credentials->serverAddress($application),
             'objectiveCMacros' => $this->credentials->objectiveCMacros($application),
+            'proxyLink' => ProxyLink::query()->where('application_id', $application->id)->first(),
+            'proxyCredentials' => $proxyCredentials,
         ]);
     }
 

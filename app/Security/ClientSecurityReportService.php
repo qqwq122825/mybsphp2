@@ -39,7 +39,7 @@ final class ClientSecurityReportService
         return $token;
     }
 
-    public function report(Application $application, string $handle, string $device, string $token, string $eventId, string $eventCode, mixed $evidence, string $ip): void
+    public function report(Application $application, string $handle, string $device, string $token, string $eventId, string $eventCode, mixed $evidence, string $ip): string
     {
         $mode = $this->mode($application);
         if ($mode === 'disabled') {
@@ -53,15 +53,20 @@ final class ClientSecurityReportService
             throw new InvalidArgumentException('SECURITY_REPORT_INVALID');
         }
 
-        DB::transaction(function () use ($application, $handle, $device, $token, $eventId, $eventCode, $evidence, $ip, $mode): void {
+        return DB::transaction(function () use ($application, $handle, $device, $token, $eventId, $eventCode, $evidence, $ip, $mode): string {
             $session = ApplicationClientSession::query()->where('application_id', $application->getKey())->where('token_hash', hash('sha256', $handle))->lockForUpdate()->first();
             if (! $session || trim($device) === '' || ! hash_equals((string) $session->device_id_ciphertext, trim($device))
                 || ! $session->security_report_token_hash || ! hash_equals($session->security_report_token_hash, hash('sha256', $token))
                 || ! $session->security_report_token_expires_at?->isFuture()) {
                 throw new InvalidArgumentException('SECURITY_REPORT_INVALID');
             }
-            if (ClientSecurityEvent::query()->where('application_id', $application->getKey())->where('event_id', $eventId)->exists()) {
-                return;
+            $existing = ClientSecurityEvent::query()->where('application_id', $application->getKey())->where('event_id', $eventId)->first();
+            if ($existing) {
+                if ($existing->device_hash !== hash('sha256', trim($device)) || $existing->event_code !== $eventCode) {
+                    throw new InvalidArgumentException('SECURITY_REPORT_INVALID');
+                }
+
+                return (string) $existing->action;
             }
             if ($session->status !== 'active') {
                 throw new InvalidArgumentException('SECURITY_REPORT_INVALID');
@@ -72,6 +77,9 @@ final class ClientSecurityReportService
             $action = $this->canaryHints->shouldFreezeReport($eventCode, $mappedAction, $mode, $evidenceArray)
                 ? 'freeze'
                 : 'observe';
+            if ($action === 'freeze') {
+                $severity = 'high';
+            }
             ClientSecurityEvent::query()->create(['public_id' => (string) Str::ulid(), 'application_id' => $application->getKey(), 'application_client_session_id' => $session->getKey(), 'card_id' => $session->card_id, 'application_account_id' => $session->application_account_id, 'event_id' => $eventId, 'event_code' => $eventCode, 'severity' => $severity, 'ip_hash' => hash('sha256', $ip), 'device_hash' => hash('sha256', trim($device)), 'evidence' => $evidence, 'action' => $action, 'created_at' => now()]);
             if ($action === 'freeze') {
                 $this->deviceStates->block($application, $device, $eventCode, $classified['note']);
@@ -90,6 +98,8 @@ final class ClientSecurityReportService
                     DB::table('application_accounts')->where('id', $session->application_account_id)->update(['status' => 'frozen', 'updated_at' => now()]);
                 }
             }
+
+            return $action;
         }, 3);
     }
 

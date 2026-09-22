@@ -7,6 +7,17 @@ import { userBulkFields, userDetailModel } from '../../resources/js/admin-ui/rea
 
 const dom = html => new JSDOM(html, { url: 'http://localhost/admin/applications' }).window.document;
 
+test('proxy linkage keeps its own endpoint and does not leak into the normal software form submission', () => {
+    const proxy = { action: '/admin/applications/app/proxy-link', method: 'post', fields: [['_token', 'csrf']], enabled: '1', permission: 'replay', token: 'node-secret', address: 'https://license.example/lk_' + 'a'.repeat(32), credentials: [] };
+    const root = dom(`<main data-element-config><div data-config-form data-default-config-tab="proxy"><button data-config-tab="proxy"><strong>代理联动</strong></button><form method="post" action="/admin/applications/app"><input type="hidden" name="_token" value="csrf"><input type="hidden" name="_method" value="PUT"></form><script type="application/json" data-proxy-link-config>${JSON.stringify(proxy)}</script><form action="${proxy.action}" method="post"><input name="enabled" value="1"></form></div></main>`).querySelector('main');
+    const page = readSoftwareForm(root);
+    assert.deepEqual(page.proxy, proxy);
+    assert.equal(page.activeTab, 'proxy');
+    const normal = Object.fromEntries(formSubmission(page, {}));
+    assert.deepEqual(normal, { _token: 'csrf', _method: 'PUT' });
+    assert.notEqual(page.action, page.proxy.action);
+});
+
 test('software creation keeps the server-suggested code editable and submits manual overrides verbatim', () => {
     const root = dom('<main data-element-config><form action="/admin/applications" method="post"><section class="form-panel"><label class="field"><span>软件代号</span><input name="code" value="12345678" inputmode="numeric" pattern="[0-9]+" maxlength="20" required></label></section></form></main>').querySelector('main');
     const form = readSoftwareForm(root);

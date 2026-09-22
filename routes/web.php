@@ -9,6 +9,7 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminCardController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminOperationPluginController;
+use App\Http\Controllers\AdminProxyLinkController;
 use App\Http\Controllers\AdminQuickOperationController;
 use App\Http\Controllers\AdminRiskControlController;
 use App\Http\Controllers\AdminSystemLogController;
@@ -222,6 +223,9 @@ Route::prefix('{adminPath}')
             Route::put('/applications/{application}', [AdminApplicationController::class, 'update'])
                 ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
                 ->name('admin.applications.update');
+            Route::post('/applications/{application}/proxy-link', [AdminProxyLinkController::class, 'update'])
+                ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
+                ->name('admin.applications.proxy-link.update');
             Route::post('/applications/{application}/toggle', [AdminApplicationController::class, 'toggle'])
                 ->middleware('can:'.AdminPermission::ApplicationsStatusUpdate->value)
                 ->name('admin.applications.toggle');

@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>封控中心 · 表格稿</title>
+<style>
+  :root {
+    --primary: #409eff;
+    --text: #26314a;
+    --muted: #8b94a7;
+    --line: #e8ebf1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #eef1f6;
+    color: var(--text);
+    font: 13px/1.5 "PingFang SC", "Hiragino Sans GB", sans-serif;
+  }
+  .page { max-width: 1180px; margin: 24px auto; padding: 0 20px 48px; }
+  .card {
+    overflow: hidden;
+    border: 1px solid #e1e6ef;
+    border-radius: 15px;
+    background: #fff;
+    box-shadow: 0 12px 34px rgba(29, 45, 81, .07);
+  }
+  .heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 18px 24px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .heading span { color: #4974d8; font-size: 9px; font-weight: 800; letter-spacing: .1em; }
+  .heading h1 { margin: 4px 0 0; font-size: 19px; }
+  .heading p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+  .nums { display: flex; gap: 22px; color: var(--muted); font-size: 12px; padding-top: 8px; }
+  .nums b { color: var(--text); font-size: 16px; }
+  .add {
+    height: 34px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+  }
+  .filter {
+    display: flex;
+    gap: 10px;
+    align-items: end;
+    padding: 14px 24px 0;
+  }
+  .filter label { display: grid; gap: 6px; color: var(--muted); font-size: 11px; }
+  .filter select, .filter input {
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #dfe3ea;
+    border-radius: 8px;
+    font: inherit;
+  }
+  .filter input { min-width: 220px; }
+  .tool {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px 8px;
+  }
+  .tool button {
+    height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--primary);
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #eef1f5;
+    text-align: left;
+    font-size: 13px;
+    vertical-align: top;
+  }
+  th { color: var(--muted); font-weight: 600; background: #fbfcfe; }
+  td strong { display: block; }
+  td small { color: var(--muted); font-size: 12px; }
+  code { color: #3479ec; }
+  .type {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+  }
+  .type.device { color: #3b6fd4; background: #eef4ff; }
+  .type.ip { color: #7a5a12; background: #fff6e5; }
+  .ghost {
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid #d7deea;
+    border-radius: 6px;
+    background: #fff;
+    color: #4465aa;
+    font: inherit;
+    cursor: pointer;
+  }
+  .hint { margin: 14px 2px 0; color: #5b6780; font-size: 13px; line-height: 1.7; }
+  dialog {
+    width: min(520px, calc(100% - 32px));
+    padding: 0;
+    border: 1px solid #dbe2ee;
+    border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(24, 40, 72, .18);
+  }
+  dialog::backdrop { background: rgba(22, 32, 52, .28); }
+  .dlg-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .dlg-bar h3 { margin: 0; font-size: 15px; }
+  .dlg-bar button {
+    width: 28px; height: 28px; border: 0; background: transparent;
+    color: #667085; font-size: 18px; cursor: pointer;
+  }
+  .dlg-body { display: grid; gap: 12px; padding: 16px; }
+  .dlg-body label { display: grid; gap: 6px; color: #5b6780; font-size: 12px; }
+  .dlg-body input {
+    height: 40px; padding: 0 12px; border: 1px solid #dfe3ea; border-radius: 8px; font: inherit;
+  }
+  .dlg-note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .dlg-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 0 16px 16px; }
+</style>
+</head>
+<body>
+  <div class="page">
+    <section class="card">
+      <header class="heading">
+        <div>
+          <span>RISK CONTROL CENTER</span>
+          <h1>封控中心</h1>
+          <p>设备或 IP 拉黑后，任意软件登录都显示卡密不存在。</p>
+          <div class="nums">
+            <span>近 24 小时 <b>18</b></span>
+            <span>设备 <b>1</b></span>
+            <span>IP <b>2</b></span>
+          </div>
+        </div>
+        <button class="add" id="open" type="button">添加封禁</button>
+      </header>
+
+      <form class="filter" onsubmit="return false">
+        <label>类型
+          <select>
+            <option>全部</option>
+            <option>设备</option>
+            <option>IP</option>
+          </select>
+        </label>
+        <label>关键字
+          <input placeholder="序列号或 IP">
+        </label>
+        <button class="add" type="button">⌕</button>
+      </form>
+
+      <div class="tool">
+        <button type="button">解除选定</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>类型</th>
+            <th>封控对象</th>
+            <th>关联</th>
+            <th>原因</th>
+            <th>时间</th>
+            <th>处置</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><input type="checkbox"></td>
+            <td><span class="type device">设备</span></td>
+            <td><strong><code>D2QDT96KLH</code></strong></td>
+            <td><small>当时 IP<br>203.0.113.88</small></td>
+            <td>套卡探测</td>
+            <td>08-28 06:31:08</td>
+            <td><button class="ghost" type="button">解除</button></td>
+          </tr>
+          <tr>
+            <td><input type="checkbox"></td>
+            <td><span class="type ip">IP</span></td>
+            <td><strong><code>203.0.113.88</code></strong></td>
+            <td><small>当时设备<br>D2QDT96KLH</small></td>
+            <td>套卡探测</td>
+            <td>08-28 06:31:08</td>
+            <td><button class="ghost" type="button">解除</button></td>
+          </tr>
+          <tr>
+            <td><input type="checkbox"></td>
+            <td><span class="type ip">IP</span></td>
+            <td><strong><code>198.51.100.14</code></strong></td>
+            <td><small>无关联设备</small></td>
+            <td>手动添加</td>
+            <td>08-28 05:12:40</td>
+            <td><button class="ghost" type="button">解除</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <p class="hint">
+      不建议一行同时当「主字段」塞设备和 IP。<br>
+      一条封控就是一行：要么是设备，要么是 IP。弹窗里两个都填，就生成两行。<br>
+      「关联」只是当时一起出现的对方，方便对照；解除设备不会自动解除 IP，除非你勾两个一起解除。
+    </p>
+  </div>
+
+  <dialog id="dialog">
+    <div class="dlg-bar">
+      <h3>添加封禁</h3>
+      <button type="button" id="close">×</button>
+    </div>
+    <form class="dlg-body" onsubmit="return false">
+      <p class="dlg-note">可只填设备、只填 IP，或两个都填。拉黑后任意软件都显示卡密不存在。</p>
+      <label>设备序列号<input placeholder="例如 D2QDT96KLH"></label>
+      <label>IP 地址<input placeholder="例如 203.0.113.88"></label>
+      <label>备注<input placeholder="可选"></label>
+    </form>
+    <div class="dlg-foot">
+      <button class="ghost" type="button" id="cancel">取消</button>
+      <button class="add" type="button">确认拉黑</button>
+    </div>
+  </dialog>
+  <script>
+    const dialog = document.getElementById('dialog');
+    document.getElementById('open').onclick = () => dialog.showModal();
+    document.getElementById('close').onclick = () => dialog.close();
+    document.getElementById('cancel').onclick = () => dialog.close();
+  </script>
+</body>
+</html>

@@ -7,6 +7,7 @@ use App\Models\Application;
 use App\Models\ApplicationAccount;
 use App\Models\ApplicationClientSession;
 use App\Models\Card;
+use App\Security\DeviceSecurityStateService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -85,6 +86,13 @@ final class ClientSessionService
         }
         if ($deviceId !== '' && $session->device_id_ciphertext && ! hash_equals((string) $session->device_id_ciphertext, trim($deviceId))) {
             return $this->heartbeatResult('5026', '登录设备不匹配', $handle);
+        }
+        // Use the bound identity even when a legacy request omits its key.
+        // This also closes other active sessions after a global device block.
+        if (app(DeviceSecurityStateService::class)->isBlocked($application, (string) $session->device_id_ciphertext)) {
+            $session->forceFill(['status' => 'security_blocked'])->save();
+
+            return $this->heartbeatResult('5026', '网络连接异常', $handle);
         }
 
         if ($session->auth_mode === 'universal') {
