@@ -88,8 +88,8 @@ class ProxyLinkTest extends TestCase
     private function sync(array $payload = [], ?string $path = null)
     {
         return $this->postJson('/'.($path ?? $this->link->path), array_merge([
-            'action' => 'sync', 'node_id' => $this->node, 'node_name' => '测试节点', 'app_id' => '1002',
-        ], $payload), ['Authorization' => 'Bearer '.$this->link->token_ciphertext]);
+            'action' => 'sync',
+        ], $payload));
     }
 
     public function test_random_path_is_stable_and_endpoint_has_no_browser_middleware(): void
@@ -106,14 +106,26 @@ class ProxyLinkTest extends TestCase
         $this->assertDatabaseCount('proxy_credentials', 0);
     }
 
-    public function test_token_and_application_and_node_isolation(): void
+    public function test_url_alone_syncs_without_token_app_id_or_node_binding(): void
     {
-        $this->postJson('/'.$this->link->path, ['token' => $this->link->token_ciphertext])->assertUnauthorized();
+        $card = $this->card();
+        // A binding saved by the previous release must not block the simpler client.
+        $this->link->forceFill(['node_id' => $this->node])->save();
+        $this->postJson('/'.$this->link->path)->assertOk()->assertJsonPath('data.app_id', '1002')
+            ->assertJsonPath('data.users.0.username', $card->code_ciphertext);
         $this->sync(['app_id' => '9999'])->assertForbidden()->assertJsonPath('error.code', 'APP_MISMATCH');
-        $this->sync()->assertOk();
-        $this->sync(['node_id' => (string) Str::uuid()])->assertForbidden()->assertJsonPath('error.code', 'NODE_MISMATCH');
+        $this->sync(['node_id' => (string) Str::uuid()])->assertOk();
         $this->postJson('/lk_'.str_repeat('0', 32))->assertNotFound();
-        $this->assertSame($this->node, $this->link->fresh()->node_id);
+        $this->postJson('/'.$this->link->path, [], ['Authorization' => 'Bearer wrong'])
+            ->assertUnauthorized()->assertJsonPath('error.code', 'AUTH_FAILED');
+        $this->postJson('/'.$this->link->path, [], ['Authorization' => 'Bearer '.$this->link->token_ciphertext])->assertOk();
+        $this->getJson('/'.$this->link->path)->assertNotFound();
+        $other = $this->makeApplication('1003');
+        $otherCard = $this->card([], $other);
+        $otherLink = app(ProxyLinkService::class)->ensure($other);
+        $otherLink->forceFill(['enabled' => true])->save();
+        $this->postJson('/'.$otherLink->path)->assertOk()->assertJsonCount(1, 'data.users')
+            ->assertJsonPath('data.app_id', '1003')->assertJsonPath('data.users.0.username', $otherCard->code_ciphertext);
     }
 
     public function test_complete_snapshot_only_contains_activated_subjects_from_this_app(): void
@@ -222,14 +234,17 @@ class ProxyLinkTest extends TestCase
         $this->postJson('/'.$this->link->path, [], ['Authorization' => 'Bearer '.$token])->assertUnauthorized();
     }
 
-    public function test_admin_lists_active_card_credentials_and_expired_card_history_is_preserved(): void
+    public function test_simple_admin_page_excludes_credentials_and_preserves_expired_card_history(): void
     {
         $this->administrator();
         $active = $this->card();
         $expired = $this->card(['expires_at' => now()->subSecond()]);
         $base = '/proxy-admin/applications/'.$this->application->public_id.'/edit?config_tab=proxy';
-        $this->get($base)->assertOk()->assertSee($active->code_ciphertext)->assertDontSee($expired->code_ciphertext);
-        $this->get($base.'&proxy_search=card:'.$active->public_id)->assertOk()->assertSee($active->code_ciphertext);
+        $this->get($base)->assertOk()->assertDontSee($active->code_ciphertext)->assertDontSee($expired->code_ciphertext)
+            ->assertDontSee($this->link->token_ciphertext)->assertDontSee('按授权唯一 ID')
+            ->assertDontSee('同步用户权限')->assertDontSee('节点接入密钥')->assertDontSee('保存联动配置')
+            ->assertDontSee('复制密码')->assertDontSee('rotate_token')->assertSee('每 30 秒自动同步账号');
+        $this->get($base.'&proxy_search=card:'.$active->public_id)->assertOk()->assertDontSee($active->code_ciphertext);
         $this->sync()->assertOk()->assertJsonPath('data.users.1.status', 'expired');
         $this->assertDatabaseHas('cards', ['id' => $expired->id]);
         $expired->forceFill(['expires_at' => now()->addHour()])->save();
@@ -246,7 +261,7 @@ class ProxyLinkTest extends TestCase
         $disabled = $this->get($base.'/edit?config_tab=proxy')->assertOk()
             ->assertSee('启用代理联动')->assertSee('尚未生成联动地址');
         $this->assertDatabaseCount('proxy_links', 0);
-        $this->post($base.'/proxy-link', ['enabled' => '1', 'permission' => 'replay', 'action' => 'save'])
+        $this->post($base.'/proxy-link', ['enabled' => '1'])
             ->assertRedirect($base.'/edit?config_tab=proxy');
         $link = ProxyLink::query()->sole();
         $this->assertTrue($link->enabled);
@@ -254,12 +269,13 @@ class ProxyLinkTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $link->token_ciphertext);
         $enabled = $this->get($base.'/edit?config_tab=proxy')->assertOk()->assertSee($link->address());
         foreach ([false, true] as $state) {
-            $this->post($base.'/proxy-link', ['enabled' => $state ? '1' : '0', 'permission' => 'replay', 'action' => 'save'])->assertRedirect();
+            $this->post($base.'/proxy-link', ['enabled' => $state ? '1' : '0'])->assertRedirect();
             $saved = $link->fresh();
             $this->assertSame($state, $saved->enabled);
             $this->assertSame($link->path, $saved->path);
             $this->assertSame($link->token_ciphertext, $saved->token_ciphertext);
             $this->assertDatabaseCount('proxy_links', 1);
+            $this->postJson('/'.$saved->path)->assertStatus($state ? 200 : 403);
         }
         // Optional synthetic browser fixtures; exercise the actual initial/after-save Blade responses.
         if ($directory = getenv('DFM_LINK_TOGGLE_PREVIEW_DIR')) {
@@ -278,7 +294,7 @@ class ProxyLinkTest extends TestCase
             ->assertSee('data-software-config-native', false)->assertSee('data-software-ui-compat', false)
             ->assertDontSee('data-element-config', false)->assertSee('role="switch"', false)
             ->assertSee('data-config-submit-bar', false)->assertSee('尚未生成联动地址');
-        $this->post($base.'/proxy-link', ['enabled' => '1', 'permission' => 'replay', 'action' => 'save'])->assertRedirect();
+        $this->post($base.'/proxy-link', ['enabled' => '1'])->assertRedirect();
         $link = ProxyLink::query()->sole();
         $enabled = $this->get($base.'/edit?config_tab=proxy')->assertOk()
             ->assertSee($link->address())->assertSee('data-software-config-native', false)

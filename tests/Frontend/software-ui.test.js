@@ -8,7 +8,7 @@ import { userBulkFields, userDetailModel } from '../../resources/js/admin-ui/rea
 const dom = html => new JSDOM(html, { url: 'http://localhost/admin/applications' }).window.document;
 
 test('proxy linkage keeps its own endpoint and does not leak into the normal software form submission', () => {
-    const proxy = { action: '/admin/applications/app/proxy-link', method: 'post', fields: [['_token', 'csrf']], enabled: '1', permission: 'replay', token: 'node-secret', address: 'https://license.example/lk_' + 'a'.repeat(32), credentials: [] };
+    const proxy = { action: '/admin/applications/app/proxy-link', method: 'post', fields: [['_token', 'csrf']], enabled: '1', address: 'https://license.example/lk_' + 'a'.repeat(32) };
     const root = dom(`<main data-element-config><div data-config-form data-default-config-tab="proxy"><button data-config-tab="proxy"><strong>代理联动</strong></button><form method="post" action="/admin/applications/app"><input type="hidden" name="_token" value="csrf"><input type="hidden" name="_method" value="PUT"></form><script type="application/json" data-proxy-link-config>${JSON.stringify(proxy)}</script><form action="${proxy.action}" method="post"><input name="enabled" value="1"></form></div></main>`).querySelector('main');
     const page = readSoftwareForm(root);
     assert.deepEqual(page.proxy, proxy);

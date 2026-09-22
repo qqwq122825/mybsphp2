@@ -13,12 +13,7 @@
 @endpush
 
 @section('content')
-    @if(!$softwareUiReady)
-        <div class="notice notice-warning" data-software-ui-compat>
-            当前使用兼容配置界面，联动开关可直接使用。前端资源更新完整后自动恢复新版界面。
-        </div>
-    @endif
-    <div @if($softwareUiReady) data-element-config @else data-software-config-native @endif data-form-errors="{{ json_encode($errors->getMessages()) }}">
+    <div @if($softwareUiReady) data-element-config @else data-software-config-native data-software-ui-compat @endif data-form-errors="{{ json_encode($errors->getMessages()) }}">
     @if (! $editing)
         <header class="page-heading page-heading-actions">
             <div>

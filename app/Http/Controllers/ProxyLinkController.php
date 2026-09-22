@@ -20,7 +20,9 @@ final class ProxyLinkController extends Controller
             if (! $link || ! $link->application) {
                 return $this->error('NOT_FOUND', 404);
             }
-            if (! hash_equals((string) $link->token_ciphertext, (string) $request->bearerToken())) {
+            // The unguessable HTTPS URL is the credential for the single-field client.
+            // Continue validating an explicitly supplied legacy bearer token.
+            if ($request->bearerToken() !== null && ! hash_equals((string) $link->token_ciphertext, (string) $request->bearerToken())) {
                 return $this->error('AUTH_FAILED', 401);
             }
             if (! $link->enabled) {
@@ -35,16 +37,13 @@ final class ProxyLinkController extends Controller
                 return $this->error('SERVICE_DISABLED', 403);
             }
             $input = $request->validate([
-                'action' => ['required', 'in:ping,sync'],
-                'node_id' => ['required', 'uuid'],
-                'node_name' => ['required', 'string', 'max:80'],
+                'action' => ['sometimes', 'in:ping,sync'],
+                'node_id' => ['nullable', 'uuid'],
+                'node_name' => ['nullable', 'string', 'max:80'],
                 'app_id' => ['nullable', 'string', 'max:40'],
             ]);
             if (! empty($input['app_id']) && $input['app_id'] !== $application->code) {
                 return $this->error('APP_MISMATCH', 403);
-            }
-            if ($link->node_id && ! hash_equals($link->node_id, $input['node_id'])) {
-                return $this->error('NODE_MISMATCH', 403);
             }
             $data = [
                 'protocol' => ProxyLinkService::PROTOCOL,
@@ -52,11 +51,10 @@ final class ProxyLinkController extends Controller
                 'app_id' => $application->code, 'name' => $application->name,
                 'server_time' => now()->getTimestamp(), 'lease_seconds' => 300,
             ];
-            if ($input['action'] === 'sync') {
+            if (($input['action'] ?? 'sync') === 'sync') {
                 $data['users'] = $service->users($application, $link);
                 $data['complete'] = true;
                 $link->forceFill([
-                    'node_id' => $input['node_id'], 'node_name' => $input['node_name'],
                     'last_sync_at' => now(), 'last_user_count' => count($data['users']),
                 ])->save();
             }

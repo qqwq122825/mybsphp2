@@ -119,7 +119,7 @@ test('workspace toggle keeps proxy JSON and displays the generated endpoint afte
     const { readSoftwareForm } = await import('../../resources/js/admin-ui/read-software.js');
     const address = 'https://license.example/lk_' + 'a'.repeat(32);
     const page = enabled => {
-        const proxy = { action: 'http://localhost/admin/applications/a/proxy-link', method: 'post', fields: [['_token', 'csrf']], enabled: enabled ? '1' : '0', permission: 'replay', address: enabled ? address : null };
+        const proxy = { action: 'http://localhost/admin/applications/a/proxy-link', method: 'post', fields: [['_token', 'csrf']], enabled: enabled ? '1' : '0', address: enabled ? address : null };
         return `<html><body><div data-workspace-tabs data-workspace-page-title="软件配置"></div><main data-workspace-content><div data-element-config><div data-config-form data-default-config-tab="proxy"><button data-config-tab="proxy"><strong>代理联动</strong></button><form action="/admin/applications/a" method="post"><input type="hidden" name="_method" value="PUT"></form><div data-config-panel="proxy"><script type="application/json" data-proxy-link-config>${JSON.stringify(proxy)}</script></div></div></div></main></body></html>`;
     };
     const dom = new JSDOM('<div data-workspace-tabs><a class="is-active">软件管理</a></div><main data-workspace-content><a href="/admin/applications/a/edit" data-workspace-open>配置</a></main>', { url: 'http://localhost/admin/applications', runScripts: 'outside-only' });
@@ -141,7 +141,7 @@ test('workspace toggle keeps proxy JSON and displays the generated endpoint afte
     let result;
     window.document.dispatchEvent(new window.CustomEvent('workspace:submit', { cancelable: true, detail: {
         action: config.proxy.action, method: config.proxy.method,
-        fields: [...config.proxy.fields, ['enabled', '1'], ['permission', 'replay'], ['action', 'save']], complete: response => { result = response; },
+        fields: [...config.proxy.fields, ['enabled', '1'], ['action', 'save']], complete: response => { result = response; },
     } }));
     await tick();
     assert.equal(result.ok, true);
@@ -157,7 +157,7 @@ test('workspace toggle keeps proxy JSON and displays the generated endpoint afte
 });
 
 test('native compatibility form stays visible and toggles independently with no Vue bundle', async t => {
-    const dom = new JSDOM(`<main><div data-software-config-native><div data-config-form data-default-config-tab="proxy"><button data-config-tab="basic">基本配置</button><button data-config-tab="proxy">代理联动</button><form><div data-config-panel="basic">基本配置字段</div><div data-config-submit-bar>确认保存</div></form><div data-config-panel="proxy" hidden><form action="/admin/applications/a/proxy-link" method="post"><input type="hidden" name="_token" value="csrf"><input type="hidden" name="enabled" value="0"><input type="checkbox" role="switch" name="enabled" value="1"><button data-proxy-save name="action" value="save">保存</button></form></div></div></div></main>`, { url: 'http://localhost/admin/applications/a/edit?config_tab=proxy', runScripts: 'outside-only' });
+    const dom = new JSDOM(`<main><div data-software-config-native><div data-config-form data-default-config-tab="proxy"><button data-config-tab="basic">基本配置</button><button data-config-tab="proxy">代理联动</button><form><div data-config-panel="basic">基本配置字段</div><div data-config-submit-bar>确认保存</div></form><div data-config-panel="proxy" hidden><form action="/admin/applications/a/proxy-link" method="post"><input type="hidden" name="_token" value="csrf"><input type="hidden" name="enabled" value="0"><input type="checkbox" role="switch" name="enabled" value="1"><input type="hidden" name="action" value="save"></form></div></div></div></main>`, { url: 'http://localhost/admin/applications/a/edit?config_tab=proxy', runScripts: 'outside-only' });
     t.after(() => dom.window.close());
     const { window } = dom;
     const { document } = window;
@@ -171,7 +171,6 @@ test('native compatibility form stays visible and toggles independently with no 
     const checkbox = form.querySelector('[role="switch"]');
     checkbox.checked = true;
     const fields = new window.FormData(form);
-    fields.set('action', form.querySelector('[data-proxy-save]').value);
     assert.deepEqual(fields.getAll('enabled'), ['0', '1']);
     assert.equal(fields.get('action'), 'save');
     assert.equal(fields.has('_method'), false);

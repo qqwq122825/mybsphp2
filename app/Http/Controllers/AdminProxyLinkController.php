@@ -16,14 +16,15 @@ final class AdminProxyLinkController extends Controller
     {
         $input = $request->validate([
             'enabled' => ['required', 'boolean'],
-            'permission' => ['required', 'in:record,replay,both'],
-            'action' => ['required', 'in:save,rotate_path,rotate_path_now,rotate_token'],
+            'permission' => ['sometimes', 'in:record,replay,both'],
+            'action' => ['sometimes', 'in:save,rotate_path,rotate_path_now,rotate_token'],
         ]);
+        $input['action'] ??= 'save';
         DB::transaction(function () use ($request, $application, $service, $audit, $input): void {
             $link = $service->ensure($application);
             $link = $link->newQuery()->whereKey($link->id)->lockForUpdate()->firstOrFail();
             $before = $link->only(['enabled', 'permission']);
-            $changes = ['enabled' => (bool) $input['enabled'], 'permission' => $input['permission']];
+            $changes = ['enabled' => (bool) $input['enabled'], 'permission' => $input['permission'] ?? $link->permission];
             if (in_array($input['action'], ['rotate_path', 'rotate_path_now'], true)) {
                 $changes += [
                     'previous_path' => $input['action'] === 'rotate_path' ? $link->path : null,
