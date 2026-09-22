@@ -237,6 +237,36 @@ class ProxyLinkTest extends TestCase
             ->assertJsonPath('data.users.1.password', $expired->code_ciphertext);
     }
 
+    public function test_enabling_link_generates_address_and_reenable_keeps_it(): void
+    {
+        $this->administrator();
+        $this->link->delete();
+        $base = '/proxy-admin/applications/'.$this->application->public_id;
+        $disabled = $this->get($base.'/edit?config_tab=proxy')->assertOk()
+            ->assertSee('启用代理联动')->assertSee('尚未生成联动地址');
+        $this->assertDatabaseCount('proxy_links', 0);
+        $this->post($base.'/proxy-link', ['enabled' => '1', 'permission' => 'replay', 'action' => 'save'])
+            ->assertRedirect($base.'/edit?config_tab=proxy');
+        $link = ProxyLink::query()->sole();
+        $this->assertTrue($link->enabled);
+        $this->assertMatchesRegularExpression('/^lk_[a-f0-9]{32}$/', $link->path);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $link->token_ciphertext);
+        $enabled = $this->get($base.'/edit?config_tab=proxy')->assertOk()->assertSee($link->address());
+        foreach ([false, true] as $state) {
+            $this->post($base.'/proxy-link', ['enabled' => $state ? '1' : '0', 'permission' => 'replay', 'action' => 'save'])->assertRedirect();
+            $saved = $link->fresh();
+            $this->assertSame($state, $saved->enabled);
+            $this->assertSame($link->path, $saved->path);
+            $this->assertSame($link->token_ciphertext, $saved->token_ciphertext);
+            $this->assertDatabaseCount('proxy_links', 1);
+        }
+        // Optional synthetic browser fixtures; exercise the actual initial/after-save Blade responses.
+        if ($directory = getenv('DFM_LINK_TOGGLE_PREVIEW_DIR')) {
+            file_put_contents($directory.'/disabled.html', $disabled->getContent());
+            file_put_contents($directory.'/enabled.html', $enabled->getContent());
+        }
+    }
+
     public function test_wire_contract_and_optional_local_preview(): void
     {
         $this->administrator();

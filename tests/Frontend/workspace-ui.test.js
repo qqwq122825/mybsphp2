@@ -114,3 +114,44 @@ test('direct configuration URL bootstraps a named tab without changing its URL i
     assert.equal(tab.dataset.workspaceTab, 'http://localhost/admin/applications/a/edit');
     assert.equal(window.location.href, 'http://localhost/admin/applications');
 });
+
+test('workspace toggle keeps proxy JSON and displays the generated endpoint after the standalone POST', async t => {
+    const { readSoftwareForm } = await import('../../resources/js/admin-ui/read-software.js');
+    const address = 'https://license.example/lk_' + 'a'.repeat(32);
+    const page = enabled => {
+        const proxy = { action: 'http://localhost/admin/applications/a/proxy-link', method: 'post', fields: [['_token', 'csrf']], enabled: enabled ? '1' : '0', permission: 'replay', address: enabled ? address : null };
+        return `<html><body><div data-workspace-tabs data-workspace-page-title="软件配置"></div><main data-workspace-content><div data-element-config><div data-config-form data-default-config-tab="proxy"><button data-config-tab="proxy"><strong>代理联动</strong></button><form action="/admin/applications/a" method="post"><input type="hidden" name="_method" value="PUT"></form><div data-config-panel="proxy"><script type="application/json" data-proxy-link-config>${JSON.stringify(proxy)}</script></div></div></div></main></body></html>`;
+    };
+    const dom = new JSDOM('<div data-workspace-tabs><a class="is-active">软件管理</a></div><main data-workspace-content><a href="/admin/applications/a/edit" data-workspace-open>配置</a></main>', { url: 'http://localhost/admin/applications', runScripts: 'outside-only' });
+    t.after(() => dom.window.close());
+    const { window } = dom;
+    window.scrollTo = () => {};
+    window.HTMLElement.prototype.scrollIntoView = () => {};
+    const requests = [];
+    window.fetch = async (url, options) => {
+        requests.push({ url, options });
+        return { ok: true, url, text: async () => page(options.method === 'POST') };
+    };
+    window.eval(readFileSync(new URL('../../public/assets/js/mybsphp.js', import.meta.url), 'utf8'));
+    window.document.querySelector('[data-workspace-open]').click();
+    await tick();
+    let config = readSoftwareForm(window.document.querySelector('[data-element-config]'));
+    assert.equal(config.proxy.enabled, '0');
+    assert.equal(config.proxy.address, null);
+    let result;
+    window.document.dispatchEvent(new window.CustomEvent('workspace:submit', { cancelable: true, detail: {
+        action: config.proxy.action, method: config.proxy.method,
+        fields: [...config.proxy.fields, ['enabled', '1'], ['permission', 'replay'], ['action', 'save']], complete: response => { result = response; },
+    } }));
+    await tick();
+    assert.equal(result.ok, true);
+    const submitted = requests[1];
+    assert.equal(submitted.url, 'http://localhost/admin/applications/a/proxy-link');
+    assert.equal(submitted.options.body.get('enabled'), '1');
+    assert.equal(submitted.options.body.get('action'), 'save');
+    assert.equal(submitted.options.body.has('_method'), false);
+    config = readSoftwareForm(window.document.querySelector('[data-element-config]'));
+    assert.equal(config.proxy.enabled, '1');
+    assert.equal(config.proxy.address, address);
+    assert.equal(config.activeTab, 'proxy');
+});

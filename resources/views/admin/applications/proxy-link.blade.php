@@ -26,15 +26,16 @@
     <section class="dashboard-panel form-panel form-panel-wide">
         <header><div><span>DFMPROXY LINK</span><h2>代理联动</h2></div><em>应用 {{ $application->code }} · 单节点</em></header>
         <div class="panel-body stack-form">
-            <p>启用后，将已激活卡密 / 充值账号的有效期同步到 DFMProxy。原客户端登录入口保持独立。首次保存生成专属随机地址和密钥。</p>
+            <p>启用后，将已激活卡密 / 充值账号的有效期同步到 DFMProxy。原客户端登录入口保持独立。开启后自动保存并生成专属随机地址和密钥，关闭后保留地址，再次开启沿用。</p>
             <form method="post" action="{{ route('admin.applications.proxy-link.update', ['adminPath' => $adminPath, 'application' => $application]) }}">
                 @csrf
                 <div class="field-grid">
                     <label class="field"><span>启用代理联动</span>
-                        <select name="enabled">
-                            <option value="0" @selected(! old('enabled', $proxyLink?->enabled))>关闭</option>
-                            <option value="1" @selected(old('enabled', $proxyLink?->enabled))>开启</option>
-                        </select>
+                        <input type="hidden" name="enabled" value="0">
+                        <input type="checkbox" name="enabled" value="1" role="switch" aria-label="启用代理联动"
+                               @checked(old('enabled', $proxyLink?->enabled))
+                               onchange="this.form.requestSubmit(this.form.querySelector('[data-proxy-save]'))">
+                        <small>开启即保存并生成地址，无需另点保存。</small>
                     </label>
                     <label class="field"><span>同步用户权限</span><select name="permission">
                         @foreach(['replay' => '仅重放', 'record' => '仅录制', 'both' => '录制＋重放'] as $value => $label)
@@ -42,6 +43,9 @@
                         @endforeach
                     </select></label>
                 </div>
+                @if(!$proxyLink)
+                    <p>尚未生成联动地址。打开上方开关后，这里将显示地址、CDN 路径和节点密钥。</p>
+                @endif
                 @if($proxyLink)
                     <div class="connection-row connection-row-address"><div><span>联动地址（CDN 精确路径白名单，POST，无缓存）</span><code>{{ $proxyLink->address() }}</code></div><button type="button" data-copy="{{ $proxyLink->address() }}">复制地址</button></div>
                     <div class="connection-row"><div><span>CDN 匹配路径</span><code>/{{ $proxyLink->path }}</code></div><button type="button" data-copy="/{{ $proxyLink->path }}">复制路径</button></div>
@@ -52,7 +56,7 @@
                     @endif
                 @endif
                 <div class="form-submit-bar">
-                    <button class="button button-primary" name="action" value="save">保存联动配置</button>
+                    <button class="button button-primary" name="action" value="save" data-proxy-save>保存联动配置</button>
                     @if($proxyLink)
                         <button class="button" name="action" value="rotate_path" onclick="return confirm('生成新地址，旧地址保留 10 分钟；请同步更新 CDN 和 DFMProxy。继续？')">轮换地址（10 分钟过渡）</button>
                         <button class="button" name="action" value="rotate_path_now" onclick="return confirm('旧地址将立即失效，请准备更新 CDN 和 DFMProxy。继续？')">立即重置地址</button>

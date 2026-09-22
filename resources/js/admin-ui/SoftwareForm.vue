@@ -37,7 +37,10 @@ async function save() {
             <el-form ref="formRef" :model="model" label-position="top" @submit.prevent.stop="save">
                 <el-tabs v-model="activeTab">
                     <el-tab-pane v-for="tab in page.tabs" :key="tab.name" :label="tab.label" :name="tab.name">
-                        <proxy-link v-if="tab.name === 'proxy' && page.proxy" :page="page.proxy" :preview="preview" />
+                        <template v-if="tab.name === 'proxy'">
+                            <proxy-link v-if="page.proxy" :page="page.proxy" :preview="preview" />
+                            <el-alert v-else title="联动配置未加载" description="请更新前端构建资源并刷新页面；若仍未显示，请检查软件配置接口返回内容。" type="warning" :closable="false" />
+                        </template>
                         <section v-for="(group, groupIndex) in page.groups.filter(group => group.tab === tab.name)" :key="groupIndex" class="ep-config-section">
                             <h3>{{ group.title }}</h3>
                             <div v-if="group.connections.length" class="ep-connection-list">
