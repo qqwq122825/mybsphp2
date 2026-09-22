@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Admin\SoftwareUiAssets;
 use App\Auth\SystemAccessSynchronizer;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
@@ -262,6 +263,28 @@ class ProxyLinkTest extends TestCase
         }
         // Optional synthetic browser fixtures; exercise the actual initial/after-save Blade responses.
         if ($directory = getenv('DFM_LINK_TOGGLE_PREVIEW_DIR')) {
+            file_put_contents($directory.'/disabled.html', $disabled->getContent());
+            file_put_contents($directory.'/enabled.html', $enabled->getContent());
+        }
+    }
+
+    public function test_old_or_missing_assets_keep_the_native_link_switch_visible(): void
+    {
+        $this->mock(SoftwareUiAssets::class, fn ($mock) => $mock->shouldReceive('ready')->andReturn(false));
+        $this->administrator();
+        $this->link->delete();
+        $base = '/proxy-admin/applications/'.$this->application->public_id;
+        $disabled = $this->get($base.'/edit?config_tab=proxy')->assertOk()
+            ->assertSee('data-software-config-native', false)->assertSee('data-software-ui-compat', false)
+            ->assertDontSee('data-element-config', false)->assertSee('role="switch"', false)
+            ->assertSee('data-config-submit-bar', false)->assertSee('尚未生成联动地址');
+        $this->post($base.'/proxy-link', ['enabled' => '1', 'permission' => 'replay', 'action' => 'save'])->assertRedirect();
+        $link = ProxyLink::query()->sole();
+        $enabled = $this->get($base.'/edit?config_tab=proxy')->assertOk()
+            ->assertSee($link->address())->assertSee('data-software-config-native', false)
+            ->assertDontSee('data-element-config', false);
+        $this->assertTrue($link->enabled);
+        if ($directory = getenv('DFM_LINK_COMPAT_PREVIEW_DIR')) {
             file_put_contents($directory.'/disabled.html', $disabled->getContent());
             file_put_contents($directory.'/enabled.html', $enabled->getContent());
         }

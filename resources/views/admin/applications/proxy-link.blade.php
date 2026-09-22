@@ -32,9 +32,12 @@
                 <div class="field-grid">
                     <label class="field"><span>启用代理联动</span>
                         <input type="hidden" name="enabled" value="0">
-                        <input type="checkbox" name="enabled" value="1" role="switch" aria-label="启用代理联动"
-                               @checked(old('enabled', $proxyLink?->enabled))
-                               onchange="this.form.requestSubmit(this.form.querySelector('[data-proxy-save]'))">
+                        <span class="application-delete-switch">
+                            <input type="checkbox" name="enabled" value="1" role="switch" aria-label="启用代理联动"
+                                   @checked(old('enabled', $proxyLink?->enabled))
+                                   onchange="this.form.requestSubmit(this.form.querySelector('[data-proxy-save]'))">
+                            <span>启用</span><i aria-hidden="true">✓</i>
+                        </span>
                         <small>开启即保存并生成地址，无需另点保存。</small>
                     </label>
                     <label class="field"><span>同步用户权限</span><select name="permission">

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Admin\SoftwareUiAssets;
 use Tests\Support\AdminTablePreview;
 use Tests\TestCase;
 
@@ -9,6 +10,7 @@ class AdminTablePresentationTest extends TestCase
 {
     public function test_software_pages_keep_backend_fields_and_mount_component_views(): void
     {
+        $this->mock(SoftwareUiAssets::class, fn ($mock) => $mock->shouldReceive('ready')->andReturn(true));
         $list = AdminTablePreview::render('software');
         $this->assertStringContainsString('data-element-software', $list);
         $this->assertStringContainsString('name="delete_application"', $list);

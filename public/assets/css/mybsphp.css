@@ -2662,6 +2662,7 @@ select:not([multiple]):not([data-native-select]):focus {
 .software-basic-row > .honeypot-unit-input,
 .software-basic-row > .inline-unit-input { width: 100%; }
 .software-config-tabs.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.software-config-tabs.is-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .software-settings-heading .button { flex-shrink: 0; }
 .software-config-panel .form-submit-bar {
     margin: 0 -22px 0;

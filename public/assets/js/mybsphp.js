@@ -355,6 +355,9 @@
             configPanels.forEach((panel) => {
                 panel.hidden = panel.dataset.configPanel !== name;
             });
+            configForm.querySelectorAll('[data-config-submit-bar]').forEach((bar) => {
+                bar.style.display = name === 'proxy' ? 'none' : '';
+            });
             if (useBrowserHash && updateHash) history.replaceState(null, '', `#${name}`);
             configForm.dispatchEvent(new CustomEvent('workspace:config-tab', {
                 bubbles: true,

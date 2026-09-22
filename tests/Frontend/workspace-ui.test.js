@@ -155,3 +155,27 @@ test('workspace toggle keeps proxy JSON and displays the generated endpoint afte
     assert.equal(config.proxy.address, address);
     assert.equal(config.activeTab, 'proxy');
 });
+
+test('native compatibility form stays visible and toggles independently with no Vue bundle', async t => {
+    const dom = new JSDOM(`<main><div data-software-config-native><div data-config-form data-default-config-tab="proxy"><button data-config-tab="basic">基本配置</button><button data-config-tab="proxy">代理联动</button><form><div data-config-panel="basic">基本配置字段</div><div data-config-submit-bar>确认保存</div></form><div data-config-panel="proxy" hidden><form action="/admin/applications/a/proxy-link" method="post"><input type="hidden" name="_token" value="csrf"><input type="hidden" name="enabled" value="0"><input type="checkbox" role="switch" name="enabled" value="1"><button data-proxy-save name="action" value="save">保存</button></form></div></div></div></main>`, { url: 'http://localhost/admin/applications/a/edit?config_tab=proxy', runScripts: 'outside-only' });
+    t.after(() => dom.window.close());
+    const { window } = dom;
+    const { document } = window;
+    window.eval(readFileSync(new URL('../../public/assets/js/mybsphp.js', import.meta.url), 'utf8'));
+    assert.equal(document.querySelector('[data-element-config]'), null, 'old Vue selectors must not claim this form');
+    const panel = document.querySelector('[data-config-panel="proxy"]');
+    assert.equal(panel.hidden, false);
+    assert.equal(document.querySelector('[data-config-panel="basic"]').hidden, true);
+    assert.equal(document.querySelector('[data-config-submit-bar]').style.display, 'none');
+    const form = panel.querySelector('form');
+    const checkbox = form.querySelector('[role="switch"]');
+    checkbox.checked = true;
+    const fields = new window.FormData(form);
+    fields.set('action', form.querySelector('[data-proxy-save]').value);
+    assert.deepEqual(fields.getAll('enabled'), ['0', '1']);
+    assert.equal(fields.get('action'), 'save');
+    assert.equal(fields.has('_method'), false);
+    document.querySelector('[data-config-tab="basic"]').click();
+    assert.equal(panel.hidden, true);
+    assert.equal(document.querySelector('[data-config-submit-bar]').style.display, '');
+});

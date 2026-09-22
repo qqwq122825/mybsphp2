@@ -13,7 +13,7 @@ php artisan optimize:clear
 
 按站点原有流程刷新 PHP-FPM / OPcache；若使用 route:cache、config:cache，清理后重新生成缓存。新表为 proxy_links、proxy_credentials，原有卡密/客户端会话表和登录协议保持独立。
 
-public/build 被 Git 忽略，因此仅拉取源码不包含新 Vue 界面，部署时必须构建并发布该目录。公开站点 URL 应配置为正确的 HTTPS 域名；随机地址由该 URL 生成。
+public/build 被 Git 忽略，因此仅拉取源码不包含新 Vue 界面；恢复新版 Vue 界面时需构建并发布该目录。软件配置页会检查构建版本，旧资源或资源不完整时直接使用服务端兼容表单，联动开关仍可使用。公开站点 URL 应配置为正确的 HTTPS 域名；随机地址由该 URL 生成。
 
 ## 后台配置
 
@@ -66,3 +66,10 @@ php artisan optimize:clear
 ```
 
 确认 `public/build/manifest.json` 及其引用的资源一起部署；按实际缓存规则刷新 CDN 的后台页面 / manifest 缓存，浏览器强制刷新并重新打开软件配置。仅在服务器运行数据库迁移不会更新前端组件。本次开关修正没有新增数据库迁移，已执行过 v133.4 迁移的站点无需追加表结构变更。
+
+### Git-only 部署兼容（2026-09-22）
+
+- 软件配置页面检查 `public/build/software-ui-version.json` 的组件版本、manifest 摘要及入口依赖文件。缺少标记、旧版本或资源不完整时，保留服务端表单，不交给旧 Vue 包隐藏；兼容界面的联动开关仍然自动提交、生成地址。
+- `npm run build` 成功后自动生成版本标记；发布 `public/build` 时应同步整个目录。检查通过后自动恢复 Vue 界面。Vite 开发模式仍从源码加载。
+- 只更新 Git 源码的站点也可使用联动开关。更新到本次提交后执行 `composer dump-autoload -o` 和 `php artisan optimize:clear`，刷新后台页面；数据库结构保持不变。
+- 若更新后仍出现原来的空白页，核对部署实际目录、分支与提交是否更新（尤其前一次 Git 克隆失败时），以及 PHP-FPM/OPcache、CDN 是否仍提供旧页面；先确认新源码已到达运行目录，再排查缓存。

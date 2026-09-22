@@ -2,15 +2,23 @@
 
 @php
     $editing = $application !== null;
+    $softwareUiReady = app(\App\Admin\SoftwareUiAssets::class)->ready();
 @endphp
 @section('title', $editing ? '软件配置' : '添加新软件')
 
 @push('head')
-    @vite('resources/js/admin-ui.js')
+    @if($softwareUiReady)
+        @vite('resources/js/admin-ui.js')
+    @endif
 @endpush
 
 @section('content')
-    <div data-element-config data-form-errors="{{ json_encode($errors->getMessages()) }}">
+    @if(!$softwareUiReady)
+        <div class="notice notice-warning" data-software-ui-compat>
+            当前使用兼容配置界面，联动开关可直接使用。前端资源更新完整后自动恢复新版界面。
+        </div>
+    @endif
+    <div @if($softwareUiReady) data-element-config @else data-software-config-native @endif data-form-errors="{{ json_encode($errors->getMessages()) }}">
     @if (! $editing)
         <header class="page-heading page-heading-actions">
             <div>
@@ -93,7 +101,7 @@
                 </div>
             </header>
 
-            <nav class="software-config-tabs" role="tablist" aria-label="软件配置分类">
+            <nav class="software-config-tabs is-four" role="tablist" aria-label="软件配置分类">
                 <button type="button" role="tab" data-config-tab="basic" aria-controls="software-panel-basic">
                     <span>01</span><strong>基本配置</strong><small>名称、状态和验证数据</small>
                 </button>
@@ -315,7 +323,7 @@
             </section>
             </div>
 
-            <div class="form-submit-bar">
+            <div class="form-submit-bar" data-config-submit-bar @if($defaultConfigTab === 'proxy') style="display:none" @endif>
                 <span>保存后立即应用当前软件的全部配置。</span>
                 <button class="button button-primary" type="submit">确认保存</button>
             </div>
