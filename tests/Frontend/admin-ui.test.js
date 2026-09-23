@@ -5,6 +5,17 @@ import { hiddenFields, readAction, readContent, readAdminList, submissionFields,
 
 const dom = html => new JSDOM(html, { url: 'http://localhost/admin/risk-control/center?keyword=x' }).window.document;
 
+test('software user status labels and severity survive the native-to-Vue adapter', () => {
+    for (const [status, label, tone] of [
+        ['active', '正常', 'success'], ['revoked', '已撤销', 'danger'],
+        ['frozen', '已冻结', 'warning'], ['expired', '已到期', 'info'],
+        ['disabled', '已停用', 'warning'], ['unknown', '未知状态', 'warning'],
+    ]) {
+        const cell = dom(`<div><span class="status-tag status-${status}">${label}</span></div>`).querySelector('div');
+        assert.deepEqual(readContent(cell), [{ tag: label, tone }]);
+    }
+});
+
 test('row submissions preserve the endpoint and CSRF token without including unrelated selections', () => {
     const document = dom(`<form id="release" method="post" action="/admin/release"><input type="hidden" name="_token" value="test-csrf"></form><input type="checkbox" form="release" name="block_keys[]" value="other" checked><button form="release" name="block_keys[]" value="target" onclick="return confirm('解除该设备？')">解除</button>`);
     const action = readAction(document.querySelector('button'));

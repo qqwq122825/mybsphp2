@@ -52,7 +52,7 @@ final class SoftwarePreview
             if ($accountMode) {
                 $user = (new ApplicationAccount)->forceFill($data + ['username' => 'demo_user_'.($i + 1), 'status' => $i === 1 ? 'frozen' : 'active', 'last_login_at' => $at->subMinutes($i * 8), 'note' => $i === 1 ? '需要检查设备绑定' : null]);
             } else {
-                $user = (new Card)->forceFill($data + ['code_ciphertext' => 'DEMO-CARD-'.str_pad((string) ($i + 1), 12, '0', STR_PAD_LEFT), 'user_status' => $i === 1 ? 'frozen' : 'active', 'activated_at' => $at->subDays(1), 'last_online_at' => $at->subMinutes($i * 8), 'user_note' => $i === 1 ? '需要检查设备绑定' : null]);
+                $user = (new Card)->forceFill($data + ['code_ciphertext' => 'DEMO-CARD-'.str_pad((string) ($i + 1), 12, '0', STR_PAD_LEFT), 'status' => $i === 3 ? 'revoked' : 'active', 'user_status' => $i === 1 ? 'frozen' : 'active', 'activated_at' => $at->subDays(1), 'last_online_at' => $at->subMinutes($i * 8), 'user_note' => $i === 1 ? '需要检查设备绑定' : null]);
                 $user->setRelation('cardType', $type);
             }
             $users->push($user);

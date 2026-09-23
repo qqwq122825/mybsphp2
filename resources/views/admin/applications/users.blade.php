@@ -65,7 +65,7 @@
                             <tr>
                                 <td class="bsphp-user-select-column"><input type="checkbox" name="user_ids[]" value="{{ $card->id }}" data-card-select></td>
                                 <td class="bsphp-user-identity-column bsphp-user-truncate" title="{{ $card->code_ciphertext }}"><code>{{ $card->code_ciphertext }}</code></td>
-                                <td><span class="status-tag status-{{ $card->user_status ?? 'active' }}">{{ ($card->user_status ?? 'active') === 'frozen' ? '冻结' : '正常' }}</span></td>
+                                <td><x-admin.software-user-status :user="$card" /></td>
                                 <td>{{ $accountLimit ?: '默认' }}</td><td>{{ $machineLimit ?: '默认' }}</td>
                                 <td class="bsphp-user-expiry-column">@if($card->expires_at)<time class="bsphp-user-expiry" datetime="{{ $card->expires_at->toIso8601String() }}" title="{{ $card->expires_at->toIso8601String() }}">{{ $card->expires_at->format('Y-m-d H:i:s') }}</time>@else 永久 @endif</td>
                                 <td class="bsphp-user-validity-column"><strong>{{ $formatRemainingValidity($card->expires_at) }}</strong></td>
@@ -96,7 +96,7 @@
                             <tr>
                                 <td class="bsphp-user-select-column"><input type="checkbox" name="user_ids[]" value="{{ $account->id }}" data-card-select></td>
                                 <td class="bsphp-user-identity-column bsphp-user-truncate" title="{{ $account->username }}">{{ $account->username }}</td>
-                                <td><span class="status-tag status-{{ $account->status }}">{{ $account->status === 'frozen' ? '冻结' : '正常' }}</span></td>
+                                <td><x-admin.software-user-status :user="$account" /></td>
                                 <td>{{ $account->account_concurrency_limit ?: '默认' }}</td><td>{{ $account->machine_concurrency_limit ?: '默认' }}</td>
                                 <td class="bsphp-user-expiry-column">@if($account->expires_at)<time class="bsphp-user-expiry" datetime="{{ $account->expires_at->toIso8601String() }}" title="{{ $account->expires_at->toIso8601String() }}">{{ $account->expires_at->format('Y-m-d H:i:s') }}</time>@else 永久 @endif</td>
                                 <td class="bsphp-user-validity-column"><strong>{{ $formatRemainingValidity($account->expires_at) }}</strong></td>

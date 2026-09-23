@@ -28,6 +28,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class ApplicationAccount extends Model
 {
+    public function softwareUserStatus(): string
+    {
+        if ($this->status === 'active' && $this->expires_at?->lte(now())) {
+            return 'expired';
+        }
+
+        return (string) $this->status;
+    }
+
     /**
      * @return BelongsTo<Application, $this>
      */

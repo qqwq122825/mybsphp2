@@ -30,7 +30,6 @@
             $isAccount = $card->application?->mode === 'account_recharge';
             $isCardUser = $target instanceof \App\Models\Card;
             $isAccountUser = $target instanceof \App\Models\ApplicationAccount;
-            $targetStatus = $target ? ($isAccountUser ? $target->status : $target->user_status) : null;
             $statusLabels = [
                 'inventory' => '库存',
                 'issued' => '已发放',
@@ -75,7 +74,7 @@
                         </h3>
                     </div>
                     @if($target)
-                        <b>{{ $targetStatus === 'frozen' ? '冻结' : ($targetStatus === 'revoked' ? '已删除' : '可操作') }}</b>
+                        <x-admin.software-user-status :user="$target" />
                     @endif
                 </header>
                 @if($target)

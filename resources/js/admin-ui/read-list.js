@@ -35,7 +35,7 @@ export function readContent(parent) {
         if (node.nodeType === 3) return [{ text: node.textContent }];
         if (node.nodeType !== 1 || ['SCRIPT', 'INPUT', 'STYLE'].includes(node.tagName)) return [];
         if (node.tagName === 'BUTTON') return [{ action: readAction(node) }];
-        if (node.classList.contains('status-tag')) return [{ tag: node.textContent.trim(), tone: node.classList.contains('status-active') ? 'success' : 'warning' }];
+        if (node.classList.contains('status-tag')) return [{ tag: node.textContent.trim(), tone: node.classList.contains('status-active') ? 'success' : node.classList.contains('status-revoked') ? 'danger' : node.classList.contains('status-expired') ? 'info' : 'warning' }];
         if (node.classList.contains('log-result') || node.classList.contains('admin-type-tag') || (node.tagName === 'EM' && parent.classList.contains('client-trace-device'))) {
             return [{ tag: node.textContent.trim(), tone: node.classList.contains('is-danger') ? 'danger' : node.classList.contains('is-success') || node.classList.contains('is-match') ? 'success' : node.classList.contains('is-muted') || node.classList.contains('is-neutral') ? 'info' : node.tagName === 'EM' ? 'warning' : 'primary' }];
         }

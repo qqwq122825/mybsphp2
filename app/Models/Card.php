@@ -50,6 +50,23 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class Card extends Model
 {
+    /** Read-only management status; an unexpired date does not undo revocation. */
+    public function softwareUserStatus(): string
+    {
+        if ($this->status === 'revoked' || $this->user_status === 'revoked' || $this->revoked_at !== null) {
+            return 'revoked';
+        }
+        if ($this->user_status === 'frozen') {
+            return 'frozen';
+        }
+        if ($this->status === 'active' && $this->expires_at?->lte(now())) {
+            return 'expired';
+        }
+
+        // Freezing the original used card is separate from freezing its software user.
+        return (string) $this->status;
+    }
+
     /**
      * @return BelongsTo<Application, $this>
      */

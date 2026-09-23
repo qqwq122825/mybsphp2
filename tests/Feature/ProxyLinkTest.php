@@ -174,6 +174,69 @@ class ProxyLinkTest extends TestCase
         $this->sync()->assertJsonCount(0, 'data.users');
     }
 
+    public function test_deleted_card_is_revoked_in_user_list_quick_lookup_and_proxy_without_restoring_it(): void
+    {
+        $this->administrator();
+        $card = $this->card();
+        $credential = $card->code_ciphertext;
+        $expiry = $card->expires_at->getTimestamp();
+        $this->post('/proxy-admin/cards/bulk-action', [
+            'card_ids' => [$card->id], 'action' => 'delete',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $card->refresh();
+        // Reproduce production: deleting a card leaves the separate user flag active.
+        $this->assertSame('revoked', $card->status);
+        $this->assertSame('active', $card->user_status);
+        $before = $card->getAttributes();
+        $this->get('/proxy-admin/applications/'.$this->application->public_id.'/users')
+            ->assertOk()->assertSee('class="status-tag status-revoked">已撤销</span>', false)
+            ->assertDontSee('class="status-tag status-active">正常</span>', false);
+        $this->get('/proxy-admin/quick-operations?card='.$card->public_id)
+            ->assertOk()->assertSee('已删除/作废')
+            ->assertSee('class="status-tag status-revoked">已撤销</span>', false);
+        $this->sync()->assertOk()->assertJsonPath('data.users.0.status', 'revoked')
+            ->assertJsonPath('data.users.0.username', $credential)
+            ->assertJsonPath('data.users.0.expires_at', $expiry);
+        $this->assertSame($before, $card->fresh()->getAttributes());
+    }
+
+    public function test_user_list_honors_each_revocation_source_and_keeps_active_users_normal(): void
+    {
+        $this->administrator();
+        foreach ([
+            [['user_status' => 'revoked'], 'revoked', '已撤销'],
+            [['revoked_at' => now()->subDay()], 'revoked', '已撤销'],
+            [['user_status' => 'frozen'], 'frozen', '已冻结'],
+            [['expires_at' => now()], 'expired', '已到期'],
+            [['card_is_frozen' => true], 'active', '正常'],
+            [[], 'active', '正常'],
+        ] as [$changes, $state, $label]) {
+            $card = $this->card($changes);
+            $card->refresh();
+            $before = $card->getAttributes();
+            $this->get('/proxy-admin/applications/'.$this->application->public_id.'/users?keyword='.$card->public_id)
+                ->assertOk()->assertSee('class="status-tag status-'.$state.'">'.$label.'</span>', false);
+            $this->assertSame($state, collect($this->sync()->assertOk()->json('data.users'))
+                ->firstWhere('subject_id', 'card:'.$card->public_id)['status']);
+            $this->assertSame($before, $card->fresh()->getAttributes());
+        }
+    }
+
+    public function test_revoked_account_is_not_rendered_as_normal(): void
+    {
+        $this->administrator();
+        $this->application->forceFill(['mode' => 'account_recharge'])->save();
+        ApplicationAccount::query()->create([
+            'public_id' => (string) Str::ulid(), 'application_id' => $this->application->id,
+            'username' => 'revoked-user', 'password_hash' => 'fixture',
+            'status' => 'revoked', 'expires_at' => now()->addDays(4),
+        ]);
+        $this->get('/proxy-admin/applications/'.$this->application->public_id.'/users')
+            ->assertOk()->assertSee('class="status-tag status-revoked">已撤销</span>', false)
+            ->assertDontSee('class="status-tag status-active">正常</span>', false);
+        $this->sync()->assertOk()->assertJsonPath('data.users.0.status', 'revoked');
+    }
+
     public function test_disabled_app_link_and_global_switch_are_explicit_errors(): void
     {
         $this->link->forceFill(['enabled' => false])->save();
