@@ -1755,6 +1755,7 @@ button.workspace-tab {
 }
 
 .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group summary strong,
+.dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group summary i,
 .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-children {
     display: none;
 }
@@ -5507,6 +5508,10 @@ dialog.admin-window-dialog .admin-window-dialog__controls button {
     .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group summary strong,
     .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-group summary i {
         display: inline;
+        max-width: none;
+        visibility: visible;
+        opacity: 1;
+        transform: none;
     }
 
     .dashboard-page.is-sidebar-collapsed .admin-sidebar .nav-children {
