@@ -41,6 +41,7 @@ final class AdminTablePreview
             'detailed' => '/admin/system-logs/client-requests?view=detailed',
             'simple' => '/admin/system-logs/client-requests',
             'protection' => '/admin/system-logs/protection',
+            'card-operations' => '/admin/system-logs/card-operations',
             default => '/admin/system-logs/blocklist-requests',
         };
         $request = Request::create('http://127.0.0.1:8092'.$path);
@@ -55,6 +56,21 @@ final class AdminTablePreview
         }
         if (str_starts_with($page, 'software')) {
             return SoftwarePreview::render($page, $common, $request);
+        }
+        if ($page === 'card-operations') {
+            $rows = collect([
+                ['at' => '2026-09-26 21:54:45', 'actor' => 'sq-demo', 'role' => '代理', 'operation' => '解冻卡密', 'before' => ['卡冻结：是', '卡冻结时间：2026-09-24 18:58:15'], 'after' => ['卡冻结：否', '卡冻结时间：—']],
+                ['at' => '2026-09-24 18:58:15', 'actor' => 'sq-demo', 'role' => '代理', 'operation' => '冻结卡密', 'before' => ['卡冻结：否', '卡冻结时间：—'], 'after' => ['卡冻结：是', '卡冻结时间：2026-09-24 18:58:15']],
+                ['at' => '2026-09-06 16:47:01', 'actor' => 'preview_admin', 'role' => '超级管理员', 'operation' => '制作卡密', 'before' => ['卡记录不存在'], 'after' => ['使用状态：已发出', '卡冻结：否', '激活时间：—', '激活次数：0']],
+            ])->map(function (array $row, int $index): array {
+                $log = (new AuditLog)->forceFill(['id' => 3 - $index, 'created_at' => CarbonImmutable::parse($row['at']), 'ip' => '192.0.2.10']);
+
+                return [...$row, 'log' => $log, 'card_id' => 227, 'credential' => 'DEMO-CARD-227', 'application' => '示例软件'];
+            });
+
+            return view('admin.logs.card-operations', [...$common, 'title' => '卡操作日志', 'rows' => $rows,
+                'logs' => new LengthAwarePaginator($rows->pluck('log'), 3, 30, 1, ['path' => $request->url()]),
+            ])->render();
         }
         $at = CarbonImmutable::parse('2026-09-10 17:08:35');
         $devices = ['DX3DRAQ2N741', '3CFDD33C-C703-42F0-9E00-3B36090270EC', 'NKQ2D3YHKW', 'DMPXX07AKD89', 'KWWP4R9G5Y', 'QF9VV04M76'];

@@ -7,6 +7,7 @@ use App\Applications\ApplicationCredentialService;
 use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
 use App\Auth\AdminPermission;
+use App\Cards\CardOperationLogger;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
@@ -258,7 +259,7 @@ final class AdminApplicationController extends Controller
                     ->pluck('id');
 
                 DB::table('manual_issue_items')->whereIn('card_id', $cardIds)->delete();
-                Card::query()->whereIn('id', $cardIds)->delete();
+                CardOperationLogger::deleteCards(Card::query()->whereIn('id', $cardIds));
                 CardBatch::query()->whereIn('card_type_id', $cardTypeIds)->delete();
             }
 

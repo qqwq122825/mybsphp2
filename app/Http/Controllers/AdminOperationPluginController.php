@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
 use App\Cards\CardCredentialHasher;
+use App\Cards\CardOperationLogger;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\AuditLog;
@@ -135,6 +136,8 @@ final class AdminOperationPluginController extends Controller
             return '卡密已删除，未执行封卡';
         }
         if ($card->card_is_frozen) {
+            app(CardOperationLogger::class)->record($card, $card, 'unchanged');
+
             return '卡密原本已冻结';
         }
 
@@ -150,6 +153,8 @@ final class AdminOperationPluginController extends Controller
             return '卡密已删除，未执行解冻';
         }
         if (! $card->card_is_frozen) {
+            app(CardOperationLogger::class)->record($card, $card, 'unchanged');
+
             return '卡密当前未冻结';
         }
 

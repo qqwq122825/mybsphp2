@@ -1,6 +1,6 @@
 <nav aria-label="管理后台导航">
     @canany(['dashboard.view', 'online_users.view', 'risk.view', 'audit.view', 'administrators.view', 'administrators.create'])
-        <details class="nav-group" {{ request()->routeIs('admin.dashboard', 'admin.system-logs.*', 'admin.administrators.*', 'admin.risk-control.center') ? 'open' : '' }}>
+        <details class="nav-group" {{ request()->routeIs('admin.dashboard', 'admin.system-logs.*', 'admin.card-operation-logs.*', 'admin.administrators.*', 'admin.risk-control.center') ? 'open' : '' }}>
             <summary title="控制台">
                 <span class="nav-group-label">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -20,10 +20,11 @@
                        href="{{ route('admin.risk-control.center', ['adminPath' => $adminPath]) }}">封控中心</a>
                 @endcan
                 @can('audit.view')
-                    <details class="nav-subgroup" {{ request()->routeIs('admin.system-logs.*') ? 'open' : '' }}>
+                    <details class="nav-subgroup" {{ request()->routeIs('admin.system-logs.*', 'admin.card-operation-logs.*') ? 'open' : '' }}>
                         <summary>系统日志<i aria-hidden="true"></i></summary>
                         <div>
                             <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'login' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'login']) }}">管理登录日志</a>
+                            <a class="{{ request()->routeIs('admin.card-operation-logs.*') ? 'is-active' : '' }}" href="{{ route('admin.card-operation-logs.index', ['adminPath' => $adminPath]) }}">卡操作日志</a>
                             <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'card-making' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'card-making']) }}">系统制卡日志</a>
                             <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'protection' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'protection']) }}">系统安全防护日志</a>
                             <a class="{{ request()->routeIs('admin.system-logs.index') && request()->route('type') === 'client-requests' ? 'is-active' : '' }}" href="{{ route('admin.system-logs.index',['adminPath'=>$adminPath,'type'=>'client-requests']) }}">客户端请求日志</a>

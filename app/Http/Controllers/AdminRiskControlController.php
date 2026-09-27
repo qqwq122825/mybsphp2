@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
+use App\Cards\CardOperationLogger;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\Application;
+use App\Models\Card;
 use App\Models\ClientSecurityEvent;
 use App\Models\ClientSecuritySubjectState;
 use App\Models\GlobalSecurityBlock;
@@ -244,10 +246,9 @@ final class AdminRiskControlController extends Controller
             $cardIds = $events->pluck('card_id')->filter()->unique()->values();
             $accountIds = $events->pluck('application_account_id')->filter()->unique()->values();
             $sessionIds = $events->pluck('application_client_session_id')->filter()->unique()->values();
-            $cardsReleased = ! $releaseCredential || $cardIds->isEmpty() ? 0 : DB::table('cards')
+            $cardsReleased = ! $releaseCredential || $cardIds->isEmpty() ? 0 : CardOperationLogger::updateCards(Card::query()
                 ->whereIn('id', $cardIds)
-                ->where('user_status', 'frozen')
-                ->update(['user_status' => 'active', 'user_frozen_at' => null, 'updated_at' => now()]);
+                ->where('user_status', 'frozen'), ['user_status' => 'active', 'user_frozen_at' => null, 'updated_at' => now()]);
             $accountsReleased = ! $releaseCredential || $accountIds->isEmpty() ? 0 : DB::table('application_accounts')
                 ->whereIn('id', $accountIds)
                 ->where('status', 'frozen')

@@ -6,6 +6,7 @@ use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
 use App\Cards\CardCredentialHasher;
 use App\Cards\CardGenerationService;
+use App\Cards\CardOperationLogger;
 use App\Cards\ManualIssueService;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
@@ -244,9 +245,9 @@ final class AdminCardController extends Controller
         DB::transaction(function () use ($validated, $query, $value, &$typeCount): void {
             $now = now();
             match ($validated['action']) {
-                'freeze' => $query->update(['card_is_frozen' => true, 'frozen_at' => $now, 'updated_at' => $now]),
-                'unfreeze' => $query->update(['card_is_frozen' => false, 'frozen_at' => null, 'updated_at' => $now]),
-                'unused' => $query->update([
+                'freeze' => CardOperationLogger::updateCards($query, ['card_is_frozen' => true, 'frozen_at' => $now, 'updated_at' => $now]),
+                'unfreeze' => CardOperationLogger::updateCards($query, ['card_is_frozen' => false, 'frozen_at' => null, 'updated_at' => $now]),
+                'unused' => CardOperationLogger::updateCards($query, [
                     'status' => 'inventory', 'user_status' => null, 'activated_at' => null, 'expires_at' => null,
                     'bound_device_ciphertext' => null, 'bound_device_mask' => null, 'updated_at' => $now,
                 ]),
@@ -254,10 +255,10 @@ final class AdminCardController extends Controller
                 'set_duration' => $typeCount = $this->setQueryDuration($query, $this->positiveInteger($value, '充值天数')),
                 'set_sale_price' => $typeCount = $this->setQueryPrice($query, $this->priceCents($value, '销售价格'), false),
                 'set_agent_price' => $typeCount = $this->setQueryPrice($query, $this->priceCents($value, '代理价格'), true),
-                'set_created_at' => $query->update([
+                'set_created_at' => CardOperationLogger::updateCards($query, [
                     'created_at' => $this->maintenanceDate($value), 'updated_at' => $now,
                 ]),
-                'delete' => $query->update(['status' => 'revoked', 'revoked_at' => $now, 'updated_at' => $now]),
+                'delete' => CardOperationLogger::updateCards($query, ['status' => 'revoked', 'revoked_at' => $now, 'updated_at' => $now]),
             };
         }, 3);
 
@@ -319,11 +320,11 @@ final class AdminCardController extends Controller
     private function setQueryDuration($query, int $days): int
     {
         $typeIds = (clone $query)->distinct()->pluck('card_type_id');
-        $count = CardType::query()->whereKey($typeIds)->update([
+        $count = CardOperationLogger::updateTypes(CardType::query()->whereKey($typeIds), [
             'benefit_kind' => 'duration', 'duration_value' => $days, 'duration_unit' => 'day',
             'duration_seconds' => $days * 86400, 'updated_at' => now(),
         ]);
-        (clone $query)->whereIn('status', ['active', 'expired'])->update([
+        CardOperationLogger::updateCards((clone $query)->whereIn('status', ['active', 'expired']), [
             'status' => 'active', 'user_status' => 'active', 'expires_at' => now()->addDays($days), 'updated_at' => now(),
         ]);
 
@@ -334,7 +335,7 @@ final class AdminCardController extends Controller
     {
         $typeIds = (clone $query)->distinct()->pluck('card_type_id');
 
-        return CardType::query()->whereKey($typeIds)->update([
+        return CardOperationLogger::updateTypes(CardType::query()->whereKey($typeIds), [
             $agent ? 'default_agent_price_cents' : 'face_price_cents' => $cents,
             'updated_at' => now(),
         ]);
@@ -545,7 +546,7 @@ final class AdminCardController extends Controller
 
                 if ($removableCardIds->isNotEmpty()) {
                     DB::table('manual_issue_items')->whereIn('card_id', $removableCardIds)->delete();
-                    $deletedCards += Card::query()->whereIn('id', $removableCardIds)->delete();
+                    $deletedCards += CardOperationLogger::deleteCards(Card::query()->whereIn('id', $removableCardIds));
                 }
 
                 $remainingCards = Card::query()->where('card_type_id', $type->getKey())->count();

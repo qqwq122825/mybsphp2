@@ -21,7 +21,7 @@ if (! file_exists($output.'/assets')) {
 if (! file_exists($output.'/build')) {
     symlink(public_path('build'), $output.'/build');
 }
-$pages = ['agent-dashboard' => '代理端', 'agent-cards' => '代理卡管理', 'agent-purchase' => '代理制卡', 'agent-finance' => '代理财务', 'agent-login' => '代理登录', 'agent-purchase-result' => '制卡结果', 'agent-cards-empty' => '代理空状态', 'agent-delete' => '退款确认', 'agent-unbind' => '解绑确认', 'agent-login-error' => '登录错误', 'agent-purchase-low' => '余额不足', 'agent-purchase-empty' => '无可用卡种', 'agent-finance-empty' => '无流水', 'software' => '软件管理', 'software-config' => '软件配置', 'software-users' => '软件用户', 'software-create' => '添加软件', 'software-account-config' => '账户配置', 'software-account-users' => '账户用户', 'center' => '封控中心', 'blocklist' => '黑名单请求', 'simple' => '客户端请求', 'detailed' => '详细日志', 'protection' => '安全日志', 'administrators' => '管理员', 'empty' => '空状态'];
+$pages = ['agent-dashboard' => '代理端', 'agent-cards' => '代理卡管理', 'agent-purchase' => '代理制卡', 'agent-finance' => '代理财务', 'agent-login' => '代理登录', 'agent-purchase-result' => '制卡结果', 'agent-cards-empty' => '代理空状态', 'agent-delete' => '退款确认', 'agent-unbind' => '解绑确认', 'agent-login-error' => '登录错误', 'agent-purchase-low' => '余额不足', 'agent-purchase-empty' => '无可用卡种', 'agent-finance-empty' => '无流水', 'software' => '软件管理', 'software-config' => '软件配置', 'software-users' => '软件用户', 'software-create' => '添加软件', 'software-account-config' => '账户配置', 'software-account-users' => '账户用户', 'center' => '封控中心', 'blocklist' => '黑名单请求', 'simple' => '客户端请求', 'detailed' => '详细日志', 'protection' => '安全日志', 'card-operations' => '卡操作日志', 'administrators' => '管理员', 'empty' => '空状态'];
 $styles = '<style>.preview-strip{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 16px;margin-bottom:16px;border:1px solid #dce5f6;border-radius:10px;background:#f4f7ff;font:12px/1.5 system-ui;color:#667793}.preview-strip strong{color:#3d5c9f;margin-right:auto}.preview-strip a{padding:5px 9px;border-radius:6px;color:#56709c;text-decoration:none}.preview-strip a[aria-current]{background:#e3ebff;color:#315bcd}.preview-notice{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 20px;background:#243a60;color:white;border-radius:10px;z-index:99999;font-size:13px}.preview-disabled{opacity:.45}@media print{.preview-strip{display:none}}</style>';
 $script = <<<'JS'
 <script>
@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = new URL(a.href);
         const path = url.pathname;
         let page = path.endsWith('/risk-control/center') ? 'center' : path.endsWith('/administrators') ? 'administrators' : path.endsWith('/system-logs/blocklist-requests') ? 'blocklist' : path.endsWith('/system-logs/client-requests') ? (url.searchParams.get('view') === 'detailed' ? 'detailed' : 'simple') : path.endsWith('/system-logs/protection') ? 'protection' : null;
+        if (path.endsWith('/system-logs/card-operations')) page = 'card-operations';
         if (/\/applications$/.test(path)) page = 'software';
         if (/\/applications\/create$/.test(path)) page = 'software-create';
         if (/\/applications\/[^/]+\/edit$/.test(path)) page = path.includes('preview-software-4') ? 'software-account-config' : 'software-config';
@@ -73,6 +74,7 @@ foreach ($pages as $page => $title) {
         $url = html_entity_decode($match[2]);
         $path = parse_url($url, PHP_URL_PATH) ?: '';
         $slug = match (true) {
+            str_ends_with($path, '/system-logs/card-operations') => 'card-operations',
             (bool) preg_match('~/agent/dashboard$~', $path) => 'agent-dashboard',
             (bool) preg_match('~/agent/login$~', $path) => 'agent-login',
             (bool) preg_match('~/agent/cards$~', $path) => 'agent-cards',

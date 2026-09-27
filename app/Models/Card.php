@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Cards\CardOperationLogger;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
@@ -50,6 +51,42 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class Card extends Model
 {
+    /** Persist the business change and its per-card audit in the same transaction. */
+    public function save(array $options = [])
+    {
+        if ($this->exists && ! $this->isDirty(CardOperationLogger::FIELDS) && ! CardOperationLogger::isManagementOperation()) {
+            return parent::save($options);
+        }
+
+        return $this->getConnection()->transaction(function () use ($options) {
+            $before = $this->exists ? $this->newQuery()->lockForUpdate()->find($this->getKey()) : null;
+            $created = ! $this->exists;
+            $saved = parent::save($options);
+            if ($saved) {
+                app(CardOperationLogger::class)->record($before, $this->fresh(), $created ? 'created' : 'updated');
+            }
+
+            return $saved;
+        });
+    }
+
+    public function delete()
+    {
+        if (! $this->exists) {
+            return parent::delete();
+        }
+
+        return $this->getConnection()->transaction(function () {
+            $before = $this->newQuery()->lockForUpdate()->find($this->getKey());
+            $deleted = parent::delete();
+            if ($deleted) {
+                app(CardOperationLogger::class)->record($before, null, 'deleted');
+            }
+
+            return $deleted;
+        });
+    }
+
     /** Read-only management status; an unexpired date does not undo revocation. */
     public function softwareUserStatus(): string
     {

@@ -23,7 +23,7 @@ final class AuditLogger
         // never attributed to the concurrently signed-in administrator.
         $actor = match ($event->actorRole) {
             'agent' => $request->user('agent'),
-            'guest' => null,
+            'guest', 'client', 'system' => null,
             default => $request->user('admin') ?? $request->user(),
         };
 

@@ -85,6 +85,7 @@ export function readAdminList(root) {
             const label = cell.textContent.trim();
             const widths = { '类型': 80, '时间': 156, '时间 / IP': 224, '封控对象': 220, '关联': 240, '日志 IP': 240, '原因': 260, '真实原因': 220, '客户端提示': 132, '设备': 200, '软件 / 卡密': 190, '设备对比': 250, '响应摘要': 180, '结果': 120, '记录时间': 178, '登录ip': 220, '信息': 260 };
             const isRisk = root.dataset.listKind === 'risk';
+            if (root.dataset.listKind === 'card-operations') Object.assign(widths, { '时间 / IP': 190, '软件 / 卡密': 200, '操作账号 / 角色': 145, '操作内容': 160, '操作前': 220, '操作后': 220 });
             if (isRisk) Object.assign(widths, { '类型': 72, '封控对象': 200, '关联': 210, '日志 IP': 210, '原因': 190, '时间': 140 });
             if (root.dataset.listKind === 'users') Object.assign(widths, { '充值卡号(激活码)': 230, '用户名': 160, '状态': 86, '账号多开': 100, '机器用量': 100, '到期时间': 170, '有效期': 144, '最后在线': 150, '绑定特征': 180, '备注': 180 });
             return { key: index, label, selection, action, detail, width: selection ? 48 : action ? (isRisk ? 100 : 116) : detail ? 128 : undefined, minWidth: widths[label] || 120 };

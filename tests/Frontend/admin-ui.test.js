@@ -91,3 +91,16 @@ test('long risk IP lists opt into single-line ellipsis while keeping the full ex
     assert.equal(page.rows[0].cells[2].ellipsis, false);
     assert.equal(page.rows[1].cells[1].text, '—');
 });
+
+test('card operation logs retain actor, before/after data and filters without destructive actions', () => {
+    const document = dom(`<div id="root" data-list-kind="card-operations"><section class="admin-table-shell"><header class="admin-table-shell-header"><h2>卡操作日志</h2><small>只读留存</small></header><form class="admin-filter-bar"><label class="admin-filter-bar__item"><strong>搜索字段</strong><select name="search_field"><option value="credential">完整卡号</option><option value="actor" selected>操作账号</option></select></label></form><table><thead><tr><th>时间 / IP</th><th>软件 / 卡密</th><th>操作账号 / 角色</th><th>操作内容</th><th>操作前</th><th>操作后</th></tr></thead><tbody><tr><td>2026-09-24 18:58:15</td><td><code>DEMO-CARD</code></td><td><strong>sq-demo</strong><small>代理</small></td><td>冻结卡密</td><td><div>卡冻结：否</div></td><td><div>卡冻结：是</div></td></tr></tbody></table><div data-page="1" data-total="1" data-per-page="30"></div></section></div>`);
+    const page = readAdminList(document.querySelector('#root'));
+    assert.equal(page.filter.fields[0].name, 'search_field');
+    assert.equal(page.filter.fields[0].value, 'actor');
+    assert.equal(page.rows[0].cells[2].text, 'sq-demo 代理');
+    assert.equal(page.rows[0].cells[4].text, '卡冻结：否');
+    assert.equal(page.rows[0].cells[5].text, '卡冻结：是');
+    assert.equal(page.columns[4].minWidth, 220);
+    assert.deepEqual(page.actions, []);
+    assert.equal(page.columns.some(column => column.selection), false);
+});

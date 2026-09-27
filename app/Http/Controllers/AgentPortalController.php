@@ -6,6 +6,7 @@ use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
 use App\Cards\CardCredentialHasher;
 use App\Cards\CardGenerationService;
+use App\Cards\CardOperationLogger;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\AgentTransaction;
@@ -218,7 +219,7 @@ final class AgentPortalController extends Controller
                 'sale',
                 $agent->username,
             );
-            $generated['batch']->cards()->update(['status' => 'issued', 'issued_at' => now(), 'updated_at' => now()]);
+            CardOperationLogger::updateCards($generated['batch']->cards()->getQuery(), ['status' => 'issued', 'issued_at' => now(), 'updated_at' => now()]);
 
             $agent->decrement('agent_balance_cents', $total);
             $agent->refresh();
@@ -389,6 +390,8 @@ final class AgentPortalController extends Controller
     private function sealUnusedCard(Card $card, Request $request): string
     {
         if ($card->card_is_frozen) {
+            app(CardOperationLogger::class)->record($card, $card, 'unchanged');
+
             return $card->code_ciphertext.'：未激活卡密原本已封卡';
         }
         $card->forceFill(['card_is_frozen' => true, 'frozen_at' => now()])->save();
@@ -415,6 +418,8 @@ final class AgentPortalController extends Controller
             $changed = true;
         }
         if (! $changed) {
+            app(CardOperationLogger::class)->record($card, $card, 'unchanged');
+
             return $card->code_ciphertext.'：当前未冻结，到期时间未改动';
         }
         $card->save();
@@ -509,6 +514,7 @@ final class AgentPortalController extends Controller
                     if ($token !== strtoupper($token)) {
                         $inner->orWhere('code_last4', strtoupper($token));
                     }
+
                     continue;
                 }
                 $inner->orWhere('code_lookup_hash', $this->credentialHasher->lookupHash($token));

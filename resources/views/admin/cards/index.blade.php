@@ -56,6 +56,7 @@
                         <th>制卡人</th>
                         <th>充值时间</th>
                         <th>充值用户</th>
+                        @can('audit.view')<th>操作日志</th>@endcan
                     </tr>
                     </thead>
                     <tbody>
@@ -79,9 +80,10 @@
                             <td>{{ $card->batch->maker_reference ?: '管理员' }}</td>
                             <td>{{ $card->activated_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
                             <td>{{ $card->bound_device_ciphertext ?: '—' }}</td>
+                            @can('audit.view')<td><a href="{{ route('admin.card-operation-logs.index', ['adminPath' => $adminPath, 'search_field' => 'card_id', 'keyword' => $card->id]) }}">查看日志</a></td>@endcan
                         </tr>
                     @empty
-                        <tr><td colspan="10" class="bsphp-table-empty">无数据</td></tr>
+                        <tr><td colspan="{{ auth('admin')->user()->can('audit.view') ? 11 : 10 }}" class="bsphp-table-empty">无数据</td></tr>
                     @endforelse
                     </tbody>
                 </table>

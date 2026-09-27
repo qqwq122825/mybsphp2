@@ -7,6 +7,10 @@ PHP 8.3、Laravel 13 和 MySQL 8 的正式业务工程。根目录中的旧 PHP 
 
 软件配置新增“代理联动”：随机单入口、独立节点密钥、已激活用户与秒级有效期同步。部署需要新增表迁移及 `npm run build`，详情见 [接入与部署说明](docs/dfmproxy-link-v1334.md)。默认关闭，原客户端登录接口保持独立。
 
+## 卡操作日志
+
+卡操作审计：后台“控制台 → 系统日志 → 卡操作日志”，也可从卡列表逐卡查看。记录管理员/代理账号、时间、IP 和操作前后状态。覆盖范围、历史数据与部署说明见 [卡操作日志](docs/card-operation-log-20260927.md)。
+
 ## 本地环境
 
 - PHP 8.3，包含 `pdo_mysql`、OpenSSL、Mbstring、JSON、Ctype、Tokenizer、XML。

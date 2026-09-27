@@ -2,8 +2,10 @@
 
 namespace App\Security;
 
+use App\Cards\CardOperationLogger;
 use App\Models\Application;
 use App\Models\ApplicationClientSession;
+use App\Models\Card;
 use App\Models\ClientSecurityEvent;
 use App\Risk\IpRiskControlService;
 use Illuminate\Support\Facades\DB;
@@ -114,7 +116,7 @@ final class ClientLaunchTelemetryService
                 );
                 $session->forceFill(['status' => 'security_blocked'])->save();
                 if ($session->card_id) {
-                    DB::table('cards')->where('id', $session->card_id)->update([
+                    CardOperationLogger::updateCards(Card::query()->where('id', $session->card_id), [
                         'user_status' => 'frozen', 'user_frozen_at' => now(), 'updated_at' => now(),
                     ]);
                 }

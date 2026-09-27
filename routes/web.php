@@ -7,6 +7,7 @@ use App\Http\Controllers\AdminApplicationController;
 use App\Http\Controllers\AdminApplicationUserController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminCardController;
+use App\Http\Controllers\AdminCardOperationLogController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminOperationPluginController;
 use App\Http\Controllers\AdminProxyLinkController;
@@ -82,6 +83,9 @@ Route::prefix('{adminPath}')
         Route::post('/login', [AdminAuthController::class, 'login'])->name('admin.login');
 
         Route::middleware(['admin.auth', 'admin.workspace'])->group(function (): void {
+            Route::get('/system-logs/card-operations', [AdminCardOperationLogController::class, 'index'])
+                ->middleware('can:'.AdminPermission::AuditView->value)
+                ->name('admin.card-operation-logs.index');
             Route::get('/dashboard', AdminDashboardController::class)
                 ->middleware('can:'.AdminPermission::DashboardView->value)
                 ->name('admin.dashboard');

@@ -92,7 +92,7 @@
             </span>
         @elseif (request()->routeIs('admin.card-issues.*'))
             <span class="workspace-tab is-active" aria-current="page"><span>手动发卡</span><i aria-hidden="true">×</i></span>
-        @elseif (request()->routeIs('admin.system-logs.*'))
+        @elseif (request()->routeIs('admin.system-logs.*', 'admin.card-operation-logs.*'))
             <span class="workspace-tab is-active" aria-current="page"><span>{{ $title ?? '系统日志' }}</span><i aria-hidden="true">×</i></span>
         @elseif (request()->routeIs('admin.administrators.*'))
             <a class="workspace-tab {{ request()->routeIs('admin.administrators.index') ? 'is-active' : '' }}"
