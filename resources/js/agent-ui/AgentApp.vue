@@ -17,7 +17,7 @@ const updateMedia = event => { mobile.value = event.matches; };
 media.addEventListener('change', updateMedia);
 onBeforeUnmount(() => media.removeEventListener('change', updateMedia));
 const collapsed = ref(false);
-const icons = [DataBoard, Tickets, CreditCard, Wallet];
+const icons = [DataBoard, Tickets, Search, CreditCard, Wallet];
 const activeNav = computed(() => props.page.navigation.find(item => item.active)?.href || '');
 const model = ref(formValues(props.page.form?.controls || []));
 const errors = ref({ ...props.page.errors });

@@ -22,7 +22,7 @@ const navigationTemplate = ['el-aside', 'el-tabs'].map(tag => {
     return node.loc.source;
 }).join('');
 const render = compile(`<div>${navigationTemplate}</div>`);
-const labels = ['中控台', '卡管理', '余额制卡', '财务管理'];
+const labels = ['中控台', '卡管理', '卡密查询', '余额制卡', '财务管理'];
 const wrapper = tag => ({ setup: (_, { slots }) => () => h(tag, slots.default?.()) });
 
 async function navigation({ mobile = false, login = false, collapsed = false } = {}) {
@@ -48,7 +48,7 @@ test('desktop agent pages have sidebar navigation without duplicate top tabs', a
     assert.equal(document.querySelectorAll('section').length, 0);
 });
 
-test('mobile agent pages keep all four top destinations without a sidebar', async () => {
+test('mobile agent pages keep all five top destinations without a sidebar', async () => {
     const document = await navigation({ mobile: true });
     assert.equal(document.querySelectorAll('aside').length, 0);
     assert.deepEqual([...document.querySelectorAll('section button')].map(node => node.textContent), labels);

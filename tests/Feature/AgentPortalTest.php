@@ -78,6 +78,7 @@ class AgentPortalTest extends TestCase
             ->assertDontSee('解除用户绑定')
             ->assertDontSee('代理工具')
             ->assertDontSee('批量查询')
+            ->assertSee('卡密查询')
             ->assertSee($agent->username.'(1星)');
 
         $this->post('/agent/logout')->assertRedirect('/agent/login');
@@ -167,6 +168,14 @@ class AgentPortalTest extends TestCase
         $ownedCards = Card::query()->whereHas('batch', fn ($query) => $query->where('created_by_administrator_id', $agent->getKey()))->get();
         $this->assertCount(2, $ownedCards);
         $this->assertTrue($ownedCards->every(fn (Card $card): bool => $card->status === 'issued'));
+        $purchaseTransaction = AgentTransaction::query()->where('type', 'card_purchase')->sole();
+        $this->assertEqualsCanonicalizing(
+            $ownedCards->pluck('code_ciphertext')->all(),
+            $purchaseTransaction->metadata['card_codes'],
+        );
+        $purchaseTransaction->forceFill([
+            'metadata' => collect($purchaseTransaction->metadata)->except('card_codes')->all(),
+        ])->save();
 
         $this->get('/agent/cards')
             ->assertOk()
@@ -191,7 +200,10 @@ class AgentPortalTest extends TestCase
             ->assertOk()
             ->assertJson(['starred' => false]);
         $this->assertFalse((bool) $ownedCards->first()->fresh()->agent_starred);
-        $this->get('/agent/tools/query')->assertRedirect('/agent/cards');
+        $this->get('/agent/tools/query')
+            ->assertOk()
+            ->assertSee('卡密查询')
+            ->assertSee('请输入卡密后查询。');
         $this->get('/agent/cards?keyword='.urlencode((string) $ownedCards->first()->code_ciphertext))
             ->assertOk()
             ->assertSee((string) $ownedCards->first()->code_ciphertext)
@@ -201,6 +213,7 @@ class AgentPortalTest extends TestCase
             ->assertDontSee((string) $ownedCards->last()->code_ciphertext);
 
         $systemCode = 'SYSTEM-MADE-CARD-9001';
+        $systemBinding = 'DEVICE-FINGERPRINT-SYSTEM-9001';
         $systemBatch = CardBatch::query()->create([
             'public_id' => (string) Str::ulid(),
             'card_type_id' => $cardType->getKey(),
@@ -219,11 +232,26 @@ class AgentPortalTest extends TestCase
             'code_lookup_hash' => app(CardCredentialHasher::class)->lookupHash($systemCode),
             'code_ciphertext' => $systemCode,
             'code_last4' => substr($systemCode, -4),
-            'status' => 'issued',
+            'status' => 'active',
+            'activated_at' => now()->subHour(),
+            'bound_device_ciphertext' => $systemBinding,
         ]);
         $this->get('/agent/cards?keyword='.urlencode($systemCode))
             ->assertOk()
             ->assertSee('共 0 张');
+        $this->get('/agent/tools/query?keyword='.urlencode($systemCode))
+            ->assertOk()
+            ->assertSee($systemCode)
+            ->assertSee('系统管理员')
+            ->assertSee('是否激活')
+            ->assertSee('绑定特征')
+            ->assertSee('已激活')
+            ->assertSee($systemBinding)
+            ->assertSee('共 1 张')
+            ->assertDontSee('name="action"', false)
+            ->assertDontSee('value="delete"', false)
+            ->assertDontSee('value="freeze"', false)
+            ->assertDontSee('value="unbind"', false);
         $this->post('/agent/cards/'.$systemCard->getKey().'/action', ['action' => 'freeze'])->assertNotFound();
         $this->get('/agent/tools/unbind')->assertRedirect('/agent/cards');
         $this->get('/agent/tools/freeze')->assertRedirect('/agent/cards');
@@ -325,6 +353,7 @@ class AgentPortalTest extends TestCase
             ->assertOk()
             ->assertSee('关联卡密')
             ->assertSee((string) $card->code_ciphertext)
+            ->assertSee((string) $ownedCards->last()->code_ciphertext)
             ->assertSee('删卡退款');
         $this->get($queryUrl)
             ->assertOk()

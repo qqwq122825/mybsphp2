@@ -13,6 +13,7 @@ use App\Models\AgentTransaction;
 use App\Models\Application;
 use App\Models\ApplicationClientSession;
 use App\Models\Card;
+use App\Models\CardBatch;
 use App\Models\CardType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -242,6 +243,7 @@ final class AgentPortalController extends Controller
                 'note' => $validated['note'] ?? null,
                 'metadata' => [
                     'card_type_id' => $cardType->getKey(),
+                    'card_codes' => collect($generated['credentials'])->pluck('code')->values()->all(),
                     'quantity' => $quantity,
                     'unit_price_cents' => $unitPrice,
                     'issue_mode' => 'immediate',
@@ -277,11 +279,25 @@ final class AgentPortalController extends Controller
             ]);
     }
 
-    public function queryCards(Request $request): RedirectResponse
+    public function queryCards(Request $request): View
     {
-        return redirect()->route('agent.cards.index', array_filter([
-            'keyword' => trim((string) $request->input('keyword', '')),
-        ], fn (string $value): bool => $value !== ''));
+        $agent = $this->agent();
+        $keyword = trim((string) $request->query('keyword', ''));
+        $query = Card::query()
+            ->with(['application', 'cardType', 'batch'])
+            ->latest('id');
+
+        if ($keyword === '') {
+            $query->whereRaw('1 = 0');
+        } else {
+            $this->applyCardKeyword($query, $keyword);
+        }
+
+        return view('agent.tools.query', [
+            ...$this->layout($agent),
+            'keyword' => $keyword,
+            'cards' => $query->paginate(20)->withQueryString(),
+        ]);
     }
 
     public function unbind(): RedirectResponse
@@ -313,11 +329,37 @@ final class AgentPortalController extends Controller
             ->whereIn('public_id', $cardPublicIds)
             ->get(['public_id', 'code_ciphertext'])
             ->mapWithKeys(fn (Card $card): array => [(string) $card->public_id => (string) $card->code_ciphertext]);
-        $transactions->getCollection()->each(function (AgentTransaction $transaction) use ($cardCodes): void {
+        $batchPublicIds = collect($transactions->items())
+            ->filter(fn (AgentTransaction $transaction): bool => $transaction->reference_type === 'card_batch')
+            ->pluck('reference_id')
+            ->filter()
+            ->unique()
+            ->values();
+        $batchCardCodes = CardBatch::query()
+            ->with('cards:id,batch_id,code_ciphertext')
+            ->whereIn('public_id', $batchPublicIds)
+            ->get(['id', 'public_id'])
+            ->mapWithKeys(fn (CardBatch $batch): array => [
+                (string) $batch->public_id => $batch->cards->pluck('code_ciphertext')->map(strval(...))->values()->all(),
+            ]);
+        $transactions->getCollection()->each(function (AgentTransaction $transaction) use ($cardCodes, $batchCardCodes): void {
             $metadataCode = (string) ($transaction->metadata['card_code'] ?? '');
+            $metadataCodes = collect($transaction->metadata['card_codes'] ?? [])
+                ->filter(fn ($code): bool => is_string($code) && $code !== '')
+                ->values()
+                ->all();
+            $codes = match ($transaction->reference_type) {
+                'card' => $metadataCode !== ''
+                    ? [$metadataCode]
+                    : array_filter([$cardCodes[(string) $transaction->reference_id] ?? null]),
+                'card_batch' => $metadataCodes !== []
+                    ? $metadataCodes
+                    : ($batchCardCodes[(string) $transaction->reference_id] ?? []),
+                default => [],
+            };
             $transaction->setAttribute(
-                'card_reference_code',
-                $metadataCode !== '' ? $metadataCode : ($cardCodes[(string) $transaction->reference_id] ?? null),
+                'card_reference_codes',
+                array_values($codes),
             );
         });
 

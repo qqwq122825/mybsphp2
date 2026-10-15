@@ -20,6 +20,7 @@
         <nav class="agent-nav" aria-label="代理平台导航">
             <a class="{{ request()->routeIs('agent.dashboard') ? 'is-active' : '' }}" href="{{ route('agent.dashboard') }}"><i>⌂</i><span>中控台</span></a>
             <a class="{{ request()->routeIs('agent.cards.index') ? 'is-active' : '' }}" href="{{ route('agent.cards.index') }}"><i>▤</i><span>卡管理</span></a>
+            <a class="{{ request()->routeIs('agent.tools.query') ? 'is-active' : '' }}" href="{{ route('agent.tools.query') }}"><i>⌕</i><span>卡密查询</span></a>
             <a class="{{ request()->routeIs('agent.cards.purchase') ? 'is-active' : '' }}" href="{{ route('agent.cards.purchase') }}"><i>⌑</i><span>余额制卡</span></a>
             <a class="{{ request()->routeIs('agent.finance') ? 'is-active' : '' }}" href="{{ route('agent.finance') }}"><i>➤</i><span>财务管理</span></a>
         </nav>
