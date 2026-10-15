@@ -673,6 +673,73 @@ class ApplicationManagementTest extends TestCase
         }
     }
 
+    public function test_card_list_search_matches_any_partial_card_code(): void
+    {
+        $administrator = $this->administrator();
+        $this->actingAs($administrator, 'admin');
+
+        $application = Application::query()->forceCreate([
+            'public_id' => (string) Str::ulid(),
+            'code' => '20000010',
+            'name' => '部分卡号搜索软件',
+            'mode' => 'card_login',
+            'entitlement_kind' => 'duration',
+            'status' => 'active',
+            'client_secret_hash' => 'test-only',
+        ]);
+        $this->post('/private-console/card-types', [
+            'application_id' => $application->getKey(),
+            'name' => '部分搜索测试卡',
+            'code_prefix' => 'MATCH',
+            'note' => '验证任意位置的子串搜索',
+            'sort_order' => 0,
+            'duration_value' => 1,
+            'duration_unit' => 'day',
+            'face_price' => 1,
+            'agent_price' => 1,
+            'balance_recharge' => 0,
+            'code_length' => 25,
+            'code_charset' => 'uppercase',
+            'secret_length' => 0,
+            'secret_charset' => 'digits',
+            'account_concurrency_limit' => 0,
+            'machine_concurrency_limit' => 0,
+        ])->assertRedirect();
+        $cardType = $application->cardTypes()->sole();
+        $matching = app(CardGenerationService::class)->generate(
+            $cardType, 1, $administrator, '部分搜索', 'normal', 'operator-alpha',
+        );
+        $other = app(CardGenerationService::class)->generate(
+            $cardType, 1, $administrator, '部分搜索', 'normal', 'operator-beta',
+        );
+        $matchingCode = $matching['credentials'][0]['code'];
+        $otherCode = $other['credentials'][0]['code'];
+        $matching['batch']->cards()->sole()->forceFill(['bound_device_ciphertext' => 'USER-ALPHA-DEVICE'])->save();
+        $other['batch']->cards()->sole()->forceFill(['bound_device_ciphertext' => 'USER-BETA-DEVICE'])->save();
+        $partialCode = substr($matchingCode, 7, 8);
+
+        $this->get('/private-console/cards?application='.$application->getKey().'&search_field=code&keyword='.urlencode($partialCode))
+            ->assertOk()
+            ->assertSee($matchingCode)
+            ->assertDontSee($otherCode)
+            ->assertSee('<option value="maker"', false)
+            ->assertSee('制卡人')
+            ->assertSee('<option value="binding"', false)
+            ->assertSee('绑定特征')
+            ->assertDontSee('充值用户')
+            ->assertSee('value="'.$partialCode.'"', false);
+
+        $this->get('/private-console/cards?application='.$application->getKey().'&search_field=maker&keyword=operator-alpha')
+            ->assertOk()
+            ->assertSee($matchingCode)
+            ->assertDontSee($otherCode);
+
+        $this->get('/private-console/cards?application='.$application->getKey().'&search_field=binding&keyword=alpha-device')
+            ->assertOk()
+            ->assertSee($matchingCode)
+            ->assertDontSee($otherCode);
+    }
+
     public function test_create_form_suggests_an_editable_random_code_without_creating_a_record(): void
     {
         $this->actingAs($this->administrator(), 'admin');

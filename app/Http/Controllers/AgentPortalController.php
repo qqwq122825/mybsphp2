@@ -117,7 +117,15 @@ final class AgentPortalController extends Controller
         }
 
         if ($validated['action'] === 'freeze' && $this->cardIsActivated($card)) {
-            return back()->withErrors(['action' => '已激活卡密不能冻结，只能删除并退回制卡金额。']);
+            $message = $card->agentDeleteEligible()
+                ? '已激活卡密不能冻结，可在激活 1 天内删除并退回制卡金额。'
+                : '已激活卡密不能冻结，且已超过可删除退款时限。';
+
+            return back()->withErrors(['action' => $message]);
+        }
+
+        if ($validated['action'] === 'delete_card' && ($error = $this->agentCardDeleteError($card))) {
+            return back()->withErrors(['action' => $error]);
         }
 
         if ($validated['action'] === 'delete_card' && ! $request->boolean('confirmed')) {
@@ -294,10 +302,28 @@ final class AgentPortalController extends Controller
     public function finance(): View
     {
         $agent = $this->agent();
+        $transactions = $agent->agentTransactions()->latest()->paginate(20);
+        $cardPublicIds = collect($transactions->items())
+            ->filter(fn (AgentTransaction $transaction): bool => $transaction->reference_type === 'card')
+            ->pluck('reference_id')
+            ->filter()
+            ->unique()
+            ->values();
+        $cardCodes = Card::query()
+            ->whereIn('public_id', $cardPublicIds)
+            ->get(['public_id', 'code_ciphertext'])
+            ->mapWithKeys(fn (Card $card): array => [(string) $card->public_id => (string) $card->code_ciphertext]);
+        $transactions->getCollection()->each(function (AgentTransaction $transaction) use ($cardCodes): void {
+            $metadataCode = (string) ($transaction->metadata['card_code'] ?? '');
+            $transaction->setAttribute(
+                'card_reference_code',
+                $metadataCode !== '' ? $metadataCode : ($cardCodes[(string) $transaction->reference_id] ?? null),
+            );
+        });
 
         return view('agent.finance', [
             ...$this->layout($agent),
-            'transactions' => $agent->agentTransactions()->latest()->paginate(20),
+            'transactions' => $transactions,
         ]);
     }
 
@@ -311,6 +337,9 @@ final class AgentPortalController extends Controller
             $agent = Administrator::query()->lockForUpdate()->findOrFail($agentId);
             if ($lockedCard->status === 'revoked') {
                 return $lockedCard->code_ciphertext.'：卡密原本已删除';
+            }
+            if ($error = $this->agentCardDeleteError($lockedCard)) {
+                throw ValidationException::withMessages(['action' => $error]);
             }
 
             $refundCents = $this->agentCardRefundCents($agent, $lockedCard);
@@ -343,6 +372,7 @@ final class AgentPortalController extends Controller
                     'note' => '删除卡密退回制卡金额',
                     'metadata' => [
                         'batch_public_id' => $lockedCard->batch?->public_id,
+                        'card_code' => (string) $lockedCard->code_ciphertext,
                         'unit_price_cents' => $refundCents,
                     ],
                 ]);
@@ -385,6 +415,19 @@ final class AgentPortalController extends Controller
         }
 
         return 0;
+    }
+
+    private function agentCardDeleteError(Card $card): ?string
+    {
+        if ($card->agentDeleteEligible()) {
+            return null;
+        }
+
+        if (in_array($card->status, ['expired', 'consumed'], true) || $card->expires_at?->lte(now())) {
+            return '已使用完或已到期的卡密不能删除退款。';
+        }
+
+        return '已激活超过 1 天的卡密不能删除退款。';
     }
 
     private function sealUnusedCard(Card $card, Request $request): string

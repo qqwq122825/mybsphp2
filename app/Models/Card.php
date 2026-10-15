@@ -51,6 +51,26 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class Card extends Model
 {
+    public function agentDeleteEligible(): bool
+    {
+        if ($this->status === 'revoked') {
+            return false;
+        }
+
+        $activated = $this->activated_at !== null || in_array($this->status, ['active', 'expired', 'consumed'], true);
+        if (! $activated) {
+            return true;
+        }
+
+        if (in_array($this->status, ['expired', 'consumed'], true) || $this->expires_at?->lte(now())) {
+            return false;
+        }
+
+        return $this->status === 'active'
+            && $this->activated_at !== null
+            && $this->activated_at->gte(now()->subDay());
+    }
+
     /** Persist the business change and its per-card audit in the same transaction. */
     public function save(array $options = [])
     {

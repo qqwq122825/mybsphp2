@@ -18,6 +18,7 @@ use App\Models\ManualIssue;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -48,6 +49,8 @@ final class AdminCardController extends Controller
 
     public function index(Request $request, string $adminPath): View
     {
+        $codeKeyword = null;
+        $bindingKeyword = null;
         $applicationFilter = $request->filled('application')
             ? Application::query()->find($request->integer('application'))
             : null;
@@ -74,15 +77,19 @@ final class AdminCardController extends Controller
         if ($request->filled('keyword')) {
             $keyword = trim((string) $request->input('keyword'));
             $field = (string) $request->input('search_field', 'code');
-            $query->where(function ($builder) use ($field, $keyword): void {
-                match ($field) {
-                    'id' => $builder->where('id', ctype_digit($keyword) ? (int) $keyword : 0),
-                    'batch' => $builder->whereHas('batch', fn ($batch) => $batch->where('batch_no', 'like', '%'.$keyword.'%')),
-                    default => strlen($keyword) <= 4
-                        ? $builder->where('code_last4', $keyword)
-                        : $builder->where('code_lookup_hash', $this->credentialHasher->lookupHash($keyword)),
-                };
-            });
+            if (in_array($field, ['binding', 'recharge_user'], true)) {
+                $bindingKeyword = Str::upper($keyword);
+            } elseif (! in_array($field, ['id', 'batch', 'maker'], true)) {
+                $codeKeyword = $this->credentialHasher->normalizeCode($keyword);
+            } else {
+                $query->where(function ($builder) use ($field, $keyword): void {
+                    match ($field) {
+                        'id' => $builder->where('id', ctype_digit($keyword) ? (int) $keyword : 0),
+                        'batch' => $builder->whereHas('batch', fn ($batch) => $batch->where('batch_no', 'like', '%'.$keyword.'%')),
+                        'maker' => $builder->whereHas('batch', fn ($batch) => $batch->where('maker_reference', 'like', '%'.$keyword.'%')),
+                    };
+                });
+            }
         }
         $timeField = $request->input('time_field') === 'activated_at' ? 'activated_at' : 'created_at';
         if ($request->filled('start_date')) {
@@ -94,6 +101,34 @@ final class AdminCardController extends Controller
         $request->input('sort') === 'oldest'
             ? $query->reorder('id')
             : $query->reorder('id', 'desc');
+
+        if ($codeKeyword !== null || $bindingKeyword !== null) {
+            // Card codes and device bindings are encrypted at rest.
+            // Decrypt the already-filtered candidates before partial matching.
+            $matched = $query->get()->filter(function (Card $card) use ($codeKeyword, $bindingKeyword): bool {
+                if ($codeKeyword !== null) {
+                    return $codeKeyword !== '' && str_contains(
+                        $this->credentialHasher->normalizeCode((string) $card->code_ciphertext),
+                        $codeKeyword,
+                    );
+                }
+
+                return $bindingKeyword !== '' && str_contains(
+                    Str::upper((string) $card->bound_device_ciphertext),
+                    $bindingKeyword,
+                );
+            })->values();
+            $page = max(1, $request->integer('page', 1));
+            $cards = new LengthAwarePaginator(
+                $matched->forPage($page, 30)->values(),
+                $matched->count(),
+                30,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()],
+            );
+        } else {
+            $cards = $query->paginate(30)->withQueryString();
+        }
 
         $metricQuery = Card::query();
         if ($applicationFilter instanceof Application) {
@@ -111,7 +146,7 @@ final class AdminCardController extends Controller
 
         return view('admin.cards.index', [
             ...$this->layout($adminPath),
-            'cards' => $query->paginate(30)->withQueryString(),
+            'cards' => $cards,
             'applications' => Application::query()->orderBy('name')->get(),
             'applicationFilter' => $applicationFilter,
             'cardTypes' => $cardTypes,

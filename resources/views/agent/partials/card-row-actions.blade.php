@@ -11,11 +11,13 @@
             <button type="submit">{{ $locked ? '解冻' : '冻结' }}</button>
         </form>
     @endif
-    <form method="post" action="{{ route('agent.cards.action', $card) }}">
-        @csrf
-        <input type="hidden" name="action" value="delete_card">
-        <button type="submit" class="is-danger">删除</button>
-    </form>
+    @if($card->agentDeleteEligible())
+        <form method="post" action="{{ route('agent.cards.action', $card) }}">
+            @csrf
+            <input type="hidden" name="action" value="delete_card">
+            <button type="submit" class="is-danger">删除</button>
+        </form>
+    @endif
     @if($used)
         <form method="post" action="{{ route('agent.cards.action', $card) }}">
             @csrf

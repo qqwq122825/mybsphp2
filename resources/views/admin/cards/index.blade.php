@@ -24,6 +24,8 @@
                 <option value="code" @selected(request('search_field', 'code') === 'code')>充值卡号</option>
                 <option value="id" @selected(request('search_field') === 'id')>编号</option>
                 <option value="batch" @selected(request('search_field') === 'batch')>批次</option>
+                <option value="maker" @selected(request('search_field') === 'maker')>制卡人</option>
+                <option value="binding" @selected(in_array(request('search_field'), ['binding', 'recharge_user'], true))>绑定特征</option>
             </select></x-slot:field>
             <x-slot:keyword><input name="keyword" value="{{ request('keyword') }}" placeholder="请输入" aria-label="搜索关键字"></x-slot:keyword>
         </x-admin.filter-bar>
@@ -55,7 +57,7 @@
                         <th>卡值</th>
                         <th>制卡人</th>
                         <th>充值时间</th>
-                        <th>充值用户</th>
+                        <th>绑定特征</th>
                         @can('audit.view')<th>操作日志</th>@endcan
                     </tr>
                     </thead>
