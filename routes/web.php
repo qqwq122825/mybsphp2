@@ -30,6 +30,9 @@ Route::get('/activation-query', [PublicCardQueryController::class, 'show'])
 Route::post('/activation-query', [PublicCardQueryController::class, 'query'])
     ->middleware('throttle:60,1')
     ->name('activation.query.run');
+Route::view('/tracking-unlock', 'public.tracking-unlock')
+    ->name('tracking.unlock');
+Route::redirect('/tracking_unlock.html', '/tracking-unlock', 301);
 Route::post('/AppEn.php', LegacyGatewayController::class)
     ->middleware(['client.enabled', 'throttle:60,1'])
     ->name('legacy.gateway');

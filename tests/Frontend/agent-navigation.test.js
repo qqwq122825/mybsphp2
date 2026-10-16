@@ -48,6 +48,14 @@ test('desktop agent pages have sidebar navigation without duplicate top tabs', a
     assert.equal(document.querySelectorAll('section').length, 0);
 });
 
+test('desktop active destination uses an unambiguous primary background', () => {
+    const styles = descriptor.styles.map(style => style.content).join('\n');
+    assert.match(navigationTemplate, /class="agent-primary-menu"/);
+    assert.match(styles, /\.el-menu-item\.is-active/);
+    assert.match(styles, /background-color:\s*var\(--el-color-primary\)/);
+    assert.match(styles, /color:\s*var\(--el-color-white\)/);
+});
+
 test('mobile agent pages keep all five top destinations without a sidebar', async () => {
     const document = await navigation({ mobile: true });
     assert.equal(document.querySelectorAll('aside').length, 0);

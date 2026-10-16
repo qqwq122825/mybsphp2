@@ -32,6 +32,7 @@
                 <header><strong>{{ $administrator->username }}</strong><small>{{ ($databaseHealthy ?? true) ? '系统运行正常' : '数据库异常' }}</small></header>
                 <a href="{{ route('agent.login') }}" target="_blank" rel="noopener">代理后端</a>
                 <a href="{{ route('activation.query') }}" target="_blank" rel="noopener">激活码查询</a>
+                <a href="{{ route('tracking.unlock') }}" target="_blank" rel="noopener">追踪解锁密码</a>
                 <a href="{{ route('admin.administrators.security', ['adminPath' => $adminPath]) }}">修改密码</a>
                 <form method="post" action="{{ route('admin.logout', ['adminPath' => $adminPath]) }}">
                     @csrf

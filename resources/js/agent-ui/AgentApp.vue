@@ -111,7 +111,7 @@ function width(column) { if (mobile.value && column.label === '卡号') return 1
                 <el-space v-if="!page.login"><el-tag v-if="!mobile" type="info">{{ page.account }}</el-tag><el-button :icon="Refresh" aria-label="刷新" @click="refresh" /><el-button :icon="SwitchButton" :loading="busy" @click="submit(page.logout, page.logout.fields)">退出</el-button></el-space>
             </el-header>
             <el-container style="min-width:0">
-                <el-aside v-if="!page.login && !mobile && !collapsed" width="200px" style="background:var(--el-bg-color)"><el-menu :default-active="activeNav" @select="navigate"><el-menu-item v-for="(item,index) in page.navigation" :key="item.href" :index="item.href"><el-icon><component :is="icons[index]" /></el-icon><span>{{ item.label }}</span></el-menu-item></el-menu></el-aside>
+                <el-aside v-if="!page.login && !mobile && !collapsed" width="200px" style="background:var(--el-bg-color)"><el-menu class="agent-primary-menu" :default-active="activeNav" @select="navigate"><el-menu-item v-for="(item,index) in page.navigation" :key="item.href" :index="item.href"><el-icon><component :is="icons[index]" /></el-icon><span>{{ item.label }}</span></el-menu-item></el-menu></el-aside>
                 <el-main :style="{padding: mobile ? '16px' : '24px', minWidth:0}">
                     <el-space direction="vertical" alignment="stretch" :size="20" style="width:100%">
                         <el-alert v-if="preview" title="本地验收预览 · 示例数据" description="本页操作仅用于组件验收，余额和业务数据保持原状。" type="info" show-icon :closable="false" />
@@ -156,3 +156,12 @@ function width(column) { if (mobile.value && column.label === '卡号') return 1
         <el-dialog v-model="dialogVisible" :title="dialog?.title || '确认操作'" width="min(560px, calc(100vw - 32px))" append-to-body :close-on-click-modal="false" class="ep-admin-dialog"><template v-if="dialog"><el-alert :title="dialog.description" type="warning" show-icon :closable="false" /><el-divider /><el-text>{{ dialog.card }}</el-text></template><template #footer><el-space wrap><el-button @click="dialog = null">取消</el-button><el-button v-for="(action,index) in dialog?.actions" :key="index" :type="action.tone" :loading="busy" @click="runAction(action)">{{ action.label }}</el-button></el-space></template></el-dialog>
     </el-config-provider>
 </template>
+
+<style scoped>
+.agent-primary-menu :deep(.el-menu-item.is-active),
+.agent-primary-menu :deep(.el-menu-item.is-active:hover),
+.agent-primary-menu :deep(.el-menu-item.is-active:focus) {
+    color: var(--el-color-white);
+    background-color: var(--el-color-primary);
+}
+</style>

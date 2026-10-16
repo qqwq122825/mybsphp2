@@ -20,6 +20,10 @@
 @endphp
 <main class="activation-query-card">
     <header>
+        <nav class="public-tools-nav" aria-label="公共工具">
+            <a href="{{ route('activation.query') }}" aria-current="page">激活码查询</a>
+            <a href="{{ route('tracking.unlock') }}">追踪解锁密码</a>
+        </nav>
         <h1>激活码查询</h1>
         <p>支持激活码与充值卡状态查询，输入完整编码后点击查询即可。</p>
     </header>

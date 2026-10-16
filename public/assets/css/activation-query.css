@@ -31,6 +31,30 @@ body {
     border-bottom: 1px solid #dfe7f4;
 }
 
+.public-tools-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 28px;
+}
+
+.public-tools-nav a {
+    border: 1px solid #cbd8ef;
+    border-radius: 999px;
+    padding: 9px 16px;
+    color: #4f5f7e;
+    background: #f6f9ff;
+    text-decoration: none;
+    font-weight: 750;
+}
+
+.public-tools-nav a:hover,
+.public-tools-nav a[aria-current="page"] {
+    border-color: #4169e8;
+    color: #fff;
+    background: #4169e8;
+}
+
 .activation-query-card h1 {
     margin: 0;
     font-size: clamp(38px, 4vw, 62px);

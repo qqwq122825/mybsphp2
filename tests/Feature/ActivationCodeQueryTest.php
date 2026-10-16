@@ -20,8 +20,25 @@ class ActivationCodeQueryTest extends TestCase
         $this->get('/activation-query')
             ->assertOk()
             ->assertSee('激活码查询')
+            ->assertSee('追踪解锁密码')
+            ->assertSee('/tracking-unlock', false)
             ->assertSee('请输入激活码或充值卡编码')
             ->assertSee('/assets/css/activation-query.css', false);
+
+        $this->get('/tracking-unlock')
+            ->assertOk()
+            ->assertSee('代理 · 追踪解锁密码')
+            ->assertSee('输入用户卡密')
+            ->assertSee('/assets/css/tracking-unlock.css', false)
+            ->assertSee('/assets/js/tracking-unlock.js', false)
+            ->assertSee('/activation-query', false);
+
+        $this->get('/tracking_unlock.html')
+            ->assertRedirect('/tracking-unlock');
+
+        $unlockScript = (string) file_get_contents(public_path('assets/js/tracking-unlock.js'));
+        $this->assertStringContainsString('mtx-tracking-unlock:v1:', $unlockScript);
+        $this->assertStringContainsString('crypto.subtle.sign("HMAC"', $unlockScript);
 
         $this->post('/activation-query', ['credential' => 'UNKNOWN-CARD-001'])
             ->assertOk()
