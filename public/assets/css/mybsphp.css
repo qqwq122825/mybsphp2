@@ -6580,3 +6580,5 @@ dialog.client-trace-dialog.is-maximized { position: fixed; inset: 0; width: min(
     .client-trace-dialog-devices > header { align-items: flex-start; flex-direction: column; gap: 4px; }
     .client-trace-dialog-devices > div, .client-trace-dialog-payloads { grid-template-columns: 1fr; }
 }
+
+.software-config-tabs.is-five { grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); }

@@ -83,7 +83,7 @@
             $limitError = collect(['max_bound_devices', 'max_concurrent_sessions', 'heartbeat_interval_seconds', 'connection_timeout_seconds', 'rebind_deduction_value', 'rebind_deduction_unit'])
                 ->contains(fn (string $field): bool => $errors->has($field));
             $defaultConfigTab = request('config_tab') === 'proxy' || $errors->hasAny(['enabled', 'permission', 'action'])
-                ? 'proxy' : ($communicationError ? 'communication' : ($limitError ? 'limits' : 'basic'));
+                ? 'proxy' : ($errors->has('peer_display_enabled') ? 'entertainment' : ($communicationError ? 'communication' : ($limitError ? 'limits' : 'basic')));
         @endphp
         <div class="software-config-form" data-config-form
              data-default-config-tab="{{ $defaultConfigTab }}">
@@ -96,7 +96,7 @@
                 </div>
             </header>
 
-            <nav class="software-config-tabs is-four" role="tablist" aria-label="软件配置分类">
+            <nav class="software-config-tabs is-five" role="tablist" aria-label="软件配置分类">
                 <button type="button" role="tab" data-config-tab="basic" aria-controls="software-panel-basic">
                     <span>01</span><strong>基本配置</strong><small>名称、状态和验证数据</small>
                 </button>
@@ -109,6 +109,9 @@
                 <button type="button" role="tab" data-config-tab="proxy" aria-controls="software-panel-proxy">
                     <span>04</span><strong>代理联动</strong><small>随机入口和用户有效期同步</small>
                 </button>
+                <button type="button" role="tab" data-config-tab="entertainment" aria-controls="software-panel-entertainment">
+                    <span>05</span><strong>娱乐设置</strong><small>同行显示与在线昵称</small>
+                </button>
             </nav>
 
             <form class="software-config-fields" method="post"
@@ -116,6 +119,22 @@
             @csrf
             @method('PUT')
 
+            <div class="admin-form-grid software-config-panel" id="software-panel-entertainment"
+                 role="tabpanel" data-config-panel="entertainment" hidden>
+                <section class="dashboard-panel form-panel form-panel-wide">
+                    <header><div><span>ENTERTAINMENT</span><h2>娱乐设置</h2></div><em>独立于卡密验证</em></header>
+                    <div class="panel-body stack-form">
+                        <label class="field">
+                            <span>启用同行显示</span>
+                            <select name="peer_display_enabled">
+                                <option value="0" @selected(!old('peer_display_enabled', $application->peer_display_enabled))>关闭（默认）</option>
+                                <option value="1" @selected(old('peer_display_enabled', $application->peer_display_enabled))>开启</option>
+                            </select>
+                            <small>客户端进对局后仅上报自己的游戏昵称，10 分钟心跳；20 分钟未更新自动下线。不同软件名单隔离，关闭后停止接收并清空名单，不影响验证。</small>
+                        </label>
+                    </div>
+                </section>
+            </div>
             <div class="admin-form-grid software-config-panel" id="software-panel-communication"
                  role="tabpanel" data-config-panel="communication" hidden>
             <section class="dashboard-panel form-panel form-panel-wide communication-panel">

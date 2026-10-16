@@ -146,6 +146,7 @@ final class AdminApplicationController extends Controller
             'max_concurrent_sessions',
             'heartbeat_interval_seconds',
             'connection_timeout_seconds',
+            'peer_display_enabled',
             'registration_bonus_value',
             'registration_bonus_unit',
             'rebind_deduction_value',
@@ -170,6 +171,9 @@ final class AdminApplicationController extends Controller
         unset($validated['verification_data']);
 
         $application->fill($validated)->save();
+        if (array_key_exists('peer_display_enabled', $validated) && ! $application->peer_display_enabled) {
+            rescue(fn () => app(\App\Presence\PeerPresenceRegistry::class)->clear($application), report: false);
+        }
 
         $legacy = $request->validate([
             'max_clock_skew_seconds' => ['nullable', 'integer', 'min:30', 'max:3600'],
@@ -346,6 +350,7 @@ final class AdminApplicationController extends Controller
             'invitation_bonus_unit' => ['sometimes', Rule::in(['minute', 'hour', 'day', 'month', 'year'])],
             'version_name' => ['nullable', 'string', 'max:60'],
             'announcement' => ['nullable', 'string', 'max:5000'],
+            'peer_display_enabled' => ['sometimes', 'boolean'],
         ]);
     }
 

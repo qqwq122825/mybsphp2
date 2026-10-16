@@ -24,3 +24,10 @@ Route::prefix('/v2/apps/{application}')->middleware(['client.enabled', 'throttle
     Route::post('/accounts/login', [AccountAuthController::class, 'login']);
     Route::post('/accounts/recharge', [AccountAuthController::class, 'recharge']);
 });
+
+// Entertainment uses app-level packet signatures, not license sessions or client.enabled.
+Route::prefix('/v2/software/{application:code}/peer-presence')->middleware('throttle:12,1')->group(function (): void {
+    Route::get('/config', [\App\Http\Controllers\PeerPresenceController::class, 'configuration']);
+    Route::post('/heartbeat', [\App\Http\Controllers\PeerPresenceController::class, 'heartbeat']);
+    Route::post('/leave', [\App\Http\Controllers\PeerPresenceController::class, 'leave']);
+});

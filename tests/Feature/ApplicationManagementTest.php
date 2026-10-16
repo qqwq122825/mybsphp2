@@ -166,6 +166,8 @@ class ApplicationManagementTest extends TestCase
 
     public function test_super_administrator_can_create_edit_and_disable_an_application(): void
     {
+        // Freeze the clock so the exact remaining-minute assertion is deterministic.
+        $this->travelTo(now()->startOfMinute());
         $administrator = $this->administrator();
         $this->actingAs($administrator, 'admin');
 
@@ -857,6 +859,28 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-workspace-page-title="重命名后的软件 · 软件配置"', false)
             ->assertSee('value="90000001" readonly', false);
         $this->assertSame('90000001', $application->fresh()->code);
+    }
+
+    public function test_entertainment_setting_is_per_software_and_clears_disabled_roster(): void
+    {
+        config(['peer_presence.store' => 'array']);
+        $this->actingAs($this->administrator(), 'admin');
+        $this->post('/private-console/applications', ['code' => '1002', 'name' => '三角洲国服', 'mode' => 'card_login'])->assertRedirect();
+        $app = Application::query()->where('code', '1002')->sole();
+        $url = '/private-console/applications/'.$app->public_id;
+        $this->get($url.'/edit')->assertOk()->assertSee('娱乐设置')->assertSee('name="peer_display_enabled"', false);
+        $data = [
+            'name' => $app->name, 'status' => 'active', 'encryption_mode' => 'hybrid_rsa_aes_hmac',
+            'max_bound_devices' => 1, 'max_concurrent_sessions' => 1, 'peer_display_enabled' => '1',
+        ];
+        $this->put($url, $data)->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertTrue($app->fresh()->peer_display_enabled);
+        $registry = app(\App\Presence\PeerPresenceRegistry::class);
+        $registry->update($app, 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', '本机昵称');
+        $data['peer_display_enabled'] = '0';
+        $this->put($url, $data)->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertFalse($app->fresh()->peer_display_enabled);
+        $this->assertSame([], $registry->update($app, 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb', '另一个人'));
     }
 
     private function administrator(): Administrator
