@@ -8,6 +8,7 @@
 
 body {
     min-height: 100vh;
+    min-height: 100svh;
     margin: 0;
     display: grid;
     place-items: center;
@@ -173,16 +174,105 @@ body {
 .activation-query-result dd { margin: 7px 0 0; font-weight: 750; }
 
 @media (max-width: 760px) {
-    body { align-items: start; padding: 18px 12px; }
-    .activation-query-card { border-radius: 24px; }
-    .activation-query-card > header { padding: 32px 24px 26px; }
-    .activation-query-card > header p { margin-top: 14px; }
-    .activation-query-body { padding: 28px 24px 32px; }
-    .activation-query-body label { font-size: 18px; }
-    .activation-query-body input { height: 62px; border-radius: 14px; padding: 0 16px; font-size: 17px; }
-    .activation-query-actions { align-items: stretch; flex-direction: column; }
-    .activation-query-actions button { width: 100%; height: 62px; border-radius: 14px; font-size: 20px; }
-    .activation-query-actions span { font-size: 15px; }
-    .activation-query-result-summary p { font-size: 18px; }
-    .activation-query-result dl { grid-template-columns: 1fr; }
+    body {
+        align-items: start;
+        padding:
+            max(12px, env(safe-area-inset-top))
+            max(10px, env(safe-area-inset-right))
+            max(18px, env(safe-area-inset-bottom))
+            max(10px, env(safe-area-inset-left));
+    }
+
+    .activation-query-card {
+        width: 100%;
+        border-radius: 18px;
+    }
+
+    .activation-query-card > header { padding: 24px 20px 22px; }
+
+    .public-tools-nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 22px;
+    }
+
+    .public-tools-nav a {
+        min-width: 0;
+        padding: 8px 7px;
+        overflow: hidden;
+        font-size: 13px;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .activation-query-card h1 {
+        font-size: clamp(30px, 9vw, 36px);
+        letter-spacing: -.035em;
+    }
+
+    .activation-query-card > header p {
+        margin-top: 12px;
+        font-size: 16px;
+        line-height: 1.65;
+    }
+
+    .activation-query-body { padding: 24px 20px 28px; }
+    .activation-query-body form { gap: 14px; }
+    .activation-query-body label { font-size: 17px; }
+    .activation-query-body input {
+        height: 60px;
+        border-radius: 13px;
+        padding: 0 14px;
+        font-size: 16px;
+    }
+
+    .activation-query-actions {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 13px;
+        margin-top: 4px;
+    }
+
+    .activation-query-actions button {
+        width: 100%;
+        min-width: 0;
+        height: 60px;
+        border-radius: 13px;
+        font-size: 19px;
+    }
+
+    .activation-query-actions span {
+        font-size: 14px;
+        line-height: 1.5;
+        text-align: center;
+    }
+
+    .activation-query-result {
+        margin-top: 26px;
+        border-radius: 16px;
+        padding: 20px 18px;
+    }
+
+    .activation-query-result-summary p {
+        font-size: 17px;
+        overflow-wrap: anywhere;
+    }
+
+    .activation-query-result-details {
+        grid-template-columns: 1fr;
+        margin-top: 18px;
+        border-radius: 12px;
+    }
+
+    .activation-query-result dl div { padding: 14px 16px; }
+    .activation-query-result dd { overflow-wrap: anywhere; }
+}
+
+@media (max-width: 360px) {
+    .activation-query-card > header,
+    .activation-query-body { padding-right: 16px; padding-left: 16px; }
+    .public-tools-nav a { font-size: 12px; }
+    .activation-query-card h1 { font-size: 30px; }
 }

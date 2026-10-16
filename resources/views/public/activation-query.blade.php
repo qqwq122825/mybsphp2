@@ -2,10 +2,10 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#eaf1ff">
     <title>激活码查询</title>
-    <link rel="stylesheet" href="/assets/css/activation-query.css?v=20260722-card-query">
+    <link rel="stylesheet" href="/assets/css/activation-query.css?v=20261016-mobile">
 </head>
 <body>
 @php
