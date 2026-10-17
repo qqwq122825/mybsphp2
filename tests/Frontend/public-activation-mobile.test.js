@@ -7,7 +7,14 @@ const view = readFileSync(new URL('../../resources/views/public/activation-query
 
 test('public activation query declares a safe mobile viewport and cache-busted stylesheet', () => {
     assert.match(view, /viewport-fit=cover/);
-    assert.match(view, /activation-query\.css\?v=20261016-mobile/);
+    assert.match(view, /activation-query\.css\?v=20261017-responsive/);
+});
+
+test('public activation query also compacts for mobile browsers with wide CSS viewports', () => {
+    assert.match(css, /@media \(max-width:\s*1024px\)/);
+    assert.match(css, /html,[\s\S]*?body[\s\S]*?overflow-x:\s*clip/);
+    assert.match(css, /@media \(max-width:\s*1024px\)[\s\S]*?align-items:\s*start/);
+    assert.match(css, /@media \(max-width:\s*1024px\)[\s\S]*?\.activation-query-actions[\s\S]*?flex-direction:\s*column/);
 });
 
 test('public activation query fits narrow phones without horizontal navigation overflow', () => {
