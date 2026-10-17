@@ -5,6 +5,7 @@ import { ArrowLeft, Check, DocumentCopy } from '@element-plus/icons-vue';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import FormFields from './FormFields.vue';
 import ProxyLink from './ProxyLink.vue';
+import PeerPresenceTable from './PeerPresenceTable.vue';
 import { formSubmission, formValues } from './read-software';
 import { copyText, submitForm } from './forms';
 
@@ -50,6 +51,7 @@ async function save() {
                             <div class="ep-config-grid"><form-fields :fields="group.fields.filter(field => !field.certificate)" :model="model" :errors="errors" /></div>
                             <el-collapse v-if="group.fields.some(field => field.certificate)"><el-collapse-item title="证书与客户端配置" name="certificate"><div class="ep-config-grid"><form-fields :fields="group.fields.filter(field => field.certificate)" :model="model" :errors="errors" /></div></el-collapse-item></el-collapse>
                         </section>
+                        <peer-presence-table v-if="tab.name === 'entertainment' && activeTab === 'entertainment' && page.peerPresence && String(model.peer_display_enabled) === '1'" :page="page.peerPresence" :preview="preview" />
                     </el-tab-pane>
                 </el-tabs>
                 <div v-show="activeTab !== 'proxy'" class="ep-settings-footer"><span class="ep-field-help">{{ page.submitHelp }}</span><el-button type="primary" native-type="submit" :icon="Check" :loading="busy">{{ page.submitLabel }}</el-button></div>

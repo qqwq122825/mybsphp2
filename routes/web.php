@@ -194,6 +194,9 @@ Route::prefix('{adminPath}')
             Route::get('/applications/{application}/edit', [AdminApplicationController::class, 'edit'])
                 ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
                 ->name('admin.applications.edit');
+            Route::get('/applications/{application}/peer-presence', [AdminApplicationController::class, 'peerPresence'])
+                ->middleware('can:'.AdminPermission::ApplicationsUpdate->value)
+                ->name('admin.applications.peer-presence');
             Route::get('/applications/{application}/users', [AdminApplicationUserController::class, 'index'])
                 ->middleware('can:'.AdminPermission::ApplicationsView->value)
                 ->name('admin.applications.users.index');

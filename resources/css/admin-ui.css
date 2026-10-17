@@ -74,3 +74,9 @@
     .ep-admin-list :is(.el-table, .el-table__inner-wrapper, .el-table__body-wrapper, .el-scrollbar__wrap, .el-scrollbar__view) { height:auto !important; max-height:none !important; overflow:visible !important; }
     .ep-admin-list .el-table-fixed-column--right { position:static !important; }
 }
+
+.ep-peer-presence { margin:28px 0; min-width:0; }
+.ep-peer-presence .cell { overflow-wrap:anywhere; }
+.ep-peer-presence .el-table { width:100%; }
+.ep-peer-presence h3 { margin:0; font-size:15px; }
+.ep-peer-presence .el-alert { margin:12px 0; }

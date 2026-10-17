@@ -84,6 +84,7 @@
                 ->contains(fn (string $field): bool => $errors->has($field));
             $defaultConfigTab = request('config_tab') === 'proxy' || $errors->hasAny(['enabled', 'permission', 'action'])
                 ? 'proxy' : ($errors->has('peer_display_enabled') ? 'entertainment' : ($communicationError ? 'communication' : ($limitError ? 'limits' : 'basic')));
+            if (request('config_tab') === 'entertainment' && ! $errors->any()) $defaultConfigTab = 'entertainment';
         @endphp
         <div class="software-config-form" data-config-form
              data-default-config-tab="{{ $defaultConfigTab }}">
@@ -132,6 +133,7 @@
                             </select>
                             <small>客户端进对局后仅上报自己的游戏昵称，10 分钟心跳；20 分钟未更新自动下线。不同软件名单隔离，关闭后停止接收并清空名单，不影响验证。</small>
                         </label>
+                        @include('admin.applications.peer-presence', ['peerPresence' => $peerPresence ?? null])
                     </div>
                 </section>
             </div>

@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260926-sidebar-center">
     <script src="/assets/js/custom-select.js?v=20260910-element-software" defer></script>
     <script src="/assets/js/mybsphp.js?v=20260922-proxy-simple" defer></script>
+    <link rel="stylesheet" href="/assets/css/peer-presence.css?v=20261017-table">
+    <script src="/assets/js/peer-presence.js?v=20261017-table" defer></script>
     @stack('head')
 </head>
 <body class="dashboard-page">

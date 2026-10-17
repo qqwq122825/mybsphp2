@@ -16,12 +16,16 @@ use App\Models\Card;
 use App\Models\CardBatch;
 use App\Models\CardType;
 use App\Models\ProxyLink;
+use App\Presence\PeerPresenceRegistry;
+use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -128,7 +132,51 @@ final class AdminApplicationController extends Controller
             'serverAddress' => $this->credentials->serverAddress($application),
             'objectiveCMacros' => $this->credentials->objectiveCMacros($application),
             'proxyLink' => ProxyLink::query()->where('application_id', $application->id)->first(),
+            'peerPresence' => $this->peerPresenceData($adminPath, $application, max(1, request()->integer('peer_page', 1))),
         ]);
+    }
+
+    public function peerPresence(Request $request, string $adminPath, Application $application): JsonResponse
+    {
+        $validator = Validator::make($request->query(), ['peer_page' => ['sometimes', 'integer', 'min:1', 'max:100000']]);
+        if ($validator->fails()) {
+            return response()->json(['message' => '分页参数无效。', 'errors' => $validator->errors()], 422)
+                ->header('Cache-Control', 'no-store, private');
+        }
+        $data = $validator->validated();
+        $payload = $this->peerPresenceData($adminPath, $application, (int) ($data['peer_page'] ?? 1));
+
+        return response()->json($payload, $payload['error'] ? 503 : 200)
+            ->header('Cache-Control', 'no-store, private');
+    }
+
+    /** @return array<string, mixed> */
+    private function peerPresenceData(string $adminPath, Application $application, int $page): array
+    {
+        $payload = [
+            'url' => route('admin.applications.peer-presence', ['adminPath' => $adminPath, 'application' => $application]),
+            'edit_url' => route('admin.applications.edit', ['adminPath' => $adminPath, 'application' => $application]),
+            'enabled' => (bool) $application->peer_display_enabled,
+            'rows' => [], 'total' => 0, 'page' => 1, 'per_page' => 25, 'last_page' => 1,
+            'pending_names' => 0, 'error' => null,
+            'refreshed_at' => now()->setTimezone('Asia/Shanghai')->format('Y-m-d H:i:s'),
+        ];
+        try {
+            $snapshot = app(PeerPresenceRegistry::class)->administrationSnapshot($application);
+            $payload['total'] = count($snapshot['rows']);
+            $payload['pending_names'] = $snapshot['pending_names'];
+            $payload['last_page'] = max(1, (int) ceil($payload['total'] / $payload['per_page']));
+            $payload['page'] = min($page, $payload['last_page']);
+            $payload['rows'] = array_map(fn (array $row): array => [
+                'game_name' => $row['game_name'],
+                'last_seen_at' => CarbonImmutable::createFromTimestampUTC($row['last_seen_at'])->setTimezone('Asia/Shanghai')->format('Y-m-d H:i:s'),
+            ], array_slice($snapshot['rows'], ($payload['page'] - 1) * $payload['per_page'], $payload['per_page']));
+        } catch (\Throwable $exception) {
+            report($exception);
+            $payload['error'] = '同行名单暂时读取失败，请点击刷新重试。';
+        }
+
+        return $payload;
     }
 
     public function update(
@@ -172,7 +220,7 @@ final class AdminApplicationController extends Controller
 
         $application->fill($validated)->save();
         if (array_key_exists('peer_display_enabled', $validated) && ! $application->peer_display_enabled) {
-            rescue(fn () => app(\App\Presence\PeerPresenceRegistry::class)->clear($application), report: false);
+            rescue(fn () => app(PeerPresenceRegistry::class)->clear($application), report: false);
         }
 
         $legacy = $request->validate([
