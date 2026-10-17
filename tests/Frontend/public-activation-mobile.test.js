@@ -7,14 +7,18 @@ const view = readFileSync(new URL('../../resources/views/public/activation-query
 
 test('public activation query declares a safe mobile viewport and cache-busted stylesheet', () => {
     assert.match(view, /viewport-fit=cover/);
-    assert.match(view, /activation-query\.css\?v=20261017-responsive/);
+    assert.match(view, /activation-query\.css\?v=20261017-dark-tool/);
+    assert.match(view, /PUBLIC TOOL · V1/);
 });
 
-test('public activation query also compacts for mobile browsers with wide CSS viewports', () => {
+test('public activation query uses the compact dark public-tool shell', () => {
     assert.match(css, /@media \(max-width:\s*1024px\)/);
     assert.match(css, /html,[\s\S]*?body[\s\S]*?overflow-x:\s*clip/);
     assert.match(css, /@media \(max-width:\s*1024px\)[\s\S]*?align-items:\s*start/);
-    assert.match(css, /@media \(max-width:\s*1024px\)[\s\S]*?\.activation-query-actions[\s\S]*?flex-direction:\s*column/);
+    assert.match(css, /background:\s*#0b1020/);
+    assert.match(css, /\.activation-query-card[\s\S]*?width:\s*min\(520px,\s*100%\)/);
+    assert.match(css, /\.activation-query-card[\s\S]*?border:\s*1px solid #33405d/);
+    assert.match(css, /\.public-tools-nav a\[aria-current="page"\][\s\S]*?background:\s*#8eaafe/);
 });
 
 test('public activation query fits narrow phones without horizontal navigation overflow', () => {
@@ -25,8 +29,9 @@ test('public activation query fits narrow phones without horizontal navigation o
     assert.match(css, /@media \(max-width:\s*360px\)/);
 });
 
-test('public activation query stacks controls and result details on mobile', () => {
-    assert.match(css, /\.activation-query-actions[\s\S]*?flex-direction:\s*column/);
+test('public activation query keeps full-width controls and stacks result details on mobile', () => {
+    assert.match(css, /\.activation-query-actions[\s\S]*?display:\s*grid/);
+    assert.match(css, /\.activation-query-actions button[\s\S]*?width:\s*100%/);
     assert.match(css, /\.activation-query-result-details[\s\S]*?grid-template-columns:\s*1fr/);
     assert.match(css, /\.activation-query-body input[\s\S]*?font-size:\s*16px/);
     assert.match(css, /overflow-wrap:\s*anywhere/);

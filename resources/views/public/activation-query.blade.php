@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#eaf1ff">
+    <meta name="theme-color" content="#0b1020">
     <title>激活码查询</title>
-    <link rel="stylesheet" href="/assets/css/activation-query.css?v=20261017-responsive">
+    <link rel="stylesheet" href="/assets/css/activation-query.css?v=20261017-dark-tool">
 </head>
 <body>
 @php
@@ -19,11 +19,13 @@
     ];
 @endphp
 <main class="activation-query-card">
+    <nav class="public-tools-nav" aria-label="公共工具">
+        <a href="{{ route('activation.query') }}" aria-current="page">激活码查询</a>
+        <a href="{{ route('tracking.unlock') }}">追踪解锁密码</a>
+    </nav>
+
     <header>
-        <nav class="public-tools-nav" aria-label="公共工具">
-            <a href="{{ route('activation.query') }}" aria-current="page">激活码查询</a>
-            <a href="{{ route('tracking.unlock') }}">追踪解锁密码</a>
-        </nav>
+        <p class="activation-query-kicker">PUBLIC TOOL · V1</p>
         <h1>激活码查询</h1>
         <p>支持激活码与充值卡状态查询，输入完整编码后点击查询即可。</p>
     </header>
@@ -92,6 +94,8 @@
             @endif
         @endif
     </section>
+
+    <footer>公共查询工具 · 请输入完整编码</footer>
 </main>
 </body>
 </html>
