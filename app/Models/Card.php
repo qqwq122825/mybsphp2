@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable|null $expires_at
  * @property CarbonImmutable|null $frozen_at
  * @property CarbonImmutable|null $revoked_at
+ * @property CarbonImmutable|null $timer_paused_at
  */
 #[Fillable([
     'public_id',
@@ -48,6 +49,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'activation_count',
     'failed_attempt_count',
     'lock_version',
+    'is_timer',
+    'timer_paused_at',
+    'timer_pause_count',
+    'timer_pause_limit',
+    'timer_pause_max_seconds',
 ])]
 class Card extends Model
 {
@@ -116,12 +122,99 @@ class Card extends Model
         if ($this->user_status === 'frozen') {
             return 'frozen';
         }
-        if ($this->status === 'active' && $this->expires_at?->lte(now())) {
+        if ($this->status === 'active' && $this->isTimerPaused()) {
+            return 'paused';
+        }
+        if ($this->status === 'active' && $this->effectiveExpiresAt()?->lte(now())) {
             return 'expired';
         }
 
         // Freezing the original used card is separate from freezing its software user.
         return (string) $this->status;
+    }
+
+    /**
+     * 计时卡冻结的自动恢复时间点；未冻结或单次冻结不限时长时为 null。
+     */
+    public function timerPauseDeadline(): ?CarbonImmutable
+    {
+        if ($this->timer_paused_at === null || (int) $this->timer_pause_max_seconds <= 0) {
+            return null;
+        }
+
+        return $this->timer_paused_at->addSeconds((int) $this->timer_pause_max_seconds);
+    }
+
+    /** 当前是否处于用户冻结计时状态（已过自动恢复点的视为已恢复）。 */
+    public function isTimerPaused(?CarbonImmutable $now = null): bool
+    {
+        if (! $this->is_timer || $this->timer_paused_at === null) {
+            return false;
+        }
+        $deadline = $this->timerPauseDeadline();
+
+        return $deadline === null || ($now ?? CarbonImmutable::now())->lt($deadline);
+    }
+
+    /**
+     * 实际生效的到期时间。冻结期间到期时间随冻结时长顺延，
+     * 因此返回"如果此刻恢复"的到期时间；已过自动恢复点的按恢复点结算。
+     */
+    public function effectiveExpiresAt(?CarbonImmutable $now = null): ?CarbonImmutable
+    {
+        if ($this->expires_at === null || ! $this->is_timer || $this->timer_paused_at === null) {
+            return $this->expires_at;
+        }
+        $now ??= CarbonImmutable::now();
+        $deadline = $this->timerPauseDeadline();
+        $resumeAt = $deadline !== null && $deadline->lt($now) ? $deadline : $now;
+        $pausedSeconds = max(0, $resumeAt->getTimestamp() - $this->timer_paused_at->getTimestamp());
+
+        return $this->expires_at->addSeconds($pausedSeconds);
+    }
+
+    /** 剩余可用秒数；冻结期间保持不变。 */
+    public function timerRemainingSeconds(?CarbonImmutable $now = null): int
+    {
+        $now ??= CarbonImmutable::now();
+        $expiresAt = $this->effectiveExpiresAt($now);
+
+        return $expiresAt === null ? 0 : max(0, $expiresAt->getTimestamp() - $now->getTimestamp());
+    }
+
+    /**
+     * 结束冻结：把冻结时长顺延到 expires_at 并清除冻结标记。
+     * 只修改属性，由调用方在事务内保存。
+     */
+    public function resumeTimer(?CarbonImmutable $now = null): bool
+    {
+        if (! $this->is_timer || $this->timer_paused_at === null) {
+            return false;
+        }
+        $this->forceFill([
+            'expires_at' => $this->effectiveExpiresAt($now),
+            'timer_paused_at' => null,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * 后台调整时长前调用：仍在冻结的卡把冻结起点移到此刻并同步顺延到期时间，
+     * 保证"剩余时长"不变，后台在此基础上加减时间或设定到期时间都与未冻结时一致。
+     * 只修改属性，由调用方保存。
+     */
+    public function rebaseTimerPause(?CarbonImmutable $now = null): void
+    {
+        $now ??= CarbonImmutable::now();
+        if ($this->isTimerPaused($now)) {
+            $this->forceFill([
+                'expires_at' => $this->effectiveExpiresAt($now),
+                'timer_paused_at' => $now,
+            ]);
+        } else {
+            $this->resumeTimer($now);
+        }
     }
 
     /**
@@ -179,6 +272,11 @@ class Card extends Model
             'lock_version' => 'integer',
             'account_concurrency_limit' => 'integer',
             'machine_concurrency_limit' => 'integer',
+            'is_timer' => 'boolean',
+            'timer_paused_at' => 'immutable_datetime',
+            'timer_pause_count' => 'integer',
+            'timer_pause_limit' => 'integer',
+            'timer_pause_max_seconds' => 'integer',
         ];
     }
 }

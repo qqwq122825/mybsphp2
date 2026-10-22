@@ -175,6 +175,9 @@ final class AdminApplicationUserController extends Controller
         DB::transaction(function () use ($query, $isCard, $action, $value, $seconds, $expiry): void {
             $query->orderBy('id')->chunkById(500, function ($users) use ($isCard, $action, $value, $seconds, $expiry): void {
                 foreach ($users as $user) {
+                    if ($isCard && in_array($action, ['add_time', 'subtract_time', 'set_expiry'], true)) {
+                        $user->rebaseTimerPause();
+                    }
                     $base = $user->expires_at && $user->expires_at->isFuture() ? $user->expires_at->copy() : now();
                     match ($action) {
                         'add_time' => $user->forceFill(['expires_at' => $base->addSeconds($seconds)])->save(),

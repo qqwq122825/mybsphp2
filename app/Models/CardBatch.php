@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'generated_at',
     'closed_at',
     'note',
+    'is_timer',
 ])]
 class CardBatch extends Model
 {
@@ -48,6 +49,7 @@ class CardBatch extends Model
         return [
             'planned_quantity' => 'integer',
             'actual_quantity' => 'integer',
+            'is_timer' => 'boolean',
             'generated_at' => 'immutable_datetime',
             'closed_at' => 'immutable_datetime',
         ];

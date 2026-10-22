@@ -189,6 +189,9 @@ final class AdminQuickOperationController extends Controller
         if (! $target) {
             throw ValidationException::withMessages(['action' => '这张充值卡尚未关联软件用户，暂时没有可加时的对象。']);
         }
+        if ($target instanceof Card) {
+            $target->rebaseTimerPause();
+        }
         $base = $target->expires_at && $target->expires_at->isFuture()
             ? $target->expires_at->copy()
             : now();

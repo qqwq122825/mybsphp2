@@ -204,6 +204,7 @@ final class AdminCardController extends Controller
                 'unused' => $card->forceFill([
                     'status' => 'inventory', 'user_status' => null, 'activated_at' => null,
                     'expires_at' => null, 'bound_device_ciphertext' => null, 'bound_device_mask' => null,
+                    'timer_paused_at' => null, 'timer_pause_count' => 0,
                 ])->save(),
                 'delete' => $card->forceFill(['status' => 'revoked', 'revoked_at' => now()])->save(),
             };
@@ -284,7 +285,8 @@ final class AdminCardController extends Controller
                 'unfreeze' => CardOperationLogger::updateCards($query, ['card_is_frozen' => false, 'frozen_at' => null, 'updated_at' => $now]),
                 'unused' => CardOperationLogger::updateCards($query, [
                     'status' => 'inventory', 'user_status' => null, 'activated_at' => null, 'expires_at' => null,
-                    'bound_device_ciphertext' => null, 'bound_device_mask' => null, 'updated_at' => $now,
+                    'bound_device_ciphertext' => null, 'bound_device_mask' => null,
+                    'timer_paused_at' => null, 'timer_pause_count' => 0, 'updated_at' => $now,
                 ]),
                 'used' => $this->markQueryUsed($query),
                 'set_duration' => $typeCount = $this->setQueryDuration($query, $this->positiveInteger($value, '充值天数')),
@@ -360,7 +362,8 @@ final class AdminCardController extends Controller
             'duration_seconds' => $days * 86400, 'updated_at' => now(),
         ]);
         CardOperationLogger::updateCards((clone $query)->whereIn('status', ['active', 'expired']), [
-            'status' => 'active', 'user_status' => 'active', 'expires_at' => now()->addDays($days), 'updated_at' => now(),
+            'status' => 'active', 'user_status' => 'active', 'expires_at' => now()->addDays($days),
+            'timer_paused_at' => null, 'updated_at' => now(),
         ]);
 
         return $count;
@@ -651,8 +654,24 @@ final class AdminCardController extends Controller
             'sale_flag' => ['sometimes', Rule::in(['normal', 'sale'])],
             'note' => ['nullable', 'string', 'max:500'],
             'maker_reference' => ['nullable', 'string', 'max:120'],
+            'is_timer' => ['nullable', 'boolean'],
+            'timer_pause_limit' => ['nullable', 'integer', 'min:-1', 'max:9999'],
+            'timer_pause_max_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+        ], [
+            'timer_pause_limit.min' => '冻结次数填 -1 表示不限，或填 0 以上的次数。',
+            'timer_pause_max_days.max' => '单次最长冻结天数不能超过 3650 天。',
         ]);
         $cardType = CardType::query()->findOrFail($validated['card_type_id']);
+        $timer = null;
+        if ($request->boolean('is_timer')) {
+            if ($cardType->benefit_kind !== 'duration') {
+                return back()->withErrors(['is_timer' => '只有时长卡类型可以制作计时卡。'])->withInput();
+            }
+            $timer = [
+                'pause_limit' => (int) ($validated['timer_pause_limit'] ?? -1),
+                'pause_max_seconds' => (int) ($validated['timer_pause_max_days'] ?? 0) * 86400,
+            ];
+        }
 
         try {
             $result = $this->generator->generate(
@@ -662,6 +681,7 @@ final class AdminCardController extends Controller
                 $validated['note'] ?? null,
                 $validated['sale_flag'] ?? 'normal',
                 $validated['maker_reference'] ?? null,
+                $timer,
             );
         } catch (RuntimeException $exception) {
             return back()->withErrors(['quantity' => $exception->getMessage()])->withInput();
@@ -677,6 +697,7 @@ final class AdminCardController extends Controller
                 'quantity' => count($result['credentials']),
                 'application_name' => $cardType->application?->name,
                 'card_type_name' => $cardType->name,
+                'is_timer' => $timer !== null,
             ],
             actorRole: $this->administrator()->role,
         ), $request);
@@ -692,6 +713,7 @@ final class AdminCardController extends Controller
                 'generated_at' => now()->format('Y-m-d H:i:s'),
                 'card_type' => $cardType->name,
                 'sale_flag' => $validated['sale_flag'] ?? 'normal',
+                'is_timer' => $timer !== null,
             ]);
     }
 

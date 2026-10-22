@@ -88,6 +88,23 @@
                             <input type="number" name="quantity" min="1" max="500" value="{{ old('quantity', 1) }}" required>
                             <small>自动生成时使用的制卡数量，单批最多 500 张</small>
                         </label>
+                        <div class="card-type-form-row">
+                            <strong>计时卡</strong>
+                            <div class="making-radio-options">
+                                <label><input type="checkbox" name="is_timer" value="1" @checked(old('is_timer'))> 制作为计时卡</label>
+                            </div>
+                            <small>计时卡激活后，客户端可调用接口冻结 / 恢复计时；冻结期间不扣时长。仅时长类型可用，普通卡不可冻结</small>
+                        </div>
+                        <label class="card-type-form-row">
+                            <strong>冻结次数上限</strong>
+                            <input type="number" name="timer_pause_limit" min="-1" max="9999" value="{{ old('timer_pause_limit', -1) }}">
+                            <small>仅计时卡生效；-1 为不限次数</small>
+                        </label>
+                        <label class="card-type-form-row">
+                            <strong>单次最长冻结</strong>
+                            <input type="number" name="timer_pause_max_days" min="0" max="3650" value="{{ old('timer_pause_max_days', 0) }}">
+                            <small>仅计时卡生效；单位天，0 为不限，超过后自动恢复计时</small>
+                        </label>
                         <label class="card-type-form-row">
                             <strong>制卡备注</strong>
                             <input name="note" maxlength="500" value="{{ old('note') }}" placeholder="可空">

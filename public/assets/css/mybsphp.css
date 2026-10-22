@@ -2374,6 +2374,16 @@ select:not([multiple]):not([data-native-select]):focus {
     background: #fff4e8;
 }
 
+.status-timer {
+    color: #6a4bb8;
+    background: #f3efff;
+}
+
+.status-paused {
+    color: #2f6f9f;
+    background: #e8f4fc;
+}
+
 .status-suspended,
 .status-frozen,
 .status-revoked,

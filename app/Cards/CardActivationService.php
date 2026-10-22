@@ -102,6 +102,9 @@ final class CardActivationService
                     ]);
                 }
 
+                // 计时卡登录即恢复计时：冻结时长顺延到到期时间后再做到期判断。
+                $card->resumeTimer();
+
                 if ($card->expires_at?->isPast()) {
                     $card->forceFill(['status' => 'expired'])->save();
                     throw new CardActivationException('CARD_EXPIRED', '该卡密已经到期。', 403);

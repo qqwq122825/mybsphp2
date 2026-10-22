@@ -18,7 +18,8 @@ final class CardOperationLogger
         'bound_device_ciphertext', 'bound_device_mask', 'activation_count',
         'redeemed_by_account_id', 'account_concurrency_limit', 'machine_concurrency_limit',
         'user_note', 'agent_starred', 'card_type_id', 'application_id', 'batch_id',
-        'code_ciphertext', 'created_at',
+        'code_ciphertext', 'created_at', 'is_timer', 'timer_paused_at', 'timer_pause_count',
+        'timer_pause_limit', 'timer_pause_max_seconds',
     ];
 
     public const LEGACY_ACTIONS = [
@@ -131,6 +132,9 @@ final class CardOperationLogger
             return '修改卡种配置（影响同卡种卡密）';
         }
         $labels = [];
+        if (($old['timer_paused_at'] ?? null) !== ($new['timer_paused_at'] ?? null)) {
+            $labels[] = ($new['timer_paused_at'] ?? null) !== null ? '冻结计时' : '恢复计时';
+        }
         if (($old['card_is_frozen'] ?? false) !== ($new['card_is_frozen'] ?? false)) {
             $labels[] = $new['card_is_frozen'] ? '冻结卡密' : '解冻卡密';
         }
@@ -148,10 +152,14 @@ final class CardOperationLogger
                 'frozen' => '冻结卡密', default => '修改卡状态',
             };
         }
+        $timerPauseChanged = ($old['timer_paused_at'] ?? null) !== ($new['timer_paused_at'] ?? null);
         foreach (['expires_at' => '调整到期时间', 'binding_fingerprint' => '修改设备绑定',
             'user_note' => '修改备注', 'agent_starred' => '修改标记', 'created_at' => '修改制作时间',
             'account_concurrency_limit' => '修改账号多开', 'machine_concurrency_limit' => '修改机器多开',
             'card_type_id' => '修改卡种', 'credential_fingerprint' => '修改卡号'] as $field => $label) {
+            if ($timerPauseChanged && $field === 'expires_at') {
+                continue; // 恢复计时顺延到期时间，已由"恢复计时"说明。
+            }
             if (($old[$field] ?? null) !== ($new[$field] ?? null)) {
                 $labels[] = $label;
             }

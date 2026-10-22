@@ -54,7 +54,11 @@
                         $resultClass = 'is-danger';
                         $resultBadge = '提示';
                         $resultMessage = '您查询的授权码已删除';
-                    } elseif ($card->status === 'expired' || ($card->expires_at && $card->expires_at->isPast())) {
+                    } elseif ($card->status === 'active' && $card->isTimerPaused()) {
+                        $resultClass = 'is-warning';
+                        $resultBadge = '冻结';
+                        $resultMessage = '您查询的计时卡正在冻结计时，登录软件即可恢复';
+                    } elseif ($card->status === 'expired' || ($card->effectiveExpiresAt() && $card->effectiveExpiresAt()->isPast())) {
                         $resultClass = 'is-danger';
                         $resultBadge = '提示';
                         $resultMessage = '您查询的授权码已到期';
@@ -78,9 +82,12 @@
                         <div><dt>所属软件</dt><dd>{{ $card->application->name }}</dd></div>
                         <div><dt>充值卡类型</dt><dd>{{ $card->cardType->name }}</dd></div>
                         <div><dt>卡片状态</dt><dd>{{ $statusNames[$card->status] ?? $card->status }}</dd></div>
-                        <div><dt>冻结状态</dt><dd>{{ $card->card_is_frozen ? '已冻结' : '正常' }}</dd></div>
+                        <div><dt>冻结状态</dt><dd>{{ $card->card_is_frozen ? '已冻结' : ($card->isTimerPaused() ? '冻结计时中' : '正常') }}</dd></div>
+                        @if($card->is_timer)
+                            <div><dt>剩余时长</dt><dd>{{ intdiv($card->timerRemainingSeconds(), 86400) }} 天 {{ intdiv($card->timerRemainingSeconds() % 86400, 3600) }} 小时{{ $card->isTimerPaused() ? '（冻结中不扣除）' : '' }}</dd></div>
+                        @endif
                         <div><dt>激活时间</dt><dd>{{ $card->activated_at?->format('Y-m-d H:i:s') ?? '尚未激活' }}</dd></div>
-                        <div><dt>到期时间</dt><dd>{{ $card->expires_at?->format('Y-m-d H:i:s') ?? '按卡类型计算 / 永久' }}</dd></div>
+                        <div><dt>到期时间</dt><dd>{{ $card->effectiveExpiresAt()?->format('Y-m-d H:i:s') ?? '按卡类型计算 / 永久' }}{{ $card->isTimerPaused() ? '（按此刻恢复计算）' : '' }}</dd></div>
                     </dl>
                     @endif
                 </section>

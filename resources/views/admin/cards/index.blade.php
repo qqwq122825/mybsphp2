@@ -68,7 +68,16 @@
                             <td>{{ $card->id }}</td>
                             <td><code>{{ $card->code_ciphertext }}</code></td>
                             <td>{{ $card->card_is_frozen ? '已冻结' : '正常' }}</td>
-                            <td><span class="status-tag status-{{ $card->status }}">{{ $statusNames[$card->status] ?? $card->status }}</span></td>
+                            <td>
+                                <span class="status-tag status-{{ $card->status }}">{{ $statusNames[$card->status] ?? $card->status }}</span>
+                                @if($card->is_timer)
+                                    @if($card->status === 'active' && $card->isTimerPaused())
+                                        <span class="status-tag status-paused" title="冻结于 {{ $card->timer_paused_at?->format('Y-m-d H:i:s') }}，剩余 {{ intdiv($card->timerRemainingSeconds(), 3600) }} 小时">冻结计时中</span>
+                                    @else
+                                        <span class="status-tag status-timer">计时卡</span>
+                                    @endif
+                                @endif
+                            </td>
                             <td>{{ $card->created_at?->format('Y-m-d H:i:s') }}</td>
                             <td>
                                 @if($card->cardType->benefit_kind === 'duration')

@@ -55,7 +55,11 @@ final class ProxyLinkService
                 $proxyCode = (string) $credential->password_ciphertext;
             }
             $state = $subject->status;
+            $expiresAt = $subject->expires_at;
+            $remaining = null;
             if ($subject instanceof Card) {
+                // 计时卡冻结期间到期时间随冻结时长顺延。
+                $expiresAt = $subject->effectiveExpiresAt();
                 // Freezing a used *card* is distinct from freezing its software user.
                 if (in_array($subject->user_status, ['frozen', 'revoked'], true)) {
                     $state = $subject->user_status;
@@ -65,20 +69,30 @@ final class ProxyLinkService
                     $state = 'disabled';
                 } elseif (! in_array($subject->cardType->benefit_kind, ['duration', 'fixed_expiry'], true)) {
                     $state = 'unsupported';
+                } elseif ($state === 'active' && $subject->isTimerPaused()) {
+                    // 用户主动冻结计时：与到期一样停止代理访问，恢复后下一次同步自动放行。
+                    $state = 'paused';
+                    $remaining = $subject->timerRemainingSeconds();
                 }
             }
             // Current time-based applications require an explicit expiry. Null is not infinity.
-            if ($state === 'active' && (! $subject->expires_at || $subject->expires_at->lte(now()))) {
+            if ($state === 'active' && (! $expiresAt || $expiresAt->lte(now()))) {
                 $state = 'expired';
             }
 
-            return [
+            $row = [
                 'subject_id' => $identity, 'username' => $proxyCode,
                 'password' => $proxyCode,
                 'label' => $subject instanceof Card ? '卡密尾号 '.$subject->code_last4 : $subject->username,
-                'expires_at' => $subject->expires_at?->getTimestamp(),
+                'expires_at' => $expiresAt?->getTimestamp(),
                 'status' => $state, 'perm' => $link->permission, 'allow_multi' => false,
             ];
+            if ($remaining !== null) {
+                // 仅冻结中的计时卡追加该字段，其余用户的结构保持不变。
+                $row['remaining_seconds'] = $remaining;
+            }
+
+            return $row;
         })->all();
     }
 }

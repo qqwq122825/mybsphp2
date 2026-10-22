@@ -4,6 +4,7 @@
     $label = match ($status) {
         'active' => '正常',
         'frozen' => '已冻结',
+        'paused' => '冻结计时中',
         'revoked' => '已撤销',
         'expired' => '已到期',
         'disabled' => '已停用',

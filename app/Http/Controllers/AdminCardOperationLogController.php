@@ -132,6 +132,8 @@ final class AdminCardOperationLogController extends Controller
             'account_concurrency_limit' => '账号多开', 'machine_concurrency_limit' => '机器多开',
             'redeemed_by_account_id' => '充值账号编号', 'card_type_id' => '卡种编号',
             'application_id' => '软件编号', 'batch_id' => '批次编号',
+            'is_timer' => '计时卡', 'timer_paused_at' => '冻结计时时间', 'timer_pause_count' => '已冻结次数',
+            'timer_pause_limit' => '冻结次数上限', 'timer_pause_max_seconds' => '单次最长冻结（秒）',
             'type_duration_seconds' => '卡种时长（秒）', 'type_duration_value' => '卡种时长', 'type_duration_unit' => '卡种时间单位',
             'type_benefit_kind' => '卡种权益', 'type_face_price_cents' => '销售价（分）', 'type_default_agent_price_cents' => '代理价（分）',
         ];

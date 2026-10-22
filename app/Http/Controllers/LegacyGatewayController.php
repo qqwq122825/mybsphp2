@@ -9,6 +9,7 @@ use App\Applications\HybridPacketCipher;
 use App\Applications\PacketCipherException;
 use App\Cards\CardActivationException;
 use App\Cards\CardActivationService;
+use App\Cards\CardTimerService;
 use App\Cards\UniversalCardService;
 use App\Diagnostics\CardLoginTraceService;
 use App\Http\ApiResponse;
@@ -43,6 +44,7 @@ final class LegacyGatewayController extends Controller
         CanaryIntegrityHintService $canaryHints,
         CardLoginTraceService $cardLoginTrace,
         ClientAuthFailureMasker $failureMasker,
+        CardTimerService $timer,
     ): JsonResponse {
         $appCode = (string) $request->query('appid', '');
         $gatewayToken = (string) $request->query('md5', '');
@@ -226,6 +228,19 @@ final class LegacyGatewayController extends Controller
                     ],
                     default => throw new AccountAuthException('UNKNOWN_API', '接口名称不存在。', 404),
                 };
+            } elseif (in_array($api, ['pause.ic', 'resume.ic', 'timer.ic'], true)) {
+                // 计时卡：冻结 / 恢复 / 查询。参数与 login.ic 相同（卡号、卡密码、机器码）。
+                if ($code === '') {
+                    throw new CardActivationException('EMPTY_CARD', '卡密为空。', 422);
+                }
+                if (mb_strlen($code) > 64 || mb_strlen($secret) > 64) {
+                    throw new CardActivationException('INVALID_PARAMETERS', '卡密参数格式错误。', 422);
+                }
+                $result = match ($api) {
+                    'pause.ic' => $timer->pause($application, $code, $secret, $device),
+                    'resume.ic' => $timer->resume($application, $code, $secret, $device),
+                    default => $timer->status($application, $code, $secret, $device),
+                };
             } else {
                 if ($api !== 'login.ic') {
                     throw new CardActivationException('UNKNOWN_API', '接口名称不存在。', 404);
@@ -271,7 +286,10 @@ final class LegacyGatewayController extends Controller
                     $errorResponse, $exception->errorCode, $usedUniversal,
                 );
             }
-            if ($exception instanceof CardActivationException) {
+            if (
+                $exception instanceof CardActivationException
+                && ! in_array($exception->errorCode, CardTimerService::VISIBLE_ERRORS, true)
+            ) {
                 $risk->recordAuthFailureProbe($application, $request, $device, $exception->errorCode, 'legacy.'.$api);
             }
 

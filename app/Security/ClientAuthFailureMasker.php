@@ -6,6 +6,7 @@ use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
 use App\Cards\CardActivationException;
 use App\Cards\CardCredentialHasher;
+use App\Cards\CardTimerService;
 use App\Models\Application;
 use App\Models\Card;
 use App\Models\GlobalSecurityBlock;
@@ -41,7 +42,10 @@ final class ClientAuthFailureMasker
         string $credential = '',
         string $device = '',
     ): array {
-        if (in_array($exception->errorCode, self::CARD_INPUT_ERRORS, true)) {
+        if (
+            in_array($exception->errorCode, self::CARD_INPUT_ERRORS, true)
+            || in_array($exception->errorCode, CardTimerService::VISIBLE_ERRORS, true)
+        ) {
             $this->recordFailure(
                 $exception->errorCode,
                 $exception->getMessage(),
