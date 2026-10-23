@@ -268,16 +268,24 @@ class TimerCardTest extends TestCase
         $expiry = $this->cardByCode($code)->expires_at;
 
         // 用户自助页独立，不链接代理使用的激活码查询 / 追踪解锁工具。
-        $this->get('/card-timer')->assertOk()->assertSee('计时卡冻结')->assertSee('查询计时状态')
+        $this->get('/card-timer')->assertOk()->assertSee('计时卡冻结')->assertSee('查询')
             ->assertDontSee('激活码查询')->assertDontSee('追踪解锁密码');
         $this->get('/activation-query')->assertOk()->assertDontSee('/card-timer');
 
         $this->post('/card-timer', ['credential' => $code, 'action' => 'status'])
-            ->assertOk()->assertSee('计时中')->assertSee('冻结计时')->assertSee('计时卡应用');
+            ->assertOk()->assertSee('正在计时')->assertSee('冻结计时')->assertSee('计时卡应用')
+            ->assertDontSee('冻结次数') // 未设置次数上限时不显示
+            ->assertSee('冻结后端口会拒绝连接，禁止在游玩时冻结卡密');
+
+        $limited = $this->timerCard(true, ['pause_limit' => 3]);
+        $this->login($limited)->assertOk();
+        $this->post('/card-timer', ['credential' => $limited, 'action' => 'status'])
+            ->assertOk()->assertSee('冻结次数')->assertSee('已用 0 次，共 3 次');
 
         // 网页没有机器码，只凭卡号操作，不受设备绑定限制。
         $this->post('/card-timer', ['credential' => $code, 'action' => 'pause'])
-            ->assertOk()->assertSee('已冻结计时')->assertSee('恢复计时');
+            ->assertOk()->assertSee('已冻结，不扣时长')->assertSee('恢复计时')
+            ->assertDontSee('禁止在游玩时冻结卡密');
         $this->assertTrue($this->cardByCode($code)->isTimerPaused());
 
         $this->travel(2)->days();
@@ -296,7 +304,7 @@ class TimerCardTest extends TestCase
         $normal = $this->timerCard(false);
         $this->login($normal)->assertOk();
         $this->post('/card-timer', ['credential' => $normal, 'action' => 'pause'])
-            ->assertOk()->assertSee('该卡不是计时卡，不支持冻结。');
+            ->assertOk()->assertSee('该卡不支持冻结。');
         $this->assertNull($this->cardByCode($normal)->timer_paused_at);
 
         $this->post('/card-timer', ['credential' => $normal, 'action' => 'delete'])

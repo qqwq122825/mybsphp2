@@ -41,14 +41,14 @@ final class CardTimerService
             $card = $this->authorizedCard($application, $code, $secret, $deviceId, $now);
 
             if ($card->isTimerPaused($now)) {
-                throw new CardActivationException('TIMER_ALREADY_PAUSED', '该卡已处于冻结状态。', 409);
+                throw new CardActivationException('TIMER_ALREADY_PAUSED', '该卡已经冻结。', 409);
             }
             // 已过自动恢复点但尚未结算的旧冻结，先结算再开始新的冻结。
             $card->resumeTimer($now);
 
             $limit = (int) $card->timer_pause_limit;
             if ($limit !== -1 && (int) $card->timer_pause_count >= $limit) {
-                throw new CardActivationException('TIMER_PAUSE_LIMIT', '该卡的冻结次数已用完。', 409);
+                throw new CardActivationException('TIMER_PAUSE_LIMIT', '冻结次数已用完。', 409);
             }
 
             $card->forceFill([
@@ -138,10 +138,10 @@ final class CardTimerService
             throw new CardActivationException('USER_FROZEN', '该软件用户已冻结。', 403);
         }
         if (! $card->is_timer || $card->cardType->benefit_kind !== 'duration') {
-            throw new CardActivationException('TIMER_NOT_SUPPORTED', '该卡不是计时卡，不支持冻结。', 409);
+            throw new CardActivationException('TIMER_NOT_SUPPORTED', '该卡不支持冻结。', 409);
         }
         if ($card->status !== 'active' || $card->activated_at === null || $card->expires_at === null) {
-            throw new CardActivationException('TIMER_NOT_ACTIVATED', '该卡尚未激活，请先登录激活。', 409);
+            throw new CardActivationException('TIMER_NOT_ACTIVATED', '该卡还未激活，请先登录软件。', 409);
         }
 
         $bound = trim((string) ($card->bound_device_ciphertext ?? ''));

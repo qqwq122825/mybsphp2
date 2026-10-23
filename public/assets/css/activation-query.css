@@ -295,3 +295,15 @@ footer {
 .card-timer-action { margin-top: 16px; }
 .activation-query-actions button.card-timer-pause { color: #2a1d05; background: #e5ba5d; }
 .activation-query-actions button.card-timer-pause:hover { background: #f0cd80; }
+.card-timer-warning {
+    margin: 0;
+    border: 1px solid #794653;
+    border-radius: 9px;
+    padding: 9px 8px;
+    color: #ffb4b4;
+    background: rgba(199, 97, 117, .12);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+}

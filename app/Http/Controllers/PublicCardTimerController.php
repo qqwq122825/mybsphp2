@@ -52,8 +52,8 @@ final class PublicCardTimerController extends Controller
             };
             $timer['application_name'] = $application->name;
             $notice = match ($action) {
-                'pause' => '已冻结计时，冻结期间不扣除时长。',
-                'resume' => '已恢复计时。',
+                'pause' => '已冻结，不扣时长',
+                'resume' => '已恢复计时',
                 default => null,
             };
         } catch (CardActivationException $exception) {
