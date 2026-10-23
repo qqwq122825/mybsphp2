@@ -248,6 +248,8 @@ final class AdminApplicationUserController extends Controller
     {
         abort_unless($application->mode === 'card_login' && $card->application_id === $application->getKey() && $card->activated_at, 404);
         $validated = $this->validateDetails($request);
+        // 冻结中的计时卡：弹窗里显示的是"此刻恢复"的到期时间，先把冻结起点移到现在再写入。
+        $card->rebaseTimerPause();
         $expiresAt = $this->expiryAfterRebindDeduction($application, $validated['expires_at'] ?: $card->expires_at, $card->bound_device_ciphertext, $validated['bound_device']);
         $card->forceFill([
             'expires_at' => $expiresAt ?? ($validated['expires_at'] ?: null),

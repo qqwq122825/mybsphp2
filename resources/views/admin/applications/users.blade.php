@@ -67,15 +67,16 @@
                                 <td class="bsphp-user-identity-column bsphp-user-truncate" title="{{ $card->code_ciphertext }}"><code>{{ $card->code_ciphertext }}</code></td>
                                 <td><x-admin.software-user-status :user="$card" /></td>
                                 <td>{{ $accountLimit ?: '默认' }}</td><td>{{ $machineLimit ?: '默认' }}</td>
-                                <td class="bsphp-user-expiry-column">@if($card->expires_at)<time class="bsphp-user-expiry" datetime="{{ $card->expires_at->toIso8601String() }}" title="{{ $card->expires_at->toIso8601String() }}">{{ $card->expires_at->format('Y-m-d H:i:s') }}</time>@else 永久 @endif</td>
-                                <td class="bsphp-user-validity-column"><strong>{{ $formatRemainingValidity($card->expires_at) }}</strong></td>
+                                @php $cardExpiry = $card->effectiveExpiresAt(); @endphp
+                                <td class="bsphp-user-expiry-column">@if($cardExpiry)<time class="bsphp-user-expiry" datetime="{{ $cardExpiry->toIso8601String() }}" title="{{ $cardExpiry->toIso8601String() }}">{{ $cardExpiry->format('Y-m-d H:i:s') }}</time>@else 永久 @endif</td>
+                                <td class="bsphp-user-validity-column"><strong>{{ $card->isTimerPaused() ? $formatRemainingValidity($cardExpiry).'（冻结中）' : $formatRemainingValidity($cardExpiry) }}</strong></td>
                                 <td class="bsphp-user-last-online-column" title="{{ $card->last_online_at?->format('Y-m-d H:i:s') }}">{{ $card->last_online_at?->diffForHumans() ?? '—' }}</td>
                                 <td class="bsphp-binding-value bsphp-user-truncate" title="{{ $card->bound_device_ciphertext ?: '' }}">{{ $card->bound_device_ciphertext ?: '—' }}</td>
                                 <td class="bsphp-user-note-column bsphp-user-truncate" title="{{ $card->user_note ?: '' }}">{{ $card->user_note ?: '—' }}</td>
                                 <td class="bsphp-user-action-column"><button class="bsphp-detail-button" type="button" data-user-detail
                                     data-title="卡号 {{ $card->code_ciphertext }}"
                                     data-action="{{ route('admin.applications.card-users.update', ['adminPath' => $adminPath, 'application' => $application, 'card' => $card]) }}"
-                                    data-expires="{{ $card->expires_at?->format('Y-m-d\TH:i') }}"
+                                    data-expires="{{ $cardExpiry?->format('Y-m-d\TH:i:s') }}"
                                     data-binding="{{ $card->bound_device_ciphertext }}" data-account-limit="{{ $card->account_concurrency_limit }}"
                                     data-machine-limit="{{ $card->machine_concurrency_limit }}" data-note="{{ $card->user_note }}">详情</button></td>
                             </tr>
@@ -106,7 +107,7 @@
                                 <td class="bsphp-user-action-column"><button class="bsphp-detail-button" type="button" data-user-detail
                                     data-title="账号 {{ $account->username }}"
                                     data-action="{{ route('admin.applications.account-users.update', ['adminPath' => $adminPath, 'application' => $application, 'account' => $account]) }}"
-                                    data-expires="{{ $account->expires_at?->format('Y-m-d\TH:i') }}"
+                                    data-expires="{{ $account->expires_at?->format('Y-m-d\TH:i:s') }}"
                                     data-binding="{{ $account->bound_device_ciphertext }}" data-account-limit="{{ $account->account_concurrency_limit }}"
                                     data-machine-limit="{{ $account->machine_concurrency_limit }}" data-note="{{ $account->note }}">详情</button></td>
                             </tr>
@@ -146,11 +147,18 @@
         <form method="post" data-user-detail-form>
             @csrf @method('PUT')
             <div class="bsphp-user-detail-fields">
-                <label><span>到期时间</span><input type="datetime-local" name="expires_at"></label>
+                <label><span>到期时间</span><input type="datetime-local" name="expires_at" step="1"></label>
                 <label><span>绑定特征</span><input name="bound_device" maxlength="160" placeholder="后台显示完整特征"></label>
                 <label><span>账号同时在线数</span><input type="number" name="account_concurrency_limit" min="-1" max="100" required><small>0 使用软件默认，-1 关闭此项</small></label>
                 <label><span>机器同时使用量</span><input type="number" name="machine_concurrency_limit" min="-1" max="100" required><small>0 使用软件默认，-1 关闭此项</small></label>
                 <label class="detail-note"><span>备注</span><textarea name="note" maxlength="500" rows="4"></textarea></label>
+            </div>
+            <div class="bsphp-quick-time" data-quick-time>
+                <span>快速加时</span>
+                @foreach([1, 3, 7, 30] as $quickDays)
+                    <button type="button" data-quick-days="{{ $quickDays }}">+{{ $quickDays }} 天</button>
+                @endforeach
+                <small>从当前到期时间往后加（已到期则从现在算），点确认保存后生效</small>
             </div>
             <footer><button type="button" data-user-detail-close>取消</button><button class="button button-primary" type="submit">确认保存</button></footer>
         </form>

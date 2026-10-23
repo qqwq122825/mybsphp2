@@ -5,10 +5,10 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', '代理控制台') - {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260910-element-software">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v={{ @filemtime(public_path('assets/css/mybsphp.css')) }}">
     <link rel="stylesheet" href="/assets/css/agent.css?v=20260906-status">
     <script src="/assets/js/custom-select.js?v=20260910-element-software" defer></script>
-    <script src="/assets/js/mybsphp.js?v=20260910-element-software" defer></script>
+    <script src="/assets/js/mybsphp.js?v={{ @filemtime(public_path('assets/js/mybsphp.js')) }}" defer></script>
     @vite('resources/js/agent-ui.js')
 </head>
 <body class="agent-portal-page">

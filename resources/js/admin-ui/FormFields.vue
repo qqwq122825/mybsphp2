@@ -23,7 +23,7 @@ function rules(control, label) {
                     <el-option v-for="option in control.options" :key="option.value" :label="option.label" :value="option.value" :disabled="option.disabled" />
                 </el-select>
                 <el-input-number v-else-if="control.type === 'number'" v-model="model[control.key]" :min="control.min" :max="control.max" :precision="0" controls-position="right" :disabled="control.disabled" :aria-label="field.label" @change="delete errors[control.key]" />
-                <el-date-picker v-else-if="control.type === 'datetime-local'" v-model="model[control.key]" type="datetime" format="YYYY-MM-DD HH:mm" value-format="YYYY-MM-DDTHH:mm" :placeholder="control.placeholder || '选择日期与时间'" :aria-label="field.label" @change="delete errors[control.key]" />
+                <el-date-picker v-else-if="control.type === 'datetime-local'" v-model="model[control.key]" type="datetime" format="YYYY-MM-DD HH:mm:ss" value-format="YYYY-MM-DDTHH:mm:ss" :placeholder="control.placeholder || '选择日期与时间'" :aria-label="field.label" @change="delete errors[control.key]" />
                 <el-input v-else v-model="model[control.key]" :type="['textarea', 'password'].includes(control.type) ? control.type : 'text'" :show-password="control.type === 'password'" :autocomplete="control.autocomplete" :inputmode="control.inputmode" :autosize="control.type === 'textarea' ? { minRows: Math.min(control.rows || 3, 5), maxRows: 10 } : undefined" :maxlength="control.maxlength" :readonly="control.readonly" :disabled="control.disabled" :placeholder="control.placeholder" :aria-label="field.label" @input="delete errors[control.key]" />
             </el-form-item>
         </div>

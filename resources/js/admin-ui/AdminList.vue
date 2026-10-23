@@ -1,7 +1,7 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
-    ElAlert, ElButton, ElCard, ElCol, ElConfigProvider,
+    ElAlert, ElButton, ElCard, ElCheckbox, ElCol, ElConfigProvider,
     ElDescriptions, ElDescriptionsItem, ElDialog, ElEmpty, ElForm, ElFormItem,
     ElInput, ElMessage, ElMessageBox, ElOption, ElPagination, ElRow,
     ElSelect, ElSpace, ElStatistic, ElTable, ElTableColumn, ElTabPane,
@@ -15,6 +15,12 @@ import { csvCell, decodePayload, submissionFields } from './read-list';
 
 const props = defineProps({ page: { type: Object, required: true }, preview: Boolean });
 const userDialogs = ref();
+// 手机端（≤860px，与全局样式断点一致）用 el-card + el-descriptions 逐行展示，桌面端保持 el-table。
+const phoneQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(max-width: 860px)') : null;
+const isPhone = ref(phoneQuery?.matches ?? false);
+const onPhoneChange = event => { isPhone.value = event.matches; selected.value = []; };
+onMounted(() => phoneQuery?.addEventListener('change', onPhoneChange));
+onBeforeUnmount(() => phoneQuery?.removeEventListener('change', onPhoneChange));
 onMounted(() => {
     const old = props.page.userDialogs?.old;
     if (!old?._ui_detail_target) return;
@@ -49,6 +55,11 @@ const rows = computed(() => props.preview ? previewRows.value.slice((currentPage
 const total = computed(() => props.preview ? previewRows.value.length : props.page.pagination.total);
 const needsSelection = action => action.bulk && (!action.name || action.value === 'delete_selected');
 const hasActionColumn = props.page.columns.some(column => column.action);
+const selectionColumn = props.page.columns.some(column => column.selection);
+const cardColumns = props.page.columns.filter(column => !column.selection);
+function toggleRow(row, checked) {
+    selected.value = checked ? [...selected.value, row] : selected.value.filter(item => item !== row);
+}
 
 function query(page = 1) {
     if (props.preview) {
@@ -167,7 +178,20 @@ function printTable() { window.print(); }
                 </el-space>
             </div>
 
-            <el-table :data="rows" row-key="id" border stripe :size="compact ? 'small' : 'default'" :max-height="560" @selection-change="selected = $event">
+            <div v-if="isPhone" class="ep-phone-list">
+                <el-empty v-if="!rows.length" :description="page.emptyText" :image-size="72" />
+                <el-card v-for="row in rows" :key="row.id" shadow="never" class="ep-phone-card">
+                    <template v-if="selectionColumn" #header>
+                        <el-checkbox :model-value="selected.includes(row)" :disabled="row.disabled" @change="toggleRow(row, $event)">选择</el-checkbox>
+                    </template>
+                    <el-descriptions :column="1" border size="small">
+                        <el-descriptions-item v-for="column in cardColumns" :key="column.key" :label="column.label">
+                            <div class="ep-cell" :class="{ 'ep-cell-mono': row.cells[column.key].mono }"><server-content :nodes="row.cells[column.key].content" @action="runAction" /></div>
+                        </el-descriptions-item>
+                    </el-descriptions>
+                </el-card>
+            </div>
+            <el-table v-else :data="rows" row-key="id" border stripe :size="compact ? 'small' : 'default'" :max-height="560" @selection-change="selected = $event">
                 <template v-for="column in page.columns" :key="column.key">
                     <el-table-column v-if="column.selection" type="selection" :width="48" :selectable="row => !row.disabled" />
                     <el-table-column v-else :label="column.label" :width="column.width" :min-width="column.minWidth" :fixed="column.action || (column.detail && !hasActionColumn) ? 'right' : false" :align="column.action || column.detail ? 'center' : 'left'">
@@ -180,7 +204,7 @@ function printTable() { window.print(); }
             </el-table>
             <div class="ep-pagination">
                 <span>共 {{ total }} 条记录<span v-if="preview"> · 示例数据</span></span>
-                <el-pagination :current-page="currentPage" :page-size="page.pagination.perPage" :total="total" :pager-count="5" layout="prev, pager, next" background @current-change="query" />
+                <el-pagination :current-page="currentPage" :page-size="page.pagination.perPage" :total="total" :pager-count="isPhone ? 3 : 5" layout="prev, pager, next" background @current-change="query" />
             </div>
         </el-card>
 
@@ -197,7 +221,7 @@ function printTable() { window.print(); }
 
         <el-dialog v-model="detailVisible" title="客户端请求详情" width="min(1000px, calc(100vw - 32px))" append-to-body class="ep-admin-dialog">
             <template v-if="detail">
-                <el-descriptions :column="2" border>
+                <el-descriptions :column="isPhone ? 1 : 2" border>
                     <el-descriptions-item label="日志编号">{{ detail.logId }}</el-descriptions-item>
                     <el-descriptions-item label="请求时间">{{ detail.createdAt }}</el-descriptions-item>
                     <el-descriptions-item label="来源 IP">{{ detail.ip }}</el-descriptions-item>

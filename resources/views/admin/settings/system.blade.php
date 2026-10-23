@@ -127,16 +127,17 @@
             <div class="system-settings-row system-runtime-mode-row">
                 <strong>万能卡密</strong>
                 <span class="system-universal-card-control">
-                    <input type="text" name="universal_card_code"
+                    <input type="password" name="universal_card_code" data-secret-input
                            form="universal-card-update-form" minlength="8" maxlength="64" required
                            autocomplete="off" spellcheck="false"
                            value="{{ old('universal_card_code', $settings['universal_card_code']) }}"
                            placeholder="输入新的万能卡密">
+                    <button class="button" type="button" data-secret-toggle aria-pressed="false">显示</button>
                     <button class="button button-primary" type="submit" form="universal-card-update-form">确定</button>
                 </span>
                 <small>
                     @if($settings['universal_card_code'] !== '')
-                        当前万能卡密会直接显示。
+                        当前万能卡密默认隐藏，点「显示」查看。
                     @else
                         该值由历史版本保存为摘要，请重新输入一次后即可回显。
                     @endif

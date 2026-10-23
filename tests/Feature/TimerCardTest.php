@@ -323,6 +323,41 @@ class TimerCardTest extends TestCase
         $this->assertNull($card->fresh()->timer_paused_at);
     }
 
+    public function test_user_list_shows_effective_expiry_quick_buttons_and_keeps_seconds(): void
+    {
+        $this->actingAs($this->administrator(), 'admin');
+        $code = $this->timerCard();
+        $this->login($code)->assertOk();
+        $this->legacy('pause.ic', $code);
+        $this->travel(20)->days(); // 冻结超过原有效期，原始 expires_at 已在过去
+        $card = $this->cardByCode($code);
+        $effective = $card->effectiveExpiresAt();
+
+        $this->get('/timer-console/applications/'.$this->application->public_id.'/users')
+            ->assertOk()
+            ->assertSee('data-expires="'.$effective->format('Y-m-d\TH:i:s').'"', false)
+            ->assertSee('（冻结中）')
+            ->assertDontSee('<strong>已到期</strong>', false)
+            ->assertSee('data-quick-days="7"', false)->assertSee('快速加时');
+
+        // 只改备注、到期时间按弹窗原值提交：剩余时长不变，秒数不丢，仍处于冻结。
+        $this->put('/timer-console/applications/'.$this->application->public_id.'/card-users/'.$card->id, [
+            'expires_at' => $effective->format('Y-m-d\TH:i:s'), 'bound_device' => 'TIMER-DEVICE',
+            'account_concurrency_limit' => 0, 'machine_concurrency_limit' => 0, 'note' => '只改备注',
+        ])->assertRedirect();
+        $card = $this->cardByCode($code);
+        $this->assertTrue($card->isTimerPaused());
+        $this->assertSame(10 * 86400, $card->timerRemainingSeconds());
+        $this->assertSame('只改备注', $card->user_note);
+
+        // 快速加 3 天后保存（等同于到期时间 +3 天）：剩余时长 +3 天。
+        $this->put('/timer-console/applications/'.$this->application->public_id.'/card-users/'.$card->id, [
+            'expires_at' => $card->effectiveExpiresAt()->addDays(3)->format('Y-m-d\TH:i:s'), 'bound_device' => 'TIMER-DEVICE',
+            'account_concurrency_limit' => 0, 'machine_concurrency_limit' => 0, 'note' => '只改备注',
+        ])->assertRedirect();
+        $this->assertSame(13 * 86400, $this->cardByCode($code)->timerRemainingSeconds());
+    }
+
     /** @param array{pause_limit?: int, pause_max_seconds?: int} $timer */
     private function timerCard(bool $isTimer = true, array $timer = []): string
     {

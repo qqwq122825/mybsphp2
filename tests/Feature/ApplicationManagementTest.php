@@ -183,9 +183,9 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('/activation-query', false)
             ->assertSee('追踪解锁密码')
             ->assertSee('/tracking-unlock', false)
-            ->assertSee('mybsphp.css?v=20260926-sidebar-center', false)
+            ->assertSee('mybsphp.css?v='.filemtime(public_path('assets/css/mybsphp.css')), false)
             ->assertSee('custom-select.js?v=20260910-element-software', false)
-            ->assertSee('mybsphp.js?v=20260922-proxy-simple', false)
+            ->assertSee('mybsphp.js?v='.filemtime(public_path('assets/js/mybsphp.js')), false)
             ->assertDontSee('后台入口')
             ->assertSee('软件管理')
             ->assertSee('添加新软件')
@@ -265,7 +265,7 @@ class ApplicationManagementTest extends TestCase
             ->assertSee('data-workspace-base-link', false)
             ->assertSee('data-workspace-base-tab', false)
             ->assertSee('data-workspace-base-url=', false)
-            ->assertSee('mybsphp.js?v=20260922-proxy-simple', false)
+            ->assertSee('mybsphp.js?v='.filemtime(public_path('assets/js/mybsphp.js')), false)
             ->assertSee($application->name.' · 卡串类型');
 
         $this->get('/private-console/applications/'.$application->public_id.'/users')

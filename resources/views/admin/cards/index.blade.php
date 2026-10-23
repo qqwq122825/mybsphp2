@@ -36,16 +36,16 @@
                 <x-slot:toolbar>
                     <div>
                     <button type="button">批量处理</button>
-                    <button type="submit" name="action" value="used">设已使用</button>
-                    <button type="submit" name="action" value="unused">设未使用</button>
-                    <button type="submit" name="action" value="freeze">冻结</button>
-                    <button type="submit" name="action" value="unfreeze">解冻</button>
-                    <button type="submit" name="action" value="delete">删除</button>
+                    <x-admin.table-action type="submit" name="action" value="used" onclick="return confirm('确定把选中的卡设为已使用吗？');">设已使用</x-admin.table-action>
+                    <x-admin.table-action tone="danger" type="submit" name="action" value="unused" onclick="return confirm('设为未使用会清空激活时间、到期时间和设备绑定，确定继续吗？');">设未使用</x-admin.table-action>
+                    <x-admin.table-action tone="danger" type="submit" name="action" value="freeze" onclick="return confirm('冻结后这些卡无法登录，确定冻结选中的卡吗？');">冻结</x-admin.table-action>
+                    <x-admin.table-action tone="neutral" type="submit" name="action" value="unfreeze">解冻</x-admin.table-action>
+                    <x-admin.table-action tone="danger" type="submit" name="action" value="delete" onclick="return confirm('删除后不可恢复，确定删除选中的卡吗？');">删除</x-admin.table-action>
                     <button type="button">正常导出充值卡</button>
                     </div>
                     <span>共 {{ $cards->total() }} 张</span>
                 </x-slot:toolbar>
-                <table class="bsphp-card-table">
+                <table class="bsphp-card-table is-mobile-cards">
                     <thead>
                     <tr>
                         <th><input type="checkbox" aria-label="全选" data-card-select-all></th>
@@ -64,11 +64,11 @@
                     <tbody>
                     @forelse($cards as $card)
                         <tr>
-                            <td><input type="checkbox" name="card_ids[]" value="{{ $card->id }}" aria-label="选择第 {{ $card->id }} 张卡" data-card-select></td>
-                            <td>{{ $card->id }}</td>
-                            <td><code>{{ $card->code_ciphertext }}</code></td>
-                            <td>{{ $card->card_is_frozen ? '已冻结' : '正常' }}</td>
-                            <td>
+                            <td data-label="选择"><input type="checkbox" name="card_ids[]" value="{{ $card->id }}" aria-label="选择第 {{ $card->id }} 张卡" data-card-select></td>
+                            <td data-label="编号">{{ $card->id }}</td>
+                            <td data-label="卡号"><code>{{ $card->code_ciphertext }}</code></td>
+                            <td data-label="冻结状态">{{ $card->card_is_frozen ? '已冻结' : '正常' }}</td>
+                            <td data-label="充值状态">
                                 <span class="status-tag status-{{ $card->status }}">{{ $statusNames[$card->status] ?? $card->status }}</span>
                                 @if($card->is_timer)
                                     @if($card->status === 'active' && $card->isTimerPaused())
@@ -78,8 +78,8 @@
                                     @endif
                                 @endif
                             </td>
-                            <td>{{ $card->created_at?->format('Y-m-d H:i:s') }}</td>
-                            <td>
+                            <td data-label="制作时间">{{ $card->created_at?->format('Y-m-d H:i:s') }}</td>
+                            <td data-label="卡值">
                                 @if($card->cardType->benefit_kind === 'duration')
                                     {{ $card->cardType->duration_value }}{{ ['minute'=>'分钟','hour'=>'小时','day'=>'天','month'=>'月','year'=>'年'][$card->cardType->duration_unit] ?? '天' }}
                                 @elseif($card->cardType->benefit_kind === 'points')
@@ -88,10 +88,10 @@
                                     固定到期
                                 @endif
                             </td>
-                            <td>{{ $card->batch->maker_reference ?: '管理员' }}</td>
-                            <td>{{ $card->activated_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
-                            <td>{{ $card->bound_device_ciphertext ?: '—' }}</td>
-                            @can('audit.view')<td><a href="{{ route('admin.card-operation-logs.index', ['adminPath' => $adminPath, 'search_field' => 'card_id', 'keyword' => $card->id]) }}">查看日志</a></td>@endcan
+                            <td data-label="制卡人">{{ $card->batch->maker_reference ?: '管理员' }}</td>
+                            <td data-label="充值时间">{{ $card->activated_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
+                            <td data-label="绑定特征">{{ $card->bound_device_ciphertext ?: '—' }}</td>
+                            @can('audit.view')<td data-label="操作日志"><a href="{{ route('admin.card-operation-logs.index', ['adminPath' => $adminPath, 'search_field' => 'card_id', 'keyword' => $card->id]) }}">查看日志</a></td>@endcan
                         </tr>
                     @empty
                         <tr><td colspan="{{ auth('admin')->user()->can('audit.view') ? 11 : 10 }}" class="bsphp-table-empty">无数据</td></tr>

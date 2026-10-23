@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $isProduction ? '我的生活记录' : $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260725-site-home">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v={{ @filemtime(public_path('assets/css/mybsphp.css')) }}">
 </head>
 <body class="site-page {{ $isProduction ? 'site-page-diary' : 'site-page-status' }}">
 @if($isProduction)

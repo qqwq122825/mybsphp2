@@ -3785,7 +3785,7 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 
 .bsphp-type-table {
     width: 100%;
-    min-width: 2440px;
+    min-width: 1788px;
     border-collapse: collapse;
     table-layout: fixed;
 }
@@ -3806,20 +3806,18 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 .bsphp-type-table th { color: #252b34; background: #fafbfc; font-weight: 750; }
 .bsphp-type-table th:first-child, .bsphp-type-table td:first-child { width: 46px; text-align: center; }
 .bsphp-type-table th:nth-child(2), .bsphp-type-table td:nth-child(2) { width: 70px; }
-.bsphp-type-table th:nth-child(3), .bsphp-type-table td:nth-child(3) { width: 70px; }
-.bsphp-type-table th:nth-child(4), .bsphp-type-table td:nth-child(4) { width: 150px; }
-.bsphp-type-table th:nth-child(5), .bsphp-type-table td:nth-child(5) { width: 160px; }
-.bsphp-type-table th:nth-child(6), .bsphp-type-table td:nth-child(6) { width: 160px; }
-.bsphp-type-table th:nth-child(7), .bsphp-type-table td:nth-child(7) { width: 180px; }
-.bsphp-type-table th:nth-child(8), .bsphp-type-table td:nth-child(8) { width: 100px; }
-.bsphp-type-table th:nth-child(9), .bsphp-type-table td:nth-child(9),
+.bsphp-type-table th:nth-child(3), .bsphp-type-table td:nth-child(3) { width: 160px; }
+.bsphp-type-table th:nth-child(4), .bsphp-type-table td:nth-child(4) { width: 100px; }
+.bsphp-type-table th:nth-child(5), .bsphp-type-table td:nth-child(5) { width: 100px; }
+.bsphp-type-table th:nth-child(6), .bsphp-type-table td:nth-child(6) { width: 100px; }
+.bsphp-type-table th:nth-child(7), .bsphp-type-table td:nth-child(7) { width: 150px; }
+.bsphp-type-table th:nth-child(8), .bsphp-type-table td:nth-child(8) { width: 70px; }
+.bsphp-type-table th:nth-child(9), .bsphp-type-table td:nth-child(9) { width: 160px; }
+.bsphp-type-table th:nth-child(10), .bsphp-type-table td:nth-child(10) { width: 180px; }
 .bsphp-type-table th:nth-child(11), .bsphp-type-table td:nth-child(11) { width: 100px; }
-.bsphp-type-table th:nth-child(10), .bsphp-type-table td:nth-child(10),
 .bsphp-type-table th:nth-child(12), .bsphp-type-table td:nth-child(12) { width: 230px; }
-.bsphp-type-table th:nth-child(13), .bsphp-type-table td:nth-child(13),
-.bsphp-type-table th:nth-child(14), .bsphp-type-table td:nth-child(14) { width: 110px; }
-.bsphp-type-table th:nth-child(15), .bsphp-type-table td:nth-child(15),
-.bsphp-type-table th:nth-child(16), .bsphp-type-table td:nth-child(16) { width: 150px; }
+.bsphp-type-table th:nth-child(13), .bsphp-type-table td:nth-child(13) { width: 120px; }
+.bsphp-type-table th:nth-child(14), .bsphp-type-table td:nth-child(14) { width: 120px; }
 .bsphp-type-table th:last-child, .bsphp-type-table td:last-child { width: 82px; text-align: center; }
 .bsphp-type-table .bsphp-detail-button { display: inline-block; text-decoration: none; }
 
@@ -5036,6 +5034,10 @@ dialog.admin-window-dialog.is-workspace-window .admin-window-dialog__content > f
 .bsphp-user-detail-fields input, .bsphp-user-detail-fields textarea { width: 100%; border: 1px solid #dfe4ec; border-radius: 8px; padding: 10px 11px; color: #293143; background: #fff; font: inherit; font-weight: 500; box-sizing: border-box; }
 .bsphp-user-detail-fields small { color: #9aa3b3; font-weight: 500; }
 .bsphp-user-detail-fields .detail-note { grid-column: 1 / -1; }
+.bsphp-quick-time { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 24px 18px; color: #333b4b; font-size: 12px; font-weight: 700; }
+.bsphp-quick-time button { border: 1px solid #c9d6f5; border-radius: 8px; padding: 6px 12px; color: #3b62b8; background: #f3f6ff; font: inherit; cursor: pointer; }
+.bsphp-quick-time button:hover { border-color: #3b62b8; background: #e8eeff; }
+.bsphp-quick-time small { flex-basis: 100%; color: #9aa3b3; font-weight: 500; }
 .bsphp-user-detail-card footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #edf0f5; background: #fafbfe; }
 .bsphp-user-detail-card footer button { min-width: 86px; border: 1px solid #dfe4ec; border-radius: 8px; padding: 9px 14px; background: #fff; cursor: pointer; }
 .bsphp-user-detail-card footer .button-primary { border-color: #4289ee; color: #fff; background: #4289ee; }
@@ -6592,3 +6594,199 @@ dialog.client-trace-dialog.is-maximized { position: fixed; inset: 0; width: min(
 }
 
 .software-config-tabs.is-five { grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); }
+
+
+/* ==========================================================================
+   手机端适配（统一断点 860px，与底部悬浮导航一致）
+   只做覆盖，不改桌面端；Element Plus 组件通过其 class 统一调整。
+   ========================================================================== */
+@media (max-width: 860px) {
+    /* 1. 底部悬浮导航不遮挡内容 */
+    .dashboard-content { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+
+    /* 2. 输入框 16px，避免 iPhone 聚焦时自动放大 */
+    .dashboard-content input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+    .dashboard-content select,
+    .dashboard-content textarea,
+    .el-input__inner,
+    .el-textarea__inner,
+    .el-select__selected-item,
+    .el-select__input { font-size: 16px; }
+
+    /* 3. 最小字号 12px */
+    .status-tag, .tag, .el-tag,
+    .activity-list small,
+    .activity-list time,
+    .admin-identity small,
+    .admin-window-dialog__heading small,
+    .administrator-create-dialog header small,
+    .administrator-manage-dialog header small,
+    .agent-account-metadata dt,
+    .agent-manage-dialog .administrator-dialog-fields label small,
+    .brand small,
+    .bsphp-card-list-header .bsphp-mode-chip,
+    .bsphp-detail-button,
+    .bsphp-user-detail-card header small,
+    .bsphp-user-tabs span,
+    .certificate-grid textarea,
+    .certificate-panel summary i,
+    .certificate-panel summary small,
+    .certificate-panel summary strong,
+    .client-trace-device b,
+    .client-trace-device em,
+    .client-trace-dialog-devices small,
+    .client-trace-dialog-payloads article > header button,
+    .client-trace-dialog-payloads small,
+    .client-trace-dialog-summary small,
+    .client-trace-dialog-summary strong i,
+    .client-trace-meta,
+    .client-trace-response small,
+    .connection-row > small,
+    .connection-row button,
+    .connection-row span,
+    .dashboard-panel > header em,
+    .dashboard-panel > header span,
+    .data-table th,
+    .diary-kicker,
+    .empty-activity p,
+    .existing-data-choices .choice-row strong em,
+    .eyebrow,
+    .form-submit-bar,
+    .honeypot-device-list b,
+    .honeypot-device-list span,
+    .honeypot-device-release button,
+    .honeypot-device-release select,
+    .honeypot-global-block-list span,
+    .honeypot-global-block-list strong,
+    .honeypot-policy-field > span,
+    .honeypot-policy-heading small,
+    .honeypot-policy-state,
+    .honeypot-unit-input em,
+    .inline-admin-form button,
+    .inline-admin-form select,
+    .inline-copy-button,
+    .install-footer,
+    .install-steps li span,
+    .install-steps li.is-current strong,
+    .legacy-key-panel button,
+    .legacy-key-panel code,
+    .legacy-key-panel p,
+    .legacy-key-panel summary,
+    .login-brand small,
+    .metric-card small,
+    .mobile-bottom-nav a,
+    .page-heading time,
+    .pager,
+    .protected-admin-badge,
+    .quick-danger-actions button,
+    .quick-danger-actions label,
+    .quick-danger-zone p,
+    .quick-day-presets button,
+    .quick-entry-dropdown > a,
+    .quick-entry-dropdown form button,
+    .quick-entry-dropdown header small,
+    .quick-entry-menu > summary,
+    .quick-grid small,
+    .quick-operation-heading span,
+    .quick-operation-search > small,
+    .quick-result-badge,
+    .quick-time-card > div > span,
+    .quick-user-summary header b,
+    .quick-user-summary header span,
+    .risk-action-popover button,
+    .risk-action-trigger,
+    .risk-app-switcher label,
+    .risk-block-status,
+    .risk-control-tabs small,
+    .risk-enable-row small,
+    .risk-feed-empty p,
+    .risk-feed-identity code,
+    .risk-feed-list article .risk-feed-badge,
+    .risk-feed-list article p,
+    .risk-feed-list article small,
+    .risk-feed-list article strong,
+    .risk-feed-panel > header > span,
+    .risk-filter > a,
+    .risk-filter label > span,
+    .risk-ip,
+    .risk-lane-heading p,
+    .risk-lane-heading span,
+    .risk-lane-nav small,
+    .risk-level-card > b,
+    .risk-level-card > div p,
+    .risk-level-card > label span,
+    .risk-level-card > span,
+    .risk-level-pill,
+    .risk-note,
+    .risk-policy-badge,
+    .risk-policy-fields label > span,
+    .risk-policy-fields small,
+    .risk-policy-panel form > footer p,
+    .risk-response-mode > a,
+    .risk-response-mode > div span,
+    .risk-response-mode > div strong,
+    .risk-response-mode > p,
+    .risk-status-strip > span,
+    .risk-table-panel table code,
+    .risk-timeline strong,
+    .risk-window-explainer > header > span,
+    .risk-window-explainer > header small,
+    .risk-window-explainer > header strong,
+    .risk-window-explainer > p,
+    .risk-window-row em,
+    .risk-window-row label > span,
+    .row-actions a,
+    .row-actions button,
+    .secret-panel button,
+    .secret-panel span,
+    .software-card-actions a,
+    .software-card-actions button,
+    .software-card-title p,
+    .software-config-panel .dashboard-panel > header em,
+    .software-delete-trigger,
+    .software-mode-guide > span,
+    .software-mode-guide p,
+    .software-mode-line,
+    .software-settings-heading p,
+    .software-settings-heading span,
+    .software-stats span,
+    .status-panel dl div,
+    .status-tag,
+    .system-health,
+    .tag,
+    .user-bulk-dialog-body > button span,
+    .user-bulk-dialog-card header small,
+    .verification-data-field > span small,
+    .workspace-tab,
+    dialog.admin-window-dialog .admin-window-dialog__heading small { font-size: 12px; }
+
+    /* 4. 可点按区域至少 36px */
+    .dashboard-content button,
+    .dashboard-content .button,
+    .admin-table-action,
+    .el-button { min-height: 36px; }
+    .dashboard-content input[type="checkbox"],
+    .dashboard-content input[type="radio"] { width: 20px; height: 20px; }
+
+    /* 5. 表格改卡片：table.is-mobile-cards 的每一行显示为一张卡片，单元格前显示列名（td[data-label]） */
+    table.is-mobile-cards,
+    table.is-mobile-cards tbody,
+    table.is-mobile-cards tr,
+    table.is-mobile-cards td { display: block; width: 100%; min-width: 0; }
+    table.is-mobile-cards { border: 0; }
+    table.is-mobile-cards thead { display: none; }
+    table.is-mobile-cards tr { margin: 0 0 12px; border: 1px solid var(--line, #dfe5f0); border-radius: 12px; background: #fff; overflow: hidden; }
+    table.is-mobile-cards td { height: auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 14px; border: 0; border-bottom: 1px solid #eef2f7; text-align: right; white-space: normal; overflow-wrap: anywhere; }
+    table.is-mobile-cards td:last-child { border-bottom: 0; }
+    .admin-data-table-scroll table.is-mobile-cards th:nth-child(n),
+    .admin-data-table-scroll table.is-mobile-cards td:nth-child(n) { width: 100%; height: auto; text-align: right; }
+    table.is-mobile-cards td > * { min-width: 0; }
+    table.is-mobile-cards td::before { content: attr(data-label); flex-shrink: 0; color: #7b879c; font-size: 13px; font-weight: 600; text-align: left; }
+    table.is-mobile-cards td[data-label="选择"] { background: #f7f9fc; }
+    table.is-mobile-cards td code { font-size: 13px; }
+    .admin-data-table-scroll table.is-mobile-cards,
+    .admin-data-table-scroll .bsphp-card-table.is-mobile-cards { min-width: 0; width: 100%; }
+    .admin-data-table:has(table.is-mobile-cards),
+    .admin-data-table:has(table.is-mobile-cards) .admin-data-table-scroll { max-height: none; overflow: visible; }
+    .admin-data-table:has(table.is-mobile-cards) .admin-data-table-scroll { padding: 12px; }
+}

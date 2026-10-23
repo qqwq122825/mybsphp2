@@ -83,8 +83,8 @@
                 <x-admin.table-frame frame-class="card-type-table-component" scroll-class="bsphp-type-table-scroll">
                     <x-slot:toolbar>
                         <div>
-                        <button class="button card-type-delete-button" type="submit" form="card-type-delete-form"
-                                onclick="return confirm('将删除所选卡串类型本身，并清理该类型下未激活的库存卡和已发出卡；已激活或已使用的卡会保留并继续支持查询。确定继续吗？')">删除选中</button>
+                        <x-admin.table-action tone="danger" type="submit" form="card-type-delete-form" class="card-type-delete-button"
+                                onclick="return confirm('将删除所选卡串类型本身，并清理该类型下未激活的库存卡和已发出卡；已激活或已使用的卡会保留并继续支持查询。确定继续吗？')">删除选中</x-admin.table-action>
                         <button class="button button-primary" type="submit" form="card-type-create-form">添加新充值卡类型</button>
                         <button class="button bsphp-type-quick" type="submit" form="quick-card-type-form">快速添加模拟卡类型</button>
                         </div>
@@ -93,21 +93,22 @@
                     <form id="card-type-delete-form" method="post" action="{{ route('admin.card-types.delete', ['adminPath' => $adminPath]) }}">
                         @csrf @method('DELETE')
                         <input type="hidden" name="application_id" value="{{ $application->id }}">
-                    <table class="bsphp-type-table">
+                    <table class="bsphp-type-table is-mobile-cards">
                         <thead><tr>
-                            <th><input type="checkbox" data-card-select-all aria-label="全选"></th><th>编号</th><th>排序</th><th>软件名称</th><th>代号</th><th>卡串名称</th><th>备注</th><th>期限</th>
-                            <th>卡号长度</th><th>卡号组成</th><th>价格</th><th>代理价格</th><th>账号多开</th><th>机器用量</th><th>操作</th>
+                            <th><input type="checkbox" data-card-select-all aria-label="全选"></th><th>编号</th><th>卡串名称</th><th>期限</th><th>价格</th><th>代理价格</th>
+                            <th>代号</th><th>排序</th><th>软件名称</th><th>备注</th><th>卡号长度</th><th>卡号组成</th><th>账号多开</th><th>机器用量</th><th>操作</th>
                         </tr></thead>
                         <tbody>
                         @forelse($cardTypes as $cardType)
                             <tr>
-                                <td><input type="checkbox" name="card_type_ids[]" value="{{ $cardType->id }}" data-card-select></td>
-                                <td>{{ $cardType->id }}</td><td>{{ $cardType->sort_order }}</td><td>{{ $application->name }}</td><td>{{ $cardType->code }}</td>
-                                <td>{{ $cardType->name }}</td><td>{{ $cardType->note ?: '—' }}</td><td>{{ $cardType->duration_value }}{{ $units[$cardType->duration_unit] ?? '天' }}</td>
-                                <td>{{ $cardType->code_length }}</td><td>{{ $charsets[$cardType->code_charset] ?? $charsets['mixed'] }}</td>
-                                <td>{{ number_format($cardType->face_price_cents / 100, 2) }}</td><td>{{ number_format($cardType->default_agent_price_cents / 100, 2) }}</td>
-                                <td>{{ $cardType->account_concurrency_limit ?: '默认软件配置' }}</td><td>{{ $cardType->machine_concurrency_limit ?: '默认软件配置' }}</td>
-                                <td><a class="bsphp-detail-button" data-workspace-follow href="{{ route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application, 'edit' => $cardType->public_id]) }}">编辑</a></td>
+                                <td data-label="选择"><input type="checkbox" name="card_type_ids[]" value="{{ $cardType->id }}" data-card-select></td>
+                                <td data-label="编号">{{ $cardType->id }}</td><td data-label="卡串名称">{{ $cardType->name }}</td>
+                                <td data-label="期限">{{ $cardType->duration_value }}{{ $units[$cardType->duration_unit] ?? '天' }}</td>
+                                <td data-label="价格">{{ number_format($cardType->face_price_cents / 100, 2) }}</td><td data-label="代理价格">{{ number_format($cardType->default_agent_price_cents / 100, 2) }}</td>
+                                <td data-label="代号">{{ $cardType->code }}</td><td data-label="排序">{{ $cardType->sort_order }}</td><td data-label="软件名称">{{ $application->name }}</td>
+                                <td data-label="备注">{{ $cardType->note ?: '—' }}</td><td data-label="卡号长度">{{ $cardType->code_length }}</td><td data-label="卡号组成">{{ $charsets[$cardType->code_charset] ?? $charsets['mixed'] }}</td>
+                                <td data-label="账号多开">{{ $cardType->account_concurrency_limit ?: '默认软件配置' }}</td><td data-label="机器用量">{{ $cardType->machine_concurrency_limit ?: '默认软件配置' }}</td>
+                                <td data-label="操作"><a class="bsphp-detail-button" data-workspace-follow href="{{ route('admin.software-card-types.index', ['adminPath' => $adminPath, 'application' => $application, 'edit' => $cardType->public_id]) }}">编辑</a></td>
                             </tr>
                         @empty
                             <tr><td colspan="15" class="bsphp-table-empty">无数据</td></tr>

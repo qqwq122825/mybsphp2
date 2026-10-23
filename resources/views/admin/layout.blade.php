@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1b3473">
     <title>@yield('title', '管理后台') · {{ $appName }}</title>
-    <link rel="stylesheet" href="/assets/css/mybsphp.css?v=20260926-sidebar-center">
+    <link rel="stylesheet" href="/assets/css/mybsphp.css?v={{ @filemtime(public_path('assets/css/mybsphp.css')) }}">
     <script src="/assets/js/custom-select.js?v=20260910-element-software" defer></script>
-    <script src="/assets/js/mybsphp.js?v=20260922-proxy-simple" defer></script>
+    <script src="/assets/js/mybsphp.js?v={{ @filemtime(public_path('assets/js/mybsphp.js')) }}" defer></script>
     <link rel="stylesheet" href="/assets/css/peer-presence.css?v=20261017-table">
     <script src="/assets/js/peer-presence.js?v=20261017-table" defer></script>
     @stack('head')

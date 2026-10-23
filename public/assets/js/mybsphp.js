@@ -1078,8 +1078,34 @@
             dialog.close();
             return true;
         }
+        // 快速加时：从当前到期时间往后加 N 天；为空或已到期则从现在算。只改输入框，保存后生效。
+        const quickButton = target.closest('[data-quick-days]');
+        if (quickButton instanceof HTMLButtonElement && dialog instanceof HTMLDialogElement && dialog.contains(quickButton)) {
+            const input = dialog.querySelector('input[name="expires_at"]');
+            if (!(input instanceof HTMLInputElement)) return true;
+            const days = Number(quickButton.dataset.quickDays || 0);
+            const current = input.value ? new Date(input.value) : null;
+            const base = current && !Number.isNaN(current.getTime()) && current > new Date() ? current : new Date();
+            base.setDate(base.getDate() + days);
+            const pad = (value) => String(value).padStart(2, '0');
+            input.value = `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}:${pad(base.getSeconds())}`;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            return true;
+        }
         return false;
     };
+
+    // 敏感字段（如万能卡密）默认以密码框显示，点「显示 / 隐藏」切换。
+    document.addEventListener('click', (event) => {
+        const toggle = eventElement(event)?.closest?.('[data-secret-toggle]');
+        if (!(toggle instanceof HTMLButtonElement)) return;
+        const input = toggle.parentElement?.querySelector('[data-secret-input]');
+        if (!(input instanceof HTMLInputElement)) return;
+        const reveal = input.type === 'password';
+        input.type = reveal ? 'text' : 'password';
+        toggle.textContent = reveal ? '隐藏' : '显示';
+        toggle.setAttribute('aria-pressed', reveal ? 'true' : 'false');
+    });
 
     document.addEventListener('click', (event) => {
         openUserDetailDialog(event);

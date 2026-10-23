@@ -17,6 +17,16 @@ const bulkModel = ref({ action: '', value: null });
 const busy = ref(false);
 const needsValue = computed(() => ['add_time', 'subtract_time', 'set_expiry', 'bind_feature'].includes(bulkModel.value.action));
 const timeAction = computed(() => ['add_time', 'subtract_time'].includes(bulkModel.value.action));
+const quickDays = [1, 3, 7, 30];
+// 快速加时：从当前到期时间往后加；为空或已到期则从现在算。只改表单值，点确认保存后才提交。
+function addDays(days) {
+    const current = model.value.expires_at ? new Date(model.value.expires_at) : null;
+    const base = current && !Number.isNaN(current.getTime()) && current > new Date() ? current : new Date();
+    base.setDate(base.getDate() + days);
+    const pad = value => String(value).padStart(2, '0');
+    model.value.expires_at = `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}:${pad(base.getSeconds())}`;
+    delete errors.value.expires_at;
+}
 function openDetail(value, old = null) {
     detail.value = value;
     model.value = userDetailModel(value);
@@ -48,6 +58,11 @@ defineExpose({ openDetail, openBulk });
     <el-dialog v-model="detailVisible" title="用户详情" width="min(760px, calc(100vw - 32px))" append-to-body :close-on-click-modal="false" class="ep-admin-dialog ep-user-detail" destroy-on-close>
         <div v-if="detail" class="ep-user-title">{{ detail.title }}</div>
         <el-form ref="detailForm" :model="model" label-position="top" @submit.prevent.stop="saveDetail"><div class="ep-config-grid"><form-fields :fields="page.detail.inputs" :model="model" :errors="errors" /></div></el-form>
+        <div class="ep-quick-time">
+            <span>快速加时</span>
+            <el-button v-for="days in quickDays" :key="days" size="small" @click="addDays(days)">+{{ days }} 天</el-button>
+            <small>从当前到期时间往后加（已到期则从现在算），点确认保存后生效</small>
+        </div>
         <template #footer><el-button @click="detailVisible = false">取消</el-button><el-button type="primary" :loading="busy" @click="saveDetail">确认保存</el-button></template>
     </el-dialog>
     <el-dialog v-model="bulkVisible" title="软件用户批量维护" width="min(560px, calc(100vw - 32px))" append-to-body :close-on-click-modal="false" class="ep-admin-dialog">
