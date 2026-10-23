@@ -20,6 +20,7 @@ use App\Http\Controllers\AgentPortalController;
 use App\Http\Controllers\InstallController;
 use App\Http\Controllers\LegacyGatewayController;
 use App\Http\Controllers\PublicCardQueryController;
+use App\Http\Controllers\PublicCardTimerController;
 use App\Http\Controllers\SiteController;
 use App\Install\InstallationManager;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,11 @@ Route::get('/activation-query', [PublicCardQueryController::class, 'show'])
 Route::post('/activation-query', [PublicCardQueryController::class, 'query'])
     ->middleware('throttle:60,1')
     ->name('activation.query.run');
+Route::get('/card-timer', [PublicCardTimerController::class, 'show'])
+    ->name('card.timer');
+Route::post('/card-timer', [PublicCardTimerController::class, 'run'])
+    ->middleware('throttle:20,1')
+    ->name('card.timer.run');
 Route::view('/tracking-unlock', 'public.tracking-unlock')
     ->name('tracking.unlock');
 Route::redirect('/tracking_unlock.html', '/tracking-unlock', 301);

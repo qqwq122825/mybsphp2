@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Hash;
  * 只对制卡时勾选了"计时卡"、且已激活的时长卡生效。冻结期间不再消耗时长，
  * 恢复时把冻结时长顺延到到期时间。冻结不影响在线会话与心跳，
  * 代理联动在下一次同步时以 status=paused 下发并停止代理访问。
+ *
+ * 客户端接口传入机器码并校验设备绑定；网页自助页（$deviceId 为 null）只凭卡号 / 卡密码操作。
  */
 final class CardTimerService
 {
@@ -32,7 +34,7 @@ final class CardTimerService
     ) {}
 
     /** @return array<string, mixed> */
-    public function pause(Application $application, string $code, string $secret, string $deviceId): array
+    public function pause(Application $application, string $code, string $secret, ?string $deviceId): array
     {
         return DB::transaction(function () use ($application, $code, $secret, $deviceId): array {
             $now = CarbonImmutable::now();
@@ -59,7 +61,7 @@ final class CardTimerService
     }
 
     /** @return array<string, mixed> */
-    public function resume(Application $application, string $code, string $secret, string $deviceId): array
+    public function resume(Application $application, string $code, string $secret, ?string $deviceId): array
     {
         return DB::transaction(function () use ($application, $code, $secret, $deviceId): array {
             $now = CarbonImmutable::now();
@@ -76,29 +78,38 @@ final class CardTimerService
     }
 
     /** 只读查询，不会恢复计时。 @return array<string, mixed> */
-    public function status(Application $application, string $code, string $secret, string $deviceId): array
+    public function status(Application $application, string $code, string $secret, ?string $deviceId): array
     {
         $now = CarbonImmutable::now();
 
         return $this->result($this->authorizedCard($application, $code, $secret, $deviceId, $now, false), $now);
     }
 
+    /** 网页自助页按卡号找到所属软件；卡号不存在时返回 null。 */
+    public function applicationForCredential(string $code): ?Application
+    {
+        return Card::query()
+            ->with('application')
+            ->where('code_lookup_hash', $this->hasher->lookupHash(trim($code)))
+            ->first()?->application;
+    }
+
     private function authorizedCard(
         Application $application,
         string $code,
         string $secret,
-        string $deviceId,
+        ?string $deviceId,
         CarbonImmutable $now,
         bool $lock = true,
     ): Card {
         if ($application->status !== 'active') {
             throw new CardActivationException('APP_DISABLED', $application->closedMessage(), 403);
         }
-        $device = trim($deviceId);
+        $device = $deviceId === null ? null : trim($deviceId);
         if ($device === '') {
             throw new CardActivationException('DEVICE_REQUIRED', '当前应用要求提供设备标识。');
         }
-        if ($this->deviceStates->isBlocked($application, $device)) {
+        if ($device !== null && $this->deviceStates->isBlocked($application, $device)) {
             throw new CardActivationException('DEVICE_BLOCKED', '设备已进入安全封控。', 403);
         }
 
@@ -134,7 +145,7 @@ final class CardTimerService
         }
 
         $bound = trim((string) ($card->bound_device_ciphertext ?? ''));
-        if ($bound !== '' && $this->machineBindingLimit($card) !== -1 && ! hash_equals($bound, $device)) {
+        if ($device !== null && $bound !== '' && $this->machineBindingLimit($card) !== -1 && ! hash_equals($bound, $device)) {
             throw new CardActivationException('DEVICE_MISMATCH', '该卡密已被绑定，当前设备特征不匹配。', 409);
         }
 

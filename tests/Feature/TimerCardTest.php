@@ -261,6 +261,60 @@ class TimerCardTest extends TestCase
         $this->assertSame('paused', $card->softwareUserStatus());
     }
 
+    public function test_public_page_lets_users_pause_and_resume_by_card_code(): void
+    {
+        $code = $this->timerCard();
+        $this->login($code)->assertOk();
+        $expiry = $this->cardByCode($code)->expires_at;
+
+        // 用户自助页独立，不链接代理使用的激活码查询 / 追踪解锁工具。
+        $this->get('/card-timer')->assertOk()->assertSee('计时卡冻结')->assertSee('查询计时状态')
+            ->assertDontSee('激活码查询')->assertDontSee('追踪解锁密码');
+        $this->get('/activation-query')->assertOk()->assertDontSee('/card-timer');
+
+        $this->post('/card-timer', ['credential' => $code, 'action' => 'status'])
+            ->assertOk()->assertSee('计时中')->assertSee('冻结计时')->assertSee('计时卡应用');
+
+        // 网页没有机器码，只凭卡号操作，不受设备绑定限制。
+        $this->post('/card-timer', ['credential' => $code, 'action' => 'pause'])
+            ->assertOk()->assertSee('已冻结计时')->assertSee('恢复计时');
+        $this->assertTrue($this->cardByCode($code)->isTimerPaused());
+
+        $this->travel(2)->days();
+        $this->post('/card-timer', ['credential' => $code, 'action' => 'resume'])
+            ->assertOk()->assertSee('已恢复计时')->assertSee('10 天');
+        $card = $this->cardByCode($code);
+        $this->assertFalse($card->isTimerPaused());
+        $this->assertSame($expiry->addDays(2)->getTimestamp(), $card->expires_at->getTimestamp());
+    }
+
+    public function test_public_page_rejects_unknown_and_normal_cards(): void
+    {
+        $this->post('/card-timer', ['credential' => 'NOPE-NOT-A-CARD', 'action' => 'pause'])
+            ->assertOk()->assertSee('卡号不存在，请核对后重试。');
+
+        $normal = $this->timerCard(false);
+        $this->login($normal)->assertOk();
+        $this->post('/card-timer', ['credential' => $normal, 'action' => 'pause'])
+            ->assertOk()->assertSee('该卡不是计时卡，不支持冻结。');
+        $this->assertNull($this->cardByCode($normal)->timer_paused_at);
+
+        $this->post('/card-timer', ['credential' => $normal, 'action' => 'delete'])
+            ->assertSessionHasErrors('action');
+    }
+
+    public function test_public_page_does_not_operate_cards_that_have_a_password(): void
+    {
+        $this->cardType->forceFill(['secret_length' => 8])->save();
+        $credential = app(CardGenerationService::class)->generate($this->cardType, 1, null, timer: [])['credentials'][0];
+        $card = $this->cardByCode($credential['code']);
+        $card->forceFill(['status' => 'active', 'activated_at' => now(), 'expires_at' => now()->addDays(10)])->save();
+
+        $this->post('/card-timer', ['credential' => $credential['code'], 'action' => 'pause'])
+            ->assertOk()->assertSee('卡号不存在，请核对后重试。');
+        $this->assertNull($card->fresh()->timer_paused_at);
+    }
+
     /** @param array{pause_limit?: int, pause_max_seconds?: int} $timer */
     private function timerCard(bool $isTimer = true, array $timer = []): string
     {

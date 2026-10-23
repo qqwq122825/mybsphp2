@@ -289,3 +289,9 @@ footer {
     .public-tools-nav a { font-size: 12px; }
     .activation-query-card h1 { font-size: 26px; }
 }
+
+/* 计时卡冻结页（面向终端用户的独立页面，不显示代理工具导航） */
+.card-timer-page > header { padding-top: 34px; }
+.card-timer-action { margin-top: 16px; }
+.activation-query-actions button.card-timer-pause { color: #2a1d05; background: #e5ba5d; }
+.activation-query-actions button.card-timer-pause:hover { background: #f0cd80; }
