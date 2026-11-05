@@ -322,6 +322,9 @@ class ApplicationManagementTest extends TestCase
             ->assertDontSee('密码字符类型')
             ->assertSee('账号同时在线数')
             ->assertSee('机器同时使用量')
+            ->assertSee('name="price" value="1"', false)
+            ->assertSee('name="renewal_price" value=""', false)
+            ->assertDontSee('name="agent_price"', false)
             ->assertSee('value="25"', false)
             ->assertSee('value="0"', false);
 
@@ -333,8 +336,9 @@ class ApplicationManagementTest extends TestCase
             'sort_order' => 20,
             'duration_value' => 1,
             'duration_unit' => 'year',
-            'face_price' => -1,
-            'agent_price' => 88.5,
+            'price' => 600,
+            'renewal_price' => 420,
+            'agent_sales_enabled' => 1,
             'balance_recharge' => -5,
             'code_length' => 35,
             'code_charset' => 'mixed',
@@ -351,8 +355,9 @@ class ApplicationManagementTest extends TestCase
         $this->assertSame(1, $cardType->duration_value);
         $this->assertSame('year', $cardType->duration_unit);
         $this->assertSame(31536000, $cardType->duration_seconds);
-        $this->assertSame(-100, $cardType->face_price_cents);
-        $this->assertSame(8850, $cardType->default_agent_price_cents);
+        $this->assertSame(60000, $cardType->face_price_cents);
+        $this->assertSame(42000, $cardType->renewal_price_cents);
+        $this->assertSame(60000, $cardType->default_agent_price_cents);
         $this->assertSame(-500, $cardType->balance_recharge_cents);
         $this->assertSame(35, $cardType->code_length);
         $this->assertSame(0, $cardType->secret_length);
@@ -363,11 +368,13 @@ class ApplicationManagementTest extends TestCase
         $this->put('/private-console/card-types/'.$cardType->public_id, [
             'application_id' => $application->getKey(), 'name' => '贵宾年卡', 'code_prefix' => 'jGG',
             'note' => '已编辑备注', 'sort_order' => 20, 'duration_value' => 1, 'duration_unit' => 'year',
-            'face_price' => -1, 'agent_price' => 88.5, 'balance_recharge' => -5,
+            'price' => 600, 'renewal_price' => '', 'agent_sales_enabled' => 0, 'balance_recharge' => -5,
             'code_length' => 35, 'code_charset' => 'mixed', 'secret_length' => 0,
             'secret_charset' => 'digits', 'account_concurrency_limit' => 0, 'machine_concurrency_limit' => -1,
         ])->assertRedirect('/private-console/applications/'.$application->public_id.'/card-types');
         $this->assertSame('已编辑备注', $cardType->fresh()->note);
+        $this->assertNull($cardType->fresh()->renewal_price_cents);
+        $this->assertFalse($cardType->fresh()->agentSalesEnabled());
 
         $this->get('/private-console/applications/'.$application->public_id.'/card-types')
             ->assertOk()->assertSee('已编辑备注')->assertSee('卡号组成')->assertDontSee('密码组成')

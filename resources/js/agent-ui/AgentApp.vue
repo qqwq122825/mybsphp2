@@ -75,7 +75,7 @@ async function runAction(action) {
         dialog.value = { title: '确认解绑', description: '请选择是否扣除解绑时间。本地预览保持原有到期时间和绑定数据。', card: '当前选中的示例卡', actions: ['1','0'].map(value => ({ ...action, label: value === '1' ? '扣除时间' : '不扣时间', name: 'deduct_time', value })) };
         return;
     }
-    const done = await submit(action, submissionFields(action), ['freeze', 'unfreeze'].includes(values.action) ? `确认${action.label}这张卡？` : '');
+    const done = await submit(action, submissionFields(action), action.confirm || (['freeze', 'unfreeze'].includes(values.action) ? `确认${action.label}这张卡？` : ''));
     if (done) dialog.value = null;
 }
 async function star(row) {

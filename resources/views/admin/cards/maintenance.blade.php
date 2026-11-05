@@ -66,8 +66,7 @@
                         <option value="freeze" @selected($selectedMaintenanceAction === 'freeze')>设置冻结</option>
                         <option value="unfreeze" @selected($selectedMaintenanceAction === 'unfreeze')>设置正常</option>
                         <option value="set_duration" @selected($selectedMaintenanceAction === 'set_duration')>设置充值天数为 N</option>
-                        <option value="set_sale_price" @selected($selectedMaintenanceAction === 'set_sale_price')>设置销售价格为 N</option>
-                        <option value="set_agent_price" @selected($selectedMaintenanceAction === 'set_agent_price')>设置代理价格为 N</option>
+                        <option value="set_price" @selected($selectedMaintenanceAction === 'set_price')>设置卡种价格为 N</option>
                         <option value="set_created_at" @selected($selectedMaintenanceAction === 'set_created_at')>设置制卡时间为 N</option>
                         <option value="delete" @selected($selectedMaintenanceAction === 'delete')>删除卡串（设为已作废）</option>
                     </select>
@@ -115,8 +114,7 @@
         const summary = form.querySelector('[data-maintenance-summary]');
         const valueConfig = {
             set_duration: ['填写天数，例如 30', '30'],
-            set_sale_price: ['填写销售价格，例如 68', '68'],
-            set_agent_price: ['填写代理价格，例如 50', '50'],
+            set_price: ['填写卡种价格，代理扣款按各自折扣计算', '价格'],
             set_created_at: ['时间格式：YYYY-MM-DD HH:MM:SS', '2026-07-20 12:00:00'],
         };
         function refresh() {

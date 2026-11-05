@@ -63,7 +63,7 @@ class AdminUiSafetyTest extends TestCase
         ]);
 
         $this->get('/ui-console/applications/'.$application->public_id.'/card-types')->assertOk()
-            ->assertSeeInOrder(['<th>卡串名称</th>', '<th>期限</th>', '<th>价格</th>', '<th>代理价格</th>', '<th>代号</th>'], false)
+            ->assertSeeInOrder(['<th>卡串名称</th>', '<th>期限</th>', '<th>价格</th>', '<th>续费价格</th>', '<th>代号</th>'], false)
             ->assertSee('data-label="期限">7天', false)
             ->assertSee('admin-table-action--danger', false);
     }

@@ -24,6 +24,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'fixed_expires_at',
     'face_price_cents',
     'default_agent_price_cents',
+    'renewal_price_cents',
+    'agent_sales_enabled',
     'balance_recharge_cents',
     'code_prefix',
     'code_length',
@@ -70,6 +72,17 @@ class CardType extends Model
         return $this->hasMany(Card::class);
     }
 
+    public function basePriceCents(): int
+    {
+        return $this->default_agent_price_cents >= 0
+            ? (int) $this->default_agent_price_cents : max(0, (int) $this->face_price_cents);
+    }
+
+    public function agentSalesEnabled(): bool
+    {
+        return $this->agent_sales_enabled !== false && $this->default_agent_price_cents >= 0;
+    }
+
     protected function casts(): array
     {
         return [
@@ -79,6 +92,8 @@ class CardType extends Model
             'fixed_expires_at' => 'immutable_datetime',
             'face_price_cents' => 'integer',
             'default_agent_price_cents' => 'integer',
+            'renewal_price_cents' => 'integer',
+            'agent_sales_enabled' => 'boolean',
             'balance_recharge_cents' => 'integer',
             'sort_order' => 'integer',
             'code_length' => 'integer',

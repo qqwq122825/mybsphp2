@@ -15,6 +15,7 @@ use App\Models\ApplicationClientSession;
 use App\Models\Card;
 use App\Models\CardBatch;
 use App\Models\CardType;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -100,6 +101,10 @@ final class AgentPortalController extends Controller
     {
         $agent = $this->agent();
         $this->ensureOwnedCard($agent, $card);
+        if ($request->input('action') === 'renew') {
+            return $this->renewOwnedCard($request, $agent, $card);
+        }
+
         $validated = $request->validate([
             'action' => ['required', Rule::in(['freeze', 'unfreeze', 'delete_card', 'unbind', 'star'])],
             'deduct_time' => ['nullable', 'boolean'],
@@ -169,6 +174,7 @@ final class AgentPortalController extends Controller
             ->with('application')
             ->where('status', 'active')
             ->where('default_agent_price_cents', '>=', 0)
+            ->where('agent_sales_enabled', true)
             ->whereHas('application', fn (Builder $query) => $query->where('status', 'active'));
         $this->limitToAssignedApplications($types, $agent);
         $this->limitToAssignedCardTypes($types, $agent);
@@ -203,6 +209,7 @@ final class AgentPortalController extends Controller
         $cardType = CardType::query()->with('application')
             ->where('status', 'active')
             ->where('default_agent_price_cents', '>=', 0)
+            ->where('agent_sales_enabled', true)
             ->findOrFail($validated['card_type_id']);
         abort_unless($cardType->application?->status === 'active', 404);
         abort_unless(
@@ -293,11 +300,109 @@ final class AgentPortalController extends Controller
             $this->applyCardKeyword($query, $keyword);
         }
 
+        $cards = $query->paginate(20)->withQueryString();
+        $renewable = $cards->getCollection()->filter(fn (Card $card): bool =>
+            $this->cardRenewable($card, $card->cardType)
+            && (int) $card->batch?->created_by_administrator_id === (int) $agent->getKey()
+            && $this->canAccessApplication($agent, (int) $card->application_id)
+            && $this->canAccessCardType($agent, (int) $card->card_type_id)
+        )->mapWithKeys(fn (Card $card): array => [$card->getKey() => [
+            'price' => $this->agentRenewalPrice($agent, $card->cardType),
+            'seconds' => (int) $card->cardType->duration_seconds,
+        ]]);
+
         return view('agent.tools.query', [
             ...$this->layout($agent),
             'keyword' => $keyword,
-            'cards' => $query->paginate(20)->withQueryString(),
+            'cards' => $cards,
+            'renewable' => $renewable,
         ]);
+    }
+
+    private function cardRenewable(Card $card, ?CardType $type): bool
+    {
+        return $type !== null && ! $type->trashed() && $type->status === 'active'
+            && (int) $type->application_id === (int) $card->application_id
+            && $type->benefit_kind === 'duration' && $type->duration_seconds > 0
+            && $type->agentSalesEnabled()
+            && $card->application?->status === 'active' && $card->application->mode === 'card_login'
+            && $card->activated_at !== null && $card->expires_at !== null
+            && in_array($card->status, ['active', 'expired'], true)
+            && ! $card->card_is_frozen && $card->revoked_at === null
+            && ! in_array($card->user_status, ['frozen', 'revoked'], true);
+    }
+
+    private function renewOwnedCard(Request $request, Administrator $actor, Card $original): RedirectResponse
+    {
+        $quote = $request->validate([
+            'renewal_id' => ['required', 'ulid'],
+            'renewal_price_cents' => ['required', 'integer', 'min:0'],
+            'renewal_seconds' => ['required', 'integer', 'min:1'],
+        ]);
+        $renewed = DB::transaction(function () use ($actor, $original, $quote): bool {
+            $agent = Administrator::query()->lockForUpdate()->findOrFail($actor->getKey());
+            $card = $this->ownedCardsQuery($agent)->with('application')->lockForUpdate()->findOrFail($original->getKey());
+            abort_unless($this->canAccessApplication($agent, (int) $card->application_id)
+                && $this->canAccessCardType($agent, (int) $card->card_type_id), 404);
+
+            $existing = AgentTransaction::query()->where('public_id', $quote['renewal_id'])->first();
+            if ($existing) {
+                abort_unless((int) $existing->agent_id === (int) $agent->getKey()
+                    && $existing->type === 'card_renewal' && $existing->reference_id === $card->public_id, 409);
+
+                return false;
+            }
+
+            $type = CardType::query()->lockForUpdate()->find($card->card_type_id);
+            if (! $this->cardRenewable($card, $type)) {
+                throw ValidationException::withMessages(['action' => '这张卡目前不能续费。']);
+            }
+            $price = $this->agentRenewalPrice($agent, $type);
+            $seconds = (int) $type->duration_seconds;
+            if ($price !== (int) $quote['renewal_price_cents'] || $seconds !== (int) $quote['renewal_seconds']) {
+                throw ValidationException::withMessages(['action' => '续费价格或期限已变化，请刷新查卡页面后重新确认。']);
+            }
+            if ((int) $agent->agent_balance_cents < $price) {
+                throw ValidationException::withMessages(['action' => '代理余额不足，未扣点。']);
+            }
+
+            $at = CarbonImmutable::now();
+            $paused = $card->isTimerPaused($at);
+            $previousExpiry = $card->expires_at;
+            if (! $paused) {
+                $card->resumeTimer($at);
+            }
+            // Keep the original pause deadline: renewal must not grant a fresh pause window.
+            $anchor = $paused ? $card->timer_paused_at : $at;
+            $base = $card->expires_at->gt($anchor) ? $card->expires_at : $anchor;
+            $expiry = $base->addSeconds($seconds);
+            if ($expiry->year > 9999) {
+                throw ValidationException::withMessages(['action' => '续费后的到期时间超出允许范围，未扣点。']);
+            }
+            $card->forceFill(['expires_at' => $expiry, 'status' => 'active'])->save();
+            $agent->decrement('agent_balance_cents', $price);
+            AgentTransaction::query()->create([
+                'public_id' => $quote['renewal_id'],
+                'agent_id' => $agent->getKey(),
+                'type' => 'card_renewal',
+                'amount_cents' => -$price,
+                'balance_after_cents' => $agent->agent_balance_cents,
+                'reference_type' => 'card',
+                'reference_id' => $card->public_id,
+                'note' => '卡密续费',
+                'metadata' => [
+                    'card_type_id' => $type->getKey(),
+                    'seconds' => $seconds,
+                    'before_expires_at' => $previousExpiry->toIso8601String(),
+                    'after_expires_at' => $expiry->toIso8601String(),
+                    'timer_paused' => $paused,
+                ],
+            ]);
+
+            return true;
+        }, 3);
+
+        return back()->with('success', $renewed ? '续费成功，已扣除代理余额。' : '这笔续费已处理，未重复扣点。');
     }
 
     public function unbind(): RedirectResponse
@@ -648,9 +753,19 @@ final class AgentPortalController extends Controller
 
     private function agentUnitPrice(Administrator $agent, CardType $type): int
     {
+        return $this->discountedPrice($agent, $type->basePriceCents());
+    }
+
+    private function agentRenewalPrice(Administrator $agent, CardType $type): int
+    {
+        return $this->discountedPrice($agent, $type->renewal_price_cents ?? $type->basePriceCents());
+    }
+
+    private function discountedPrice(Administrator $agent, int $basePrice): int
+    {
         $basisPoints = min(10000, max(1, (int) ($agent->agent_discount_basis_points ?: 10000)));
 
-        return (int) round(max(0, (int) $type->default_agent_price_cents) * $basisPoints / 10000);
+        return (int) round($basePrice * $basisPoints / 10000);
     }
 
     /** @return array<string, mixed> */

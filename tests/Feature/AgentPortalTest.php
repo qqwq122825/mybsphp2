@@ -457,6 +457,74 @@ class AgentPortalTest extends TestCase
         ], $matches[1]);
     }
 
+    public function test_agent_renewal_uses_the_configured_quote_and_charges_once_without_resuming_timer(): void
+    {
+        $agent = $this->agent(100000);
+        $agent->forceFill(['agent_discount_basis_points' => 5000])->save();
+        [, $type] = $this->applicationAndType();
+        $type->forceFill(['default_agent_price_cents' => 60000, 'renewal_price_cents' => 42000])->save();
+        $this->actingAs($agent, 'agent')->post('/agent/purchase', [
+            'card_type_id' => $type->getKey(), 'quantity' => 1,
+        ])->assertRedirect('/agent/purchase');
+        $card = Card::query()->sole();
+        $at = now()->startOfSecond();
+        $this->travelTo($at);
+        $card->forceFill([
+            'status' => 'active', 'activated_at' => $at->copy()->subHours(4),
+            'expires_at' => $at->copy()->addHours(2), 'is_timer' => true,
+            'timer_paused_at' => $at->copy()->subHour(), 'timer_pause_max_seconds' => 7200,
+        ])->save();
+
+        $query = '/agent/tools/query?keyword='.urlencode($card->code_ciphertext);
+        $action = '/agent/cards/'.$card->getKey().'/action';
+        $this->get($query)->assertOk()->assertSee('value="renew"', false)
+            ->assertSee('确认扣除 210.00 点并续费 30 天？')->assertSee('计时已暂停');
+        $this->actingAs($this->agent(100000, 'other-agent'), 'agent')
+            ->get($query)->assertOk()->assertDontSee('value="renew"', false);
+        $payload = [
+            'action' => 'renew', 'renewal_id' => (string) Str::ulid(),
+            'renewal_price_cents' => 21000, 'renewal_seconds' => 30 * 86400,
+        ];
+        $this->post($action, $payload)->assertNotFound();
+        $this->actingAs($agent, 'agent');
+        $this->from($query)->post($action, array_replace($payload, ['renewal_price_cents' => 1]))
+            ->assertRedirect($query)->assertSessionHasErrors('action');
+        $this->assertSame(70000, $agent->fresh()->agent_balance_cents);
+
+        $before = $card->fresh()->timerRemainingSeconds();
+        $deadline = $card->fresh()->timerPauseDeadline();
+        $this->from($query)->post($action, $payload)->assertRedirect($query)->assertSessionHas('success', '续费成功，已扣除代理余额。');
+        $this->assertSame(49000, $agent->fresh()->agent_balance_cents);
+        $this->assertTrue($card->fresh()->isTimerPaused());
+        $this->assertTrue($deadline->eq($card->fresh()->timerPauseDeadline()));
+        $this->assertSame($before + 30 * 86400, $card->fresh()->timerRemainingSeconds());
+        $this->assertSame(-21000, AgentTransaction::query()->where('type', 'card_renewal')->sole()->amount_cents);
+        $this->assertSame(49000, AgentTransaction::query()->where('type', 'card_renewal')->sole()->balance_after_cents);
+        $this->get('/agent/finance')->assertOk()->assertSee('卡密续费');
+        $this->from($query)->post($action, $payload)->assertRedirect($query)->assertSessionHas('success', '这笔续费已处理，未重复扣点。');
+
+        $type->forceFill(['renewal_price_cents' => null])->save();
+        $payload['renewal_price_cents'] = 30000;
+        $card->forceFill(['is_timer' => false, 'timer_paused_at' => null, 'expires_at' => $at->copy()->subDay(), 'status' => 'expired'])->save();
+        $payload['renewal_id'] = (string) Str::ulid();
+        $this->from($query)->post($action, $payload)->assertRedirect($query)->assertSessionHas('success', '续费成功，已扣除代理余额。');
+        $this->assertSame(19000, $agent->fresh()->agent_balance_cents);
+        $this->assertSame($at->copy()->addDays(30)->toDateTimeString(), $card->fresh()->expires_at->toDateTimeString());
+        $this->assertSame('active', $card->fresh()->status);
+
+        $payload['renewal_id'] = (string) Str::ulid();
+        $this->from($query)->post($action, $payload)->assertRedirect($query)->assertSessionHasErrors('action');
+        $this->assertSame(19000, $agent->fresh()->agent_balance_cents);
+        $this->assertSame(2, AgentTransaction::query()->where('type', 'card_renewal')->count());
+        $this->assertSame($at->copy()->addDays(30)->toDateTimeString(), $card->fresh()->expires_at->toDateTimeString());
+
+        $type->forceFill(['agent_sales_enabled' => false])->save();
+        $this->get($query)->assertOk()->assertDontSee('value="renew"', false);
+        $this->post('/agent/purchase', ['card_type_id' => $type->getKey(), 'quantity' => 1])->assertNotFound();
+        $this->from($query)->post($action, $payload)->assertRedirect($query)->assertSessionHasErrors('action');
+        $this->assertSame(19000, $agent->fresh()->agent_balance_cents);
+    }
+
     private function agent(int $balanceCents = 0, string $username = 'agent-one'): Administrator
     {
         $agent = Administrator::query()->create([

@@ -241,7 +241,7 @@ final class AdminCardController extends Controller
             'card_type_id' => ['nullable', 'integer', 'exists:card_types,id'],
             'action' => ['required', Rule::in([
                 'unused', 'used', 'freeze', 'unfreeze', 'set_duration',
-                'set_sale_price', 'set_agent_price', 'set_created_at', 'delete',
+                'set_price', 'set_sale_price', 'set_agent_price', 'set_created_at', 'delete',
             ])],
             'action_value' => ['nullable', 'string', 'max:64'],
             'confirmed' => ['accepted'],
@@ -290,6 +290,7 @@ final class AdminCardController extends Controller
                 ]),
                 'used' => $this->markQueryUsed($query),
                 'set_duration' => $typeCount = $this->setQueryDuration($query, $this->positiveInteger($value, '充值天数')),
+                'set_price' => $typeCount = $this->setUnifiedPrice($query, $this->priceCents($value, '价格')),
                 'set_sale_price' => $typeCount = $this->setQueryPrice($query, $this->priceCents($value, '销售价格'), false),
                 'set_agent_price' => $typeCount = $this->setQueryPrice($query, $this->priceCents($value, '代理价格'), true),
                 'set_created_at' => CardOperationLogger::updateCards($query, [
@@ -367,6 +368,21 @@ final class AdminCardController extends Controller
         ]);
 
         return $count;
+    }
+
+    private function setUnifiedPrice(Builder $query, int $cents): int
+    {
+        if ($cents < 0) {
+            throw ValidationException::withMessages(['action_value' => '价格不能小于 0；请在卡种设置里控制代理是否可购买和续费。']);
+        }
+        $types = CardType::query()->whereKey((clone $query)->distinct()->pluck('card_type_id'));
+        $enabledOrConfigured = CardOperationLogger::updateTypes((clone $types)->where('default_agent_price_cents', '>=', 0), [
+            'face_price_cents' => $cents, 'default_agent_price_cents' => $cents,
+        ]);
+
+        return $enabledOrConfigured + CardOperationLogger::updateTypes($types->where('default_agent_price_cents', '<', 0), [
+            'face_price_cents' => $cents, 'default_agent_price_cents' => $cents, 'agent_sales_enabled' => false,
+        ]);
     }
 
     private function setQueryPrice($query, int $cents, bool $agent): int
@@ -471,8 +487,7 @@ final class AdminCardController extends Controller
             'duration_unit' => $validated['duration_unit'],
             'points_amount' => null,
             'fixed_expires_at' => null,
-            'face_price_cents' => (int) round(((float) $validated['face_price']) * 100),
-            'default_agent_price_cents' => (int) round(((float) $validated['agent_price']) * 100),
+            ...$this->cardTypePrices($validated),
             'balance_recharge_cents' => (int) round(((float) $validated['balance_recharge']) * 100),
             'code_prefix' => $codePrefix,
             'code_length' => (int) $validated['code_length'],
@@ -526,8 +541,7 @@ final class AdminCardController extends Controller
             'sort_order' => (int) $validated['sort_order'],
             'duration_seconds' => $this->durationSeconds((int) $validated['duration_value'], $validated['duration_unit']),
             'duration_value' => (int) $validated['duration_value'], 'duration_unit' => $validated['duration_unit'],
-            'face_price_cents' => (int) round(((float) $validated['face_price']) * 100),
-            'default_agent_price_cents' => (int) round(((float) $validated['agent_price']) * 100),
+            ...$this->cardTypePrices($validated),
             'balance_recharge_cents' => (int) round(((float) $validated['balance_recharge']) * 100),
             'code_prefix' => $codePrefix, 'code_length' => (int) $validated['code_length'],
             'code_charset' => $validated['code_charset'], 'alphabet' => self::CARD_ALPHABETS[$validated['code_charset']],
@@ -622,6 +636,31 @@ final class AdminCardController extends Controller
         return back()->with('success', "已删除 {$deletedTypes} 个卡串类型，清理 {$deletedCards} 张未激活充值卡；保留 {$retainedTypes} 个已删除类型下的已激活或已使用卡供查询。{$retainedMessage}");
     }
 
+    /** @return array<string, int|bool|null> */
+    private function cardTypePrices(array $validated): array
+    {
+        if (array_key_exists('price', $validated)) {
+            $price = (int) round((float) $validated['price'] * 100);
+            $prices = [
+                'face_price_cents' => $price,
+                'default_agent_price_cents' => $price,
+                'agent_sales_enabled' => (bool) $validated['agent_sales_enabled'],
+            ];
+        } else {
+            // Keep historical admin requests and existing disabled cards compatible.
+            $prices = [
+                'face_price_cents' => (int) round((float) $validated['face_price'] * 100),
+                'default_agent_price_cents' => (int) round((float) $validated['agent_price'] * 100),
+            ];
+        }
+        if (array_key_exists('renewal_price', $validated)) {
+            $prices['renewal_price_cents'] = $validated['renewal_price'] === null
+                ? null : (int) round((float) $validated['renewal_price'] * 100);
+        }
+
+        return $prices;
+    }
+
     /** @return array<string, mixed> */
     private function validateCardType(Request $request): array
     {
@@ -633,8 +672,11 @@ final class AdminCardController extends Controller
             'sort_order' => ['required', 'integer', 'min:0', 'max:4294967295'],
             'duration_value' => ['required', 'integer', 'min:1', 'max:315360000'],
             'duration_unit' => ['required', Rule::in(['minute', 'hour', 'day', 'month', 'year'])],
-            'face_price' => ['required', 'numeric', 'min:-1', 'max:999999'],
-            'agent_price' => ['required', 'numeric', 'min:-1', 'max:999999'],
+            'price' => ['sometimes', 'required', 'numeric', 'decimal:0,2', 'min:0', 'max:999999'],
+            'agent_sales_enabled' => ['required_with:price', 'boolean'],
+            'face_price' => ['required_without:price', 'numeric', 'min:-1', 'max:999999'],
+            'agent_price' => ['required_without:price', 'numeric', 'min:-1', 'max:999999'],
+            'renewal_price' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:999999'],
             'balance_recharge' => ['required', 'numeric', 'min:-999999', 'max:999999'],
             'code_length' => ['required', 'integer', 'min:10', 'max:64'],
             'code_charset' => ['required', Rule::in(array_keys(self::CARD_ALPHABETS))],

@@ -43,9 +43,11 @@
                             <select name="duration_unit" aria-label="充值卡期限单位">@foreach($units as $value => $label)<option value="{{ $value }}" @selected(old('duration_unit', $type?->duration_unit ?? 'day') === $value)>{{ $label }}</option>@endforeach</select></div>
                         <small>1 分钟等于 60 秒</small></label>
                     <label class="card-type-form-row"><strong>价格</strong>
-                        <input type="number" step="0.01" min="-1" name="face_price" value="{{ old('face_price', $type ? $type->face_price_cents / 100 : 1) }}" required><small>设置 -1 时前台隐藏并禁止购买</small></label>
-                    <label class="card-type-form-row"><strong>代理价格</strong>
-                        <input type="number" step="0.01" min="-1" name="agent_price" value="{{ old('agent_price', $type ? $type->default_agent_price_cents / 100 : 1) }}" required><small>设置 -1 时代理端隐藏并禁止购买</small></label>
+                        <input type="number" step="0.01" min="0" max="999999" name="price" value="{{ old('price', $type ? $type->basePriceCents() / 100 : 1) }}" required><small>购卡原价；代理按自己的折扣扣点</small></label>
+                    <label class="card-type-form-row"><strong>续费价格</strong>
+                        <input type="number" step="0.01" min="0" max="999999" name="renewal_price" value="{{ old('renewal_price', $type?->renewal_price_cents === null ? '' : $type->renewal_price_cents / 100) }}" placeholder="留空跟随价格"><small>每次延长本卡种期限；代理续费按自己的折扣扣点</small></label>
+                    <label class="card-type-form-row"><strong>代理购买与续费</strong>
+                        <select name="agent_sales_enabled"><option value="1" @selected((int) old('agent_sales_enabled', (int) ($type?->agentSalesEnabled() ?? true)) === 1)>允许</option><option value="0" @selected((int) old('agent_sales_enabled', (int) ($type?->agentSalesEnabled() ?? true)) === 0)>禁用</option></select><small>禁用后代理不能购卡或为该卡种续费</small></label>
                     <label class="card-type-form-row"><strong>余额充值</strong>
                         <input type="number" step="0.01" name="balance_recharge" value="{{ old('balance_recharge', $type ? $type->balance_recharge_cents / 100 : 0) }}" required><small>不需要时填 0，支持负数</small></label>
                     <label class="card-type-form-row"><strong>卡号长度</strong>
@@ -95,7 +97,7 @@
                         <input type="hidden" name="application_id" value="{{ $application->id }}">
                     <table class="bsphp-type-table is-mobile-cards">
                         <thead><tr>
-                            <th><input type="checkbox" data-card-select-all aria-label="全选"></th><th>编号</th><th>卡串名称</th><th>期限</th><th>价格</th><th>代理价格</th>
+                            <th><input type="checkbox" data-card-select-all aria-label="全选"></th><th>编号</th><th>卡串名称</th><th>期限</th><th>价格</th><th>续费价格</th>
                             <th>代号</th><th>排序</th><th>软件名称</th><th>备注</th><th>卡号长度</th><th>卡号组成</th><th>账号多开</th><th>机器用量</th><th>操作</th>
                         </tr></thead>
                         <tbody>
@@ -104,7 +106,7 @@
                                 <td data-label="选择"><input type="checkbox" name="card_type_ids[]" value="{{ $cardType->id }}" data-card-select></td>
                                 <td data-label="编号">{{ $cardType->id }}</td><td data-label="卡串名称">{{ $cardType->name }}</td>
                                 <td data-label="期限">{{ $cardType->duration_value }}{{ $units[$cardType->duration_unit] ?? '天' }}</td>
-                                <td data-label="价格">{{ number_format($cardType->face_price_cents / 100, 2) }}</td><td data-label="代理价格">{{ number_format($cardType->default_agent_price_cents / 100, 2) }}</td>
+                                <td data-label="价格">{{ number_format($cardType->basePriceCents() / 100, 2) }}@unless($cardType->agentSalesEnabled()) <small>（代理禁用）</small>@endunless</td><td data-label="续费价格">{{ $cardType->renewal_price_cents === null ? '同购卡价' : number_format($cardType->renewal_price_cents / 100, 2) }}</td>
                                 <td data-label="代号">{{ $cardType->code }}</td><td data-label="排序">{{ $cardType->sort_order }}</td><td data-label="软件名称">{{ $application->name }}</td>
                                 <td data-label="备注">{{ $cardType->note ?: '—' }}</td><td data-label="卡号长度">{{ $cardType->code_length }}</td><td data-label="卡号组成">{{ $charsets[$cardType->code_charset] ?? $charsets['mixed'] }}</td>
                                 <td data-label="账号多开">{{ $cardType->account_concurrency_limit ?: '默认软件配置' }}</td><td data-label="机器用量">{{ $cardType->machine_concurrency_limit ?: '默认软件配置' }}</td>
