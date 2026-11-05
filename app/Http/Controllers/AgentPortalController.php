@@ -100,10 +100,10 @@ final class AgentPortalController extends Controller
     public function cardAction(Request $request, Card $card): RedirectResponse|JsonResponse
     {
         $agent = $this->agent();
-        $this->ensureOwnedCard($agent, $card);
         if ($request->input('action') === 'renew') {
-            return $this->renewOwnedCard($request, $agent, $card);
+            return $this->renewCard($request, $agent, $card);
         }
+        $this->ensureOwnedCard($agent, $card);
 
         $validated = $request->validate([
             'action' => ['required', Rule::in(['freeze', 'unfreeze', 'delete_card', 'unbind', 'star'])],
@@ -292,6 +292,7 @@ final class AgentPortalController extends Controller
         $keyword = trim((string) $request->query('keyword', ''));
         $query = Card::query()
             ->with(['application', 'cardType', 'batch'])
+            ->withExists(['batch as agent_renewable_maker' => fn (Builder $batch) => $this->limitRenewalMaker($batch, $agent)])
             ->latest('id');
 
         if ($keyword === '') {
@@ -303,7 +304,7 @@ final class AgentPortalController extends Controller
         $cards = $query->paginate(20)->withQueryString();
         $renewable = $cards->getCollection()->filter(fn (Card $card): bool =>
             $this->cardRenewable($card, $card->cardType)
-            && (int) $card->batch?->created_by_administrator_id === (int) $agent->getKey()
+            && $card->agent_renewable_maker
             && $this->canAccessApplication($agent, (int) $card->application_id)
             && $this->canAccessCardType($agent, (int) $card->card_type_id)
         )->mapWithKeys(fn (Card $card): array => [$card->getKey() => [
@@ -332,7 +333,16 @@ final class AgentPortalController extends Controller
             && ! in_array($card->user_status, ['frozen', 'revoked'], true);
     }
 
-    private function renewOwnedCard(Request $request, Administrator $actor, Card $original): RedirectResponse
+    private function limitRenewalMaker(Builder $batch, Administrator $agent): Builder
+    {
+        return $batch->where(function (Builder $maker) use ($agent): void {
+            $maker->where('created_by_administrator_id', $agent->getKey())
+                ->orWhereIn('created_by_administrator_id', Administrator::query()->select('id')
+                    ->whereIn('role', ['super_admin', 'admin']));
+        });
+    }
+
+    private function renewCard(Request $request, Administrator $actor, Card $original): RedirectResponse
     {
         $quote = $request->validate([
             'renewal_id' => ['required', 'ulid'],
@@ -341,7 +351,8 @@ final class AgentPortalController extends Controller
         ]);
         $renewed = DB::transaction(function () use ($actor, $original, $quote): bool {
             $agent = Administrator::query()->lockForUpdate()->findOrFail($actor->getKey());
-            $card = $this->ownedCardsQuery($agent)->with('application')->lockForUpdate()->findOrFail($original->getKey());
+            $card = Card::query()->whereHas('batch', fn (Builder $batch) => $this->limitRenewalMaker($batch, $agent))
+                ->with('application')->lockForUpdate()->findOrFail($original->getKey());
             abort_unless($this->canAccessApplication($agent, (int) $card->application_id)
                 && $this->canAccessCardType($agent, (int) $card->card_type_id), 404);
 

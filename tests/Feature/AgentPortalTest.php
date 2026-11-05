@@ -525,6 +525,40 @@ class AgentPortalTest extends TestCase
         $this->assertSame(19000, $agent->fresh()->agent_balance_cents);
     }
 
+    public function test_agent_can_renew_system_made_cards_but_cannot_manage_them_or_bypass_assignments(): void
+    {
+        $agent = $this->agent(100000);
+        [$application, $type] = $this->applicationAndType();
+        $type->forceFill(['default_agent_price_cents' => 60000, 'renewal_price_cents' => 42000])->save();
+        $admin = Administrator::query()->create([
+            'username' => 'system-maker', 'password' => 'admin-secret', 'role' => 'super_admin', 'status' => 'active',
+        ]);
+        $generated = app(\App\Cards\CardGenerationService::class)->generate($type, 1, $admin, '系统制卡测试', 'sale');
+        $card = $generated['batch']->cards()->sole();
+        $expiry = now()->addDay()->startOfSecond();
+        $card->forceFill(['status' => 'active', 'activated_at' => now(), 'expires_at' => $expiry])->save();
+        $query = '/agent/tools/query?keyword='.urlencode($card->code_ciphertext);
+        $action = '/agent/cards/'.$card->getKey().'/action';
+        $quote = [
+            'action' => 'renew', 'renewal_id' => (string) Str::ulid(),
+            'renewal_price_cents' => 42000, 'renewal_seconds' => 30 * 86400,
+        ];
+
+        $agent->forceFill(['agent_all_applications' => false])->save();
+        $this->actingAs($agent, 'agent')->get($query)->assertOk()->assertDontSee('value="renew"', false);
+        $this->post($action, $quote)->assertNotFound();
+        $agent->agentApplications()->sync([$application->getKey()]);
+        $agent->agentCardTypes()->sync([$type->getKey()]);
+        $this->actingAs($agent->fresh(), 'agent')->get($query)->assertOk()
+            ->assertSee('value="renew"', false)->assertSee('确认扣除 420.00 点并续费 30 天？');
+        $this->post($action, ['action' => 'delete_card', 'confirmed' => 1])->assertNotFound();
+        $this->post($action, ['action' => 'unbind'])->assertNotFound();
+        $this->from($query)->post($action, $quote)->assertRedirect($query)->assertSessionHas('success', '续费成功，已扣除代理余额。');
+        $this->assertSame(58000, $agent->fresh()->agent_balance_cents);
+        $this->assertSame($expiry->copy()->addDays(30)->toDateTimeString(), $card->fresh()->expires_at->toDateTimeString());
+        $this->assertSame($admin->getKey(), $card->fresh()->batch->created_by_administrator_id);
+    }
+
     private function agent(int $balanceCents = 0, string $username = 'agent-one'): Administrator
     {
         $agent = Administrator::query()->create([

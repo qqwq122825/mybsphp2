@@ -12,7 +12,7 @@
     $queryTime = \Carbon\CarbonImmutable::now();
 @endphp
 @section('content')
-<x-admin.table-shell title="卡密查询" subtitle="可查询系统内所有人制作的卡密；仅可为自己制作且已开通续费的卡密续费。" panel-class="agent-query-panel">
+<x-admin.table-shell title="卡密查询" subtitle="可查询系统内所有人制作的卡密；可为系统管理员或自己制作的符合条件的卡密续费。" panel-class="agent-query-panel">
     <x-slot:search>
         <x-admin.filter-bar :action="route('agent.tools.query')" keyword-label="卡密：" button-label="⌕" :icon-only="true">
             <x-slot:keyword>
