@@ -12,7 +12,8 @@
     @vite('resources/js/agent-ui.js')
 </head>
 <body class="agent-portal-page">
-<div data-element-agent data-app-name="{{ $appName }}" data-page-url="{{ request()->fullUrl() }}" data-balance="{{ $agent->agent_balance_cents }}" data-form-errors="{{ json_encode($errors->getMessages()) }}" data-success="{{ session('success') ?: session('status') }}">
+@php($agentSupport = request()->attributes->get(\App\Auth\AgentSupportSession::ATTRIBUTE) ? '管理员查看模式：不能扣点或修改数据，点击退出返回代理管理。' : null)
+<div data-element-agent data-app-name="{{ $appName }}" data-page-url="{{ request()->fullUrl() }}" data-balance="{{ $agent->agent_balance_cents }}" data-form-errors="{{ json_encode($errors->getMessages()) }}" data-success="{{ $agentSupport ?? (session('success') ?: session('status')) }}">
 @include('partials.toasts')
 <div class="agent-shell" data-agent-shell>
     <aside class="agent-sidebar">
@@ -38,6 +39,7 @@
     </header>
 
     <main class="agent-main">
+        @if($agentSupport)<p role="status">{{ $agentSupport }}</p>@endif
         @yield('content')
     </main>
 </div>

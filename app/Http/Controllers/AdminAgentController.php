@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
+use App\Auth\AgentSupportSession;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\AgentTransaction;
@@ -48,6 +49,24 @@ final class AdminAgentController extends Controller
                 ->withQueryString(),
             'applications' => $this->applicationsForAssignment(),
         ]));
+    }
+
+    public function quickLogin(Request $request, string $adminPath, Administrator $agent, AgentSupportSession $support): RedirectResponse
+    {
+        $actor = $this->actor();
+        abort_unless($actor->hasRole('super_admin'), 403);
+        abort_unless($agent->role === 'agent' && $agent->status === 'active', 404);
+
+        $this->audit->record(new AuditEvent(
+            action: 'agent.support_login',
+            targetType: 'administrator',
+            targetId: (string) $agent->getKey(),
+            after: ['username' => $agent->username, 'access' => 'read_only'],
+            actorRole: 'super_admin',
+        ), $request);
+        $support->start($request, $actor, $agent);
+
+        return redirect()->route('agent.dashboard');
     }
 
     public function create(string $adminPath): View

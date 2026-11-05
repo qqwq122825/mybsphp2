@@ -146,6 +146,53 @@ class AdministratorManagementTest extends TestCase
         $this->assertArrayNotHasKey('admin_session_token_hash', $manager->fresh()->toArray());
     }
 
+    public function test_super_admin_can_open_a_read_only_agent_session_without_replacing_admin_login(): void
+    {
+        $root = Administrator::query()->create([
+            'username' => 'support-root', 'password' => 'primary-secret', 'role' => 'super_admin', 'status' => 'active',
+        ]);
+        $root->roles()->attach(Role::query()->where('code', 'super_admin')->sole());
+        $manager = Administrator::query()->create([
+            'username' => 'support-manager', 'password' => 'primary-secret', 'role' => 'admin', 'status' => 'active',
+        ]);
+        $manager->roles()->attach(Role::query()->where('code', 'admin')->sole());
+        $agent = Administrator::query()->create([
+            'username' => 'support-agent', 'password' => 'agent-secret', 'role' => 'agent', 'status' => 'active',
+            'agent_balance_cents' => 50000,
+        ]);
+        $uri = '/private-console/agents/'.$agent->getKey().'/quick-login';
+        $this->post($uri)->assertRedirect('/private-console');
+        $this->actingAs($manager, 'admin')->post($uri)->assertForbidden();
+        $this->actingAs($root, 'admin')->get('/private-console/agents')->assertOk()
+            ->assertSee($uri)->assertSee('打开代理后台（只读查看）');
+        $this->get($uri)->assertStatus(405);
+        $this->post($uri)->assertRedirect('/agent/dashboard');
+        $this->get('/agent/dashboard')->assertOk()->assertSee('support-agent')
+            ->assertSee('管理员查看模式');
+        $this->get('/agent/cards')->assertOk();
+        $this->post('/agent/purchase', [])->assertForbidden();
+        $this->assertSame(50000, $agent->fresh()->agent_balance_cents);
+        $this->assertNull($agent->fresh()->last_login_at);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'agent.support_login', 'actor_user_id' => $root->getKey(), 'target_id' => (string) $agent->getKey(),
+        ]);
+        $this->post('/agent/logout')->assertRedirect('/private-console/agents');
+        $this->get('/private-console/agents')->assertOk();
+        $this->get('/agent/dashboard')->assertRedirect('/agent/login');
+
+        $this->post($uri)->assertRedirect('/agent/dashboard');
+        $this->travel(16)->minutes();
+        $this->get('/agent/dashboard')->assertRedirect('/agent/login');
+        $this->travelBack();
+
+        $this->post($uri)->assertRedirect('/agent/dashboard');
+        $root->forceFill(['admin_session_token_hash' => null])->save();
+        $this->get('/agent/dashboard')->assertRedirect('/agent/login');
+
+        $agent->forceFill(['status' => 'frozen'])->save();
+        $this->actingAs($root->fresh(), 'admin')->post($uri)->assertNotFound();
+    }
+
     public function test_agent_accounts_are_managed_separately_from_administrators(): void
     {
         $root = Administrator::query()->create([

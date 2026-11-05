@@ -39,6 +39,13 @@
                 <td>{{ $agent->last_login_at?->diffForHumans() ?? '—' }}</td>
                 <td class="admin-action-column">
                     @if($canManageAgents)
+                        @if($administrator->hasRole('super_admin') && $agent->role === 'agent' && $agent->status === 'active')
+                            <form method="post" action="{{ route('admin.agents.quick-login', ['adminPath' => $adminPath, 'agent' => $agent]) }}"
+                                  target="_blank" rel="noopener" data-workspace-native style="display:inline-block">
+                                @csrf
+                                <button class="admin-table-action admin-table-action--neutral" type="submit" title="打开代理后台（只读查看）">登录</button>
+                            </form>
+                        @endif
                         <button class="administrator-manage-button admin-table-action admin-table-action--primary" type="button" data-agent-manage
                                 data-title="{{ $agent->username }}" data-status="{{ $agent->status }}"
                                 data-balance="{{ number_format($agent->agent_balance_cents / 100, 2, '.', '') }}"

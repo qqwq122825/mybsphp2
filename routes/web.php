@@ -167,6 +167,9 @@ Route::prefix('{adminPath}')
             Route::post('/agents', [AdminAgentController::class, 'store'])
                 ->middleware('can:'.AdminPermission::UsersCreate->value)
                 ->name('admin.agents.store');
+            Route::post('/agents/{agent}/quick-login', [AdminAgentController::class, 'quickLogin'])
+                ->middleware('can:'.AdminPermission::UsersManage->value)
+                ->name('admin.agents.quick-login');
             Route::put('/agents/{agent}', [AdminAgentController::class, 'update'])
                 ->middleware('can:'.AdminPermission::UsersManage->value)
                 ->name('admin.agents.update');

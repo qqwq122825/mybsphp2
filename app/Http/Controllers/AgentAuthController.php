@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
+use App\Auth\AgentSupportSession;
 use App\Install\InstallationManager;
 use App\Models\Administrator;
 use App\Models\AuditLog;
@@ -125,6 +126,7 @@ final class AgentAuthController extends Controller
         abort_unless($agent instanceof Administrator, 500);
 
         RateLimiter::clear($rateKey);
+        $request->session()->forget(AgentSupportSession::KEY);
         Auth::guard('agent')->login($agent);
         $request->session()->regenerate();
         $agent->forceFill([
@@ -154,6 +156,17 @@ final class AgentAuthController extends Controller
     public function logout(Request $request): RedirectResponse
     {
         $agent = Auth::guard('agent')->user();
+        if ($request->attributes->get(AgentSupportSession::ATTRIBUTE)) {
+            $request->session()->forget(AgentSupportSession::KEY);
+            $this->audit->record(new AuditEvent(
+                action: 'agent.support_logout',
+                targetType: 'administrator',
+                targetId: (string) $agent?->getKey(),
+                actorRole: 'super_admin',
+            ), $request);
+
+            return redirect()->route('admin.agents.index', ['adminPath' => $this->installation->adminPath()]);
+        }
         if ($agent instanceof Administrator) {
             $this->audit->record(new AuditEvent(
                 action: 'agent.logout',
