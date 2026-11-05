@@ -576,6 +576,46 @@ class AgentPortalTest extends TestCase
         $this->post($action, ['action' => 'unbind'])->assertNotFound();
     }
 
+    public function test_agent_card_list_shows_effective_expiry_and_distinguishes_unactivated_and_paused_cards(): void
+    {
+        $agent = $this->agent(100000);
+        [, $type] = $this->applicationAndType();
+        $at = now()->startOfSecond();
+        $this->travelTo($at);
+        $this->actingAs($agent, 'agent')->post('/agent/purchase', [
+            'card_type_id' => $type->getKey(), 'quantity' => 5,
+        ])->assertRedirect('/agent/purchase');
+        [$valid, $expired, $paused, $autoResumed, $unused] = Card::query()->orderBy('id')->get()->all();
+        $activated = ['status' => 'active', 'activated_at' => $at->copy()->subDay()];
+        $valid->forceFill($activated + ['expires_at' => $at->copy()->addDay()])->save();
+        $expired->forceFill($activated + ['expires_at' => $at->copy()->subSecond()])->save();
+        $paused->forceFill($activated + [
+            'is_timer' => true, 'timer_paused_at' => $at->copy()->subHours(2),
+            'expires_at' => $at->copy()->subHour(),
+        ])->save();
+        $autoResumed->forceFill($activated + [
+            'is_timer' => true, 'timer_paused_at' => $at->copy()->subHours(2), 'timer_pause_max_seconds' => 3600,
+            'expires_at' => $at->copy()->addHour(),
+        ])->save();
+        $html = $this->get('/agent/cards')->assertOk()
+            ->assertSeeInOrder(['<th>激活状态</th>', '<th>到期时间</th>', '<th>是否到期</th>', '<th>操作</th>'], false)
+            ->getContent();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<meta http-equiv="Content-Type" content="text/html; charset=utf-8">'.$html);
+        $xpath = new \DOMXPath($dom);
+        $row = static fn (Card $card): array => array_map(
+            static fn ($cell) => trim($cell->textContent),
+            iterator_to_array($xpath->query('//table[contains(@class,"agent-card-table")]/tbody/tr[td/code="'. $card->code_ciphertext .'"]/td')),
+        );
+        $this->assertSame([$at->copy()->addDay()->toDateTimeString(), '未到期'], array_slice($row($valid), -3, 2));
+        $this->assertSame([$at->copy()->subSecond()->toDateTimeString(), '已到期'], array_slice($row($expired), -3, 2));
+        $this->assertSame(['恢复计时后确定', '未到期'], array_slice($row($paused), -3, 2));
+        $this->assertSame([$at->copy()->addHours(2)->toDateTimeString(), '未到期'], array_slice($row($autoResumed), -3, 2));
+        $this->assertSame(['—', '未激活'], array_slice($row($unused), -3, 2));
+        $this->get('/agent/cards?keyword=no-matching-expiry-card')
+            ->assertOk()->assertSee('colspan="11"', false);
+    }
+
     private function agent(int $balanceCents = 0, string $username = 'agent-one'): Administrator
     {
         $agent = Administrator::query()->create([

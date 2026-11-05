@@ -1,6 +1,9 @@
 @extends('agent.layout')
 @section('title', '卡管理')
 @section('content')
+@php
+    $listTime = \Carbon\CarbonImmutable::now();
+@endphp
 <section class="agent-panel agent-card-list-panel">
     <header><h1>卡列表</h1></header>
     <form class="agent-card-filter agent-card-filter-simple" method="get">
@@ -13,7 +16,7 @@
             <div><a class="button" href="{{ route('agent.cards.purchase') }}">余额制卡</a></div>
             <span>共 {{ $cards->total() }} 张</span>
         </x-slot:toolbar>
-        <table class="agent-card-table"><thead><tr><th class="agent-star-cell"></th><th>编号</th><th>卡号</th><th>软件名称</th><th>卡类</th><th>时间</th><th>锁状态</th><th>激活状态</th><th>操作</th></tr></thead><tbody>
+        <table class="agent-card-table"><thead><tr><th class="agent-star-cell"></th><th>编号</th><th>卡号</th><th>软件名称</th><th>卡类</th><th>时间</th><th>锁状态</th><th>激活状态</th><th>到期时间</th><th>是否到期</th><th>操作</th></tr></thead><tbody>
         @forelse($cards as $card)
             <tr>
                 <td class="agent-star-cell">
@@ -21,12 +24,25 @@
                 </td>
                 <td>{{ $card->id }}</td><td><code>{{ $card->code_ciphertext }}</code></td><td>{{ $card->application->name }}</td><td>{{ $card->cardType->name }}</td>
                 <td>{{ $card->cardType->duration_value }}{{ ['minute'=>'分钟','hour'=>'小时','day'=>'天','month'=>'月','year'=>'年'][$card->cardType->duration_unit] ?? '' }}</td>
-                @php $activated = in_array($card->status, ['active', 'expired', 'consumed'], true); @endphp
+                @php
+                    $activated = $card->activated_at !== null || in_array($card->status, ['active', 'expired', 'consumed'], true);
+                    $expiresAt = $activated ? $card->effectiveExpiresAt($listTime) : null;
+                    $isExpired = $card->status === 'expired' || $expiresAt?->lte($listTime);
+                    $timerPaused = $activated && ! $isExpired && $expiresAt !== null && $card->isTimerPaused($listTime);
+                    [$expiryLabel, $expiryStyle] = match (true) {
+                        ! $activated => ['未激活', 'issued'],
+                        $isExpired => ['已到期', 'expired'],
+                        $expiresAt === null => ['无到期时间', 'issued'],
+                        default => ['未到期', 'active'],
+                    };
+                @endphp
                 <td>{{ $card->card_is_frozen ? '冻结' : '正常' }}</td>
                 <td><span class="status-tag {{ $activated ? 'status-active' : 'status-issued' }}">{{ $activated ? '已激活' : '未激活' }}</span></td>
+                <td>{{ $timerPaused ? '恢复计时后确定' : ($expiresAt?->format('Y-m-d H:i:s') ?? '—') }}</td>
+                <td><span class="status-tag status-{{ $expiryStyle }}">{{ $expiryLabel }}</span></td>
                 <td class="agent-row-actions">@include('agent.partials.card-row-actions', ['card' => $card, 'agent' => $agent, 'renewal' => ($renewable ?? collect())->get($card->getKey()), 'purchased' => in_array((int) $card->batch_id, $purchasedBatchIds ?? [(int) $card->batch_id], true)])</td>
             </tr>
-        @empty<tr><td colspan="9" class="empty-cell">暂无代理充值卡。</td></tr>@endforelse
+        @empty<tr><td colspan="11" class="empty-cell">暂无代理充值卡。</td></tr>@endforelse
         </tbody></table>
         @if($cards->hasPages())
             <x-slot:footer><div class="pager">{{ $cards->links() }}</div></x-slot:footer>
