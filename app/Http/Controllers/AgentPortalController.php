@@ -292,7 +292,10 @@ final class AgentPortalController extends Controller
         $keyword = trim((string) $request->query('keyword', ''));
         $query = Card::query()
             ->with(['application', 'cardType', 'batch'])
-            ->withExists(['batch as agent_renewable_maker' => fn (Builder $batch) => $this->limitRenewalMaker($batch, $agent)])
+            ->withExists([
+                'batch as agent_renewable_maker' => fn (Builder $batch) => $this->limitRenewalMaker($batch, $agent),
+                'batch as agent_system_maker' => fn (Builder $batch) => $this->limitSystemMaker($batch),
+            ])
             ->latest('id');
 
         if ($keyword === '') {
@@ -306,7 +309,7 @@ final class AgentPortalController extends Controller
             $this->cardRenewable($card, $card->cardType)
             && $card->agent_renewable_maker
             && $this->canAccessApplication($agent, (int) $card->application_id)
-            && $this->canAccessCardType($agent, (int) $card->card_type_id)
+            && ($card->agent_system_maker || $this->canAccessCardType($agent, (int) $card->card_type_id))
         )->mapWithKeys(fn (Card $card): array => [$card->getKey() => [
             'price' => $this->agentRenewalPrice($agent, $card->cardType),
             'seconds' => (int) $card->cardType->duration_seconds,
@@ -337,9 +340,14 @@ final class AgentPortalController extends Controller
     {
         return $batch->where(function (Builder $maker) use ($agent): void {
             $maker->where('created_by_administrator_id', $agent->getKey())
-                ->orWhereIn('created_by_administrator_id', Administrator::query()->select('id')
-                    ->whereIn('role', ['super_admin', 'admin']));
+                ->orWhere(fn (Builder $system) => $this->limitSystemMaker($system));
         });
+    }
+
+    private function limitSystemMaker(Builder $batch): Builder
+    {
+        return $batch->whereIn('created_by_administrator_id', Administrator::query()->select('id')
+            ->whereIn('role', ['super_admin', 'admin']));
     }
 
     private function renewCard(Request $request, Administrator $actor, Card $original): RedirectResponse
@@ -352,9 +360,13 @@ final class AgentPortalController extends Controller
         $renewed = DB::transaction(function () use ($actor, $original, $quote): bool {
             $agent = Administrator::query()->lockForUpdate()->findOrFail($actor->getKey());
             $card = Card::query()->whereHas('batch', fn (Builder $batch) => $this->limitRenewalMaker($batch, $agent))
-                ->with('application')->lockForUpdate()->findOrFail($original->getKey());
+                ->with('application')
+                ->withExists(['batch as agent_system_maker' => fn (Builder $batch) => $this->limitSystemMaker($batch)])
+                ->lockForUpdate()->findOrFail($original->getKey());
+            // Legacy system cards are renewable for assigned applications only;
+            // this exception does not grant access to buy their card types.
             abort_unless($this->canAccessApplication($agent, (int) $card->application_id)
-                && $this->canAccessCardType($agent, (int) $card->card_type_id), 404);
+                && ($card->agent_system_maker || $this->canAccessCardType($agent, (int) $card->card_type_id)), 404);
 
             $existing = AgentTransaction::query()->where('public_id', $quote['renewal_id'])->first();
             if ($existing) {

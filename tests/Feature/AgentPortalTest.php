@@ -548,9 +548,11 @@ class AgentPortalTest extends TestCase
         $this->actingAs($agent, 'agent')->get($query)->assertOk()->assertDontSee('value="renew"', false);
         $this->post($action, $quote)->assertNotFound();
         $agent->agentApplications()->sync([$application->getKey()]);
-        $agent->agentCardTypes()->sync([$type->getKey()]);
         $this->actingAs($agent->fresh(), 'agent')->get($query)->assertOk()
             ->assertSee('value="renew"', false)->assertSee('确认扣除 420.00 点并续费 30 天？');
+        $this->get('/agent/cards?keyword='.urlencode($card->code_ciphertext))
+            ->assertOk()->assertSee('共 0 张')->assertDontSee('<code>'.e($card->code_ciphertext).'</code>', false);
+        $this->post('/agent/purchase', ['card_type_id' => $type->getKey(), 'quantity' => 1])->assertNotFound();
         $this->post($action, ['action' => 'delete_card', 'confirmed' => 1])->assertNotFound();
         $this->post($action, ['action' => 'unbind'])->assertNotFound();
         $this->from($query)->post($action, $quote)->assertRedirect($query)->assertSessionHas('success', '续费成功，已扣除代理余额。');
