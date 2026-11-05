@@ -115,6 +115,16 @@
                             <input name="maker_reference" maxlength="120" value="{{ old('maker_reference') }}" placeholder="不指定留空为当前管理员">
                             <small>可填写指定用户名或 UID；留空记录当前管理员</small>
                         </label>
+                        <label class="card-type-form-row">
+                            <strong>归属代理</strong>
+                            <select name="owner_agent_id">
+                                <option value="">不归属代理</option>
+                                @foreach($agents ?? [] as $agentOption)
+                                    <option value="{{ $agentOption->id }}" @selected((string) old('owner_agent_id') === (string) $agentOption->id)>{{ $agentOption->username }}{{ $agentOption->status !== 'active' ? '（已冻结）' : '' }}</option>
+                                @endforeach
+                            </select>
+                            <small>选择后这批卡会出现在该代理的卡管理里，代理可续费、解绑，但不能删除退款</small>
+                        </label>
                         <div class="form-submit-bar embedded-submit-bar card-making-submit-bar">
                             <span>卡号和密码按所选卡串类型生成。</span>
                             <button class="button button-primary" type="submit">确认制卡</button>

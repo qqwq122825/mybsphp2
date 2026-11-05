@@ -16,6 +16,7 @@ use App\Models\CardBatch;
 use App\Models\CardType;
 use App\Models\ManualIssue;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -54,7 +55,7 @@ final class AdminCardController extends Controller
         $applicationFilter = $request->filled('application')
             ? Application::query()->find($request->integer('application'))
             : null;
-        $query = Card::query()->with(['application', 'cardType', 'batch'])->latest();
+        $query = Card::query()->with(['application', 'cardType', 'batch', 'ownerAgent'])->latest();
         if ($applicationFilter instanceof Application) {
             $query->where('application_id', $applicationFilter->getKey());
         }
@@ -184,6 +185,7 @@ final class AdminCardController extends Controller
                 ->get(),
             'generatedCards' => session('generated_cards', []),
             'generatedBatch' => session('generated_batch', []),
+            'agents' => Administrator::query()->where('role', 'agent')->orderBy('username')->get(['id', 'username', 'status']),
         ]);
     }
 
@@ -373,15 +375,11 @@ final class AdminCardController extends Controller
     private function setUnifiedPrice(Builder $query, int $cents): int
     {
         if ($cents < 0) {
-            throw ValidationException::withMessages(['action_value' => '价格不能小于 0；请在卡种设置里控制代理是否可购买和续费。']);
+            throw ValidationException::withMessages(['action_value' => '价格不能小于 0。']);
         }
-        $types = CardType::query()->whereKey((clone $query)->distinct()->pluck('card_type_id'));
-        $enabledOrConfigured = CardOperationLogger::updateTypes((clone $types)->where('default_agent_price_cents', '>=', 0), [
-            'face_price_cents' => $cents, 'default_agent_price_cents' => $cents,
-        ]);
 
-        return $enabledOrConfigured + CardOperationLogger::updateTypes($types->where('default_agent_price_cents', '<', 0), [
-            'face_price_cents' => $cents, 'default_agent_price_cents' => $cents, 'agent_sales_enabled' => false,
+        return CardOperationLogger::updateTypes(CardType::query()->whereKey((clone $query)->distinct()->pluck('card_type_id')), [
+            'face_price_cents' => $cents, 'default_agent_price_cents' => $cents,
         ]);
     }
 
@@ -636,7 +634,7 @@ final class AdminCardController extends Controller
         return back()->with('success', "已删除 {$deletedTypes} 个卡串类型，清理 {$deletedCards} 张未激活充值卡；保留 {$retainedTypes} 个已删除类型下的已激活或已使用卡供查询。{$retainedMessage}");
     }
 
-    /** @return array<string, int|bool|null> */
+    /** @return array<string, int|null> */
     private function cardTypePrices(array $validated): array
     {
         if (array_key_exists('price', $validated)) {
@@ -644,7 +642,6 @@ final class AdminCardController extends Controller
             $prices = [
                 'face_price_cents' => $price,
                 'default_agent_price_cents' => $price,
-                'agent_sales_enabled' => (bool) $validated['agent_sales_enabled'],
             ];
         } else {
             // Keep historical admin requests and existing disabled cards compatible.
@@ -673,7 +670,6 @@ final class AdminCardController extends Controller
             'duration_value' => ['required', 'integer', 'min:1', 'max:315360000'],
             'duration_unit' => ['required', Rule::in(['minute', 'hour', 'day', 'month', 'year'])],
             'price' => ['sometimes', 'required', 'numeric', 'decimal:0,2', 'min:0', 'max:999999'],
-            'agent_sales_enabled' => ['required_with:price', 'boolean'],
             'face_price' => ['required_without:price', 'numeric', 'min:-1', 'max:999999'],
             'agent_price' => ['required_without:price', 'numeric', 'min:-1', 'max:999999'],
             'renewal_price' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:999999'],
@@ -696,10 +692,12 @@ final class AdminCardController extends Controller
             'sale_flag' => ['sometimes', Rule::in(['normal', 'sale'])],
             'note' => ['nullable', 'string', 'max:500'],
             'maker_reference' => ['nullable', 'string', 'max:120'],
+            'owner_agent_id' => ['nullable', 'integer', Rule::exists('administrators', 'id')->where('role', 'agent')],
             'is_timer' => ['nullable', 'boolean'],
             'timer_pause_limit' => ['nullable', 'integer', 'min:-1', 'max:9999'],
             'timer_pause_max_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
         ], [
+            'owner_agent_id.exists' => '请选择有效的代理。',
             'timer_pause_limit.min' => '冻结次数填 -1 表示不限，或填 0 以上的次数。',
             'timer_pause_max_days.max' => '单次最长冻结天数不能超过 3650 天。',
         ]);
@@ -724,6 +722,7 @@ final class AdminCardController extends Controller
                 $validated['sale_flag'] ?? 'normal',
                 $validated['maker_reference'] ?? null,
                 $timer,
+                isset($validated['owner_agent_id']) ? (int) $validated['owner_agent_id'] : null,
             );
         } catch (RuntimeException $exception) {
             return back()->withErrors(['quantity' => $exception->getMessage()])->withInput();
@@ -740,6 +739,7 @@ final class AdminCardController extends Controller
                 'application_name' => $cardType->application?->name,
                 'card_type_name' => $cardType->name,
                 'is_timer' => $timer !== null,
+                'owner_agent_id' => $validated['owner_agent_id'] ?? null,
             ],
             actorRole: $this->administrator()->role,
         ), $request);

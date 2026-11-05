@@ -89,9 +89,18 @@ final class AgentPortalController extends Controller
             ? $query->orderBy('cards.id')
             : $query->orderByDesc('cards.id');
 
+        $cards = $query->paginate(20)->withQueryString();
+
         return view('agent.cards.index', [
             ...$this->layout($agent),
-            'cards' => $query->paginate(20)->withQueryString(),
+            'cards' => $cards,
+            'renewable' => $cards->getCollection()
+                ->filter(fn (Card $card): bool => $this->cardRenewable($card, $card->cardType))
+                ->mapWithKeys(fn (Card $card): array => [$card->getKey() => [
+                    'price' => $this->agentRenewalPrice($agent, $card->cardType),
+                    'seconds' => (int) $card->cardType->duration_seconds,
+                ]]),
+            'purchasedBatchIds' => $this->purchasedBatchIds($agent, $cards->getCollection()),
             'unbindCard' => session('agent_unbind_card'),
             'deleteCard' => session('agent_delete_card'),
         ]);
@@ -100,10 +109,10 @@ final class AgentPortalController extends Controller
     public function cardAction(Request $request, Card $card): RedirectResponse|JsonResponse
     {
         $agent = $this->agent();
+        $this->ensureOwnedCard($agent, $card);
         if ($request->input('action') === 'renew') {
             return $this->renewCard($request, $agent, $card);
         }
-        $this->ensureOwnedCard($agent, $card);
 
         $validated = $request->validate([
             'action' => ['required', Rule::in(['freeze', 'unfreeze', 'delete_card', 'unbind', 'star'])],
@@ -128,6 +137,10 @@ final class AgentPortalController extends Controller
                 : '已激活卡密不能冻结，且已超过可删除退款时限。';
 
             return back()->withErrors(['action' => $message]);
+        }
+
+        if ($validated['action'] === 'delete_card' && ! $this->purchasedByAgent($agent, $card)) {
+            return back()->withErrors(['action' => '管理员移交的卡密不能删除退款。']);
         }
 
         if ($validated['action'] === 'delete_card' && ($error = $this->agentCardDeleteError($card))) {
@@ -174,7 +187,6 @@ final class AgentPortalController extends Controller
             ->with('application')
             ->where('status', 'active')
             ->where('default_agent_price_cents', '>=', 0)
-            ->where('agent_sales_enabled', true)
             ->whereHas('application', fn (Builder $query) => $query->where('status', 'active'));
         $this->limitToAssignedApplications($types, $agent);
         $this->limitToAssignedCardTypes($types, $agent);
@@ -209,7 +221,6 @@ final class AgentPortalController extends Controller
         $cardType = CardType::query()->with('application')
             ->where('status', 'active')
             ->where('default_agent_price_cents', '>=', 0)
-            ->where('agent_sales_enabled', true)
             ->findOrFail($validated['card_type_id']);
         abort_unless($cardType->application?->status === 'active', 404);
         abort_unless(
@@ -292,10 +303,6 @@ final class AgentPortalController extends Controller
         $keyword = trim((string) $request->query('keyword', ''));
         $query = Card::query()
             ->with(['application', 'cardType', 'batch'])
-            ->withExists([
-                'batch as agent_renewable_maker' => fn (Builder $batch) => $this->limitRenewalMaker($batch, $agent),
-                'batch as agent_system_maker' => fn (Builder $batch) => $this->limitSystemMaker($batch),
-            ])
             ->latest('id');
 
         if ($keyword === '') {
@@ -304,22 +311,10 @@ final class AgentPortalController extends Controller
             $this->applyCardKeyword($query, $keyword);
         }
 
-        $cards = $query->paginate(20)->withQueryString();
-        $renewable = $cards->getCollection()->filter(fn (Card $card): bool =>
-            $this->cardRenewable($card, $card->cardType)
-            && $card->agent_renewable_maker
-            && $this->canAccessApplication($agent, (int) $card->application_id)
-            && ($card->agent_system_maker || $this->canAccessCardType($agent, (int) $card->card_type_id))
-        )->mapWithKeys(fn (Card $card): array => [$card->getKey() => [
-            'price' => $this->agentRenewalPrice($agent, $card->cardType),
-            'seconds' => (int) $card->cardType->duration_seconds,
-        ]]);
-
         return view('agent.tools.query', [
             ...$this->layout($agent),
             'keyword' => $keyword,
-            'cards' => $cards,
-            'renewable' => $renewable,
+            'cards' => $query->paginate(20)->withQueryString(),
         ]);
     }
 
@@ -336,20 +331,6 @@ final class AgentPortalController extends Controller
             && ! in_array($card->user_status, ['frozen', 'revoked'], true);
     }
 
-    private function limitRenewalMaker(Builder $batch, Administrator $agent): Builder
-    {
-        return $batch->where(function (Builder $maker) use ($agent): void {
-            $maker->where('created_by_administrator_id', $agent->getKey())
-                ->orWhere(fn (Builder $system) => $this->limitSystemMaker($system));
-        });
-    }
-
-    private function limitSystemMaker(Builder $batch): Builder
-    {
-        return $batch->whereIn('created_by_administrator_id', Administrator::query()->select('id')
-            ->whereIn('role', ['super_admin', 'admin']));
-    }
-
     private function renewCard(Request $request, Administrator $actor, Card $original): RedirectResponse
     {
         $quote = $request->validate([
@@ -359,14 +340,8 @@ final class AgentPortalController extends Controller
         ]);
         $renewed = DB::transaction(function () use ($actor, $original, $quote): bool {
             $agent = Administrator::query()->lockForUpdate()->findOrFail($actor->getKey());
-            $card = Card::query()->whereHas('batch', fn (Builder $batch) => $this->limitRenewalMaker($batch, $agent))
-                ->with('application')
-                ->withExists(['batch as agent_system_maker' => fn (Builder $batch) => $this->limitSystemMaker($batch)])
+            $card = $this->ownedCardsQuery($agent)->with('application')
                 ->lockForUpdate()->findOrFail($original->getKey());
-            // Legacy system cards are renewable for assigned applications only;
-            // this exception does not grant access to buy their card types.
-            abort_unless($this->canAccessApplication($agent, (int) $card->application_id)
-                && ($card->agent_system_maker || $this->canAccessCardType($agent, (int) $card->card_type_id)), 404);
 
             $existing = AgentTransaction::query()->where('public_id', $quote['renewal_id'])->first();
             if ($existing) {
@@ -383,7 +358,7 @@ final class AgentPortalController extends Controller
             $price = $this->agentRenewalPrice($agent, $type);
             $seconds = (int) $type->duration_seconds;
             if ($price !== (int) $quote['renewal_price_cents'] || $seconds !== (int) $quote['renewal_seconds']) {
-                throw ValidationException::withMessages(['action' => '续费价格或期限已变化，请刷新查卡页面后重新确认。']);
+                throw ValidationException::withMessages(['action' => '续费价格或期限已变化，请刷新卡管理页面后重新确认。']);
             }
             if ((int) $agent->agent_balance_cents < $price) {
                 throw ValidationException::withMessages(['action' => '代理余额不足，未扣点。']);
@@ -507,6 +482,9 @@ final class AgentPortalController extends Controller
             $agent = Administrator::query()->lockForUpdate()->findOrFail($agentId);
             if ($lockedCard->status === 'revoked') {
                 return $lockedCard->code_ciphertext.'：卡密原本已删除';
+            }
+            if (! $this->purchasedByAgent($agent, $lockedCard)) {
+                throw ValidationException::withMessages(['action' => '管理员移交的卡密不能删除退款。']);
             }
             if ($error = $this->agentCardDeleteError($lockedCard)) {
                 throw ValidationException::withMessages(['action' => $error]);
@@ -737,10 +715,31 @@ final class AgentPortalController extends Controller
 
     private function ownedCardsQuery(Administrator $agent): Builder
     {
-        return Card::query()->whereHas(
-            'batch',
-            fn (Builder $query) => $query->where('created_by_administrator_id', $agent->getKey()),
-        );
+        return Card::query()->where('cards.owner_agent_id', $agent->getKey());
+    }
+
+    /**
+     * Batches this agent paid for. Cards handed over by an administrator are
+     * managed by the agent but were never bought, so they cannot be refunded.
+     *
+     * @param  iterable<Card>  $cards
+     * @return list<int>
+     */
+    private function purchasedBatchIds(Administrator $agent, iterable $cards): array
+    {
+        $batchIds = collect($cards)->pluck('batch_id')->filter()->unique()->values();
+        if ($batchIds->isEmpty()) {
+            return [];
+        }
+
+        return CardBatch::query()->whereKey($batchIds)
+            ->where('created_by_administrator_id', $agent->getKey())
+            ->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    }
+
+    private function purchasedByAgent(Administrator $agent, Card $card): bool
+    {
+        return $this->purchasedBatchIds($agent, [$card]) !== [];
     }
 
     private function ensureOwnedCard(Administrator $agent, Card $card): void

@@ -31,6 +31,7 @@ final class CardGenerationService
         string $saleFlag = 'normal',
         ?string $makerReference = null,
         ?array $timer = null,
+        ?int $ownerAgentId = null,
     ): array {
         if ($timer !== null && $cardType->benefit_kind !== 'duration') {
             throw new InvalidArgumentException('只有时长卡类型可以制作计时卡。');
@@ -48,6 +49,7 @@ final class CardGenerationService
             $saleFlag,
             $makerReference,
             $timer,
+            $ownerAgentId,
         ): array {
             $batch = CardBatch::query()->create([
                 'public_id' => (string) Str::ulid(),
@@ -64,6 +66,9 @@ final class CardGenerationService
                 'is_timer' => $timer !== null,
             ]);
 
+            // Cards bought by an agent belong to that agent; an administrator may
+            // also make cards on behalf of an agent so they show in its card list.
+            $ownerAgentId ??= $administrator?->role === 'agent' ? $administrator->getKey() : null;
             $credentials = [];
             for ($index = 0; $index < $quantity; $index++) {
                 [$code, $secret] = $this->uniqueCredential($cardType);
@@ -71,6 +76,7 @@ final class CardGenerationService
                 Card::query()->create([
                     'public_id' => (string) Str::ulid(),
                     'batch_id' => $batch->getKey(),
+                    'owner_agent_id' => $ownerAgentId,
                     'card_type_id' => $cardType->getKey(),
                     'application_id' => $cardType->application_id,
                     'code_lookup_hash' => $this->hasher->lookupHash($code),

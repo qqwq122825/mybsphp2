@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'public_id',
     'batch_id',
+    'owner_agent_id',
     'card_type_id',
     'application_id',
     'redeemed_by_account_id',
@@ -57,6 +58,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class Card extends Model
 {
+    public function ownerAgent(): BelongsTo
+    {
+        return $this->belongsTo(Administrator::class, 'owner_agent_id');
+    }
+
     public function agentDeleteEligible(): bool
     {
         if ($this->status === 'revoked') {

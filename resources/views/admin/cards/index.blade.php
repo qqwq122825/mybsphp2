@@ -88,7 +88,7 @@
                                     固定到期
                                 @endif
                             </td>
-                            <td data-label="制卡人">{{ $card->batch->maker_reference ?: '管理员' }}</td>
+                            <td data-label="制卡人">{{ $card->batch->maker_reference ?: '管理员' }}@if($card->ownerAgent)<br><small>归属代理：{{ $card->ownerAgent->username }}</small>@endif</td>
                             <td data-label="充值时间">{{ $card->activated_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
                             <td data-label="绑定特征">{{ $card->bound_device_ciphertext ?: '—' }}</td>
                             @can('audit.view')<td data-label="操作日志"><a href="{{ route('admin.card-operation-logs.index', ['adminPath' => $adminPath, 'search_field' => 'card_id', 'keyword' => $card->id]) }}">查看日志</a></td>@endcan

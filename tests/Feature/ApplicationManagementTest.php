@@ -338,7 +338,6 @@ class ApplicationManagementTest extends TestCase
             'duration_unit' => 'year',
             'price' => 600,
             'renewal_price' => 420,
-            'agent_sales_enabled' => 1,
             'balance_recharge' => -5,
             'code_length' => 35,
             'code_charset' => 'mixed',
@@ -368,13 +367,13 @@ class ApplicationManagementTest extends TestCase
         $this->put('/private-console/card-types/'.$cardType->public_id, [
             'application_id' => $application->getKey(), 'name' => '贵宾年卡', 'code_prefix' => 'jGG',
             'note' => '已编辑备注', 'sort_order' => 20, 'duration_value' => 1, 'duration_unit' => 'year',
-            'price' => 600, 'renewal_price' => '', 'agent_sales_enabled' => 0, 'balance_recharge' => -5,
+            'price' => 600, 'renewal_price' => '', 'balance_recharge' => -5,
             'code_length' => 35, 'code_charset' => 'mixed', 'secret_length' => 0,
             'secret_charset' => 'digits', 'account_concurrency_limit' => 0, 'machine_concurrency_limit' => -1,
         ])->assertRedirect('/private-console/applications/'.$application->public_id.'/card-types');
         $this->assertSame('已编辑备注', $cardType->fresh()->note);
         $this->assertNull($cardType->fresh()->renewal_price_cents);
-        $this->assertFalse($cardType->fresh()->agentSalesEnabled());
+        $this->assertTrue($cardType->fresh()->agentSalesEnabled());
 
         $this->get('/private-console/applications/'.$application->public_id.'/card-types')
             ->assertOk()->assertSee('已编辑备注')->assertSee('卡号组成')->assertDontSee('密码组成')
@@ -480,6 +479,12 @@ class ApplicationManagementTest extends TestCase
             'scope' => 'all', 'action' => 'freeze', 'confirmed' => '1',
         ])->assertRedirect('/private-console/cards/maintenance');
         $this->assertTrue($maintenanceCard->fresh()->card_is_frozen);
+        $this->from('/private-console/cards/maintenance')->post('/private-console/cards/maintenance', [
+            'selection_mode' => 'ids', 'id_list' => (string) $maintenanceCard->getKey(),
+            'scope' => 'all', 'action' => 'set_price', 'action_value' => '88', 'confirmed' => '1',
+        ])->assertRedirect('/private-console/cards/maintenance')->assertSessionHasNoErrors();
+        $this->assertSame(8800, $cardType->fresh()->face_price_cents);
+        $this->assertSame(8800, $cardType->fresh()->default_agent_price_cents);
 
         $this->get('/private-console/applications/'.$application->public_id.'/edit')
             ->assertOk()

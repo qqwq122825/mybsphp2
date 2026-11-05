@@ -284,7 +284,7 @@ class CardOperationLogTest extends TestCase
     {
         return Card::query()->create([
             'public_id' => (string) Str::ulid(), 'application_id' => $this->type->application_id,
-            'card_type_id' => $this->type->id, 'batch_id' => $this->batch->id,
+            'card_type_id' => $this->type->id, 'batch_id' => $this->batch->id, 'owner_agent_id' => $this->agent->id,
             'code_lookup_hash' => app(CardCredentialHasher::class)->lookupHash($code),
             'code_ciphertext' => $code, 'code_last4' => substr($code, -4), 'status' => 'issued', 'card_is_frozen' => false,
         ]);

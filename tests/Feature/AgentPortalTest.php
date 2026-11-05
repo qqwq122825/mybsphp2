@@ -475,10 +475,12 @@ class AgentPortalTest extends TestCase
             'timer_paused_at' => $at->copy()->subHour(), 'timer_pause_max_seconds' => 7200,
         ])->save();
 
-        $query = '/agent/tools/query?keyword='.urlencode($card->code_ciphertext);
+        $this->get('/agent/tools/query?keyword='.urlencode($card->code_ciphertext))->assertOk()
+            ->assertSee('计时已暂停')->assertSee('查询结果仅供查看')->assertDontSee('value="renew"', false);
+        $query = '/agent/cards';
         $action = '/agent/cards/'.$card->getKey().'/action';
         $this->get($query)->assertOk()->assertSee('value="renew"', false)
-            ->assertSee('确认扣除 210.00 点并续费 30 天？')->assertSee('计时已暂停');
+            ->assertSee('确认扣除 210.00 点并续费 30 天？');
         $this->actingAs($this->agent(100000, 'other-agent'), 'agent')
             ->get($query)->assertOk()->assertDontSee('value="renew"', false);
         $payload = [
@@ -518,47 +520,60 @@ class AgentPortalTest extends TestCase
         $this->assertSame(2, AgentTransaction::query()->where('type', 'card_renewal')->count());
         $this->assertSame($at->copy()->addDays(30)->toDateTimeString(), $card->fresh()->expires_at->toDateTimeString());
 
-        $type->forceFill(['agent_sales_enabled' => false])->save();
-        $this->get($query)->assertOk()->assertDontSee('value="renew"', false);
-        $this->post('/agent/purchase', ['card_type_id' => $type->getKey(), 'quantity' => 1])->assertNotFound();
-        $this->from($query)->post($action, $payload)->assertRedirect($query)->assertSessionHasErrors('action');
-        $this->assertSame(19000, $agent->fresh()->agent_balance_cents);
     }
 
-    public function test_agent_can_renew_system_made_cards_but_cannot_manage_them_or_bypass_assignments(): void
+    public function test_admin_can_make_cards_owned_by_an_agent_for_management_and_renewal(): void
     {
         $agent = $this->agent(100000);
+        $other = $this->agent(100000, 'other-agent');
         [$application, $type] = $this->applicationAndType();
         $type->forceFill(['default_agent_price_cents' => 60000, 'renewal_price_cents' => 42000])->save();
         $admin = Administrator::query()->create([
             'username' => 'system-maker', 'password' => 'admin-secret', 'role' => 'super_admin', 'status' => 'active',
         ]);
-        $generated = app(\App\Cards\CardGenerationService::class)->generate($type, 1, $admin, '系统制卡测试', 'sale');
-        $card = $generated['batch']->cards()->sole();
+        $admin->roles()->attach(Role::query()->where('code', 'super_admin')->sole());
+
+        $this->actingAs($admin, 'admin')
+            ->get('/private-console/applications/'.$application->public_id.'/cards/make')
+            ->assertOk()->assertSee('归属代理')->assertSee('agent-one');
+        $this->post('/private-console/card-batches', [
+            'card_type_id' => $type->getKey(), 'generation_mode' => 'automatic', 'quantity' => 1, 'owner_agent_id' => $admin->getKey(),
+        ])->assertSessionHasErrors('owner_agent_id');
+        $this->post('/private-console/card-batches', [
+            'card_type_id' => $type->getKey(), 'generation_mode' => 'automatic', 'quantity' => 1,
+        ])->assertSessionHasNoErrors();
+        $this->assertNull(Card::query()->sole()->owner_agent_id);
+        $this->post('/private-console/card-batches', [
+            'card_type_id' => $type->getKey(), 'generation_mode' => 'automatic', 'quantity' => 1, 'owner_agent_id' => $agent->getKey(),
+        ])->assertSessionHasNoErrors();
+        $card = Card::query()->where('owner_agent_id', $agent->getKey())->sole();
+        $this->assertSame($admin->getKey(), $card->batch->created_by_administrator_id);
+        $this->get('/private-console/cards')->assertOk()->assertSee('归属代理：agent-one');
+
         $expiry = now()->addDay()->startOfSecond();
         $card->forceFill(['status' => 'active', 'activated_at' => now(), 'expires_at' => $expiry])->save();
-        $query = '/agent/tools/query?keyword='.urlencode($card->code_ciphertext);
         $action = '/agent/cards/'.$card->getKey().'/action';
         $quote = [
             'action' => 'renew', 'renewal_id' => (string) Str::ulid(),
             'renewal_price_cents' => 42000, 'renewal_seconds' => 30 * 86400,
         ];
 
-        $agent->forceFill(['agent_all_applications' => false])->save();
-        $this->actingAs($agent, 'agent')->get($query)->assertOk()->assertDontSee('value="renew"', false);
-        $this->post($action, $quote)->assertNotFound();
-        $agent->agentApplications()->sync([$application->getKey()]);
-        $this->actingAs($agent->fresh(), 'agent')->get($query)->assertOk()
-            ->assertSee('value="renew"', false)->assertSee('确认扣除 420.00 点并续费 30 天？');
-        $this->get('/agent/cards?keyword='.urlencode($card->code_ciphertext))
-            ->assertOk()->assertSee('共 0 张')->assertDontSee('<code>'.e($card->code_ciphertext).'</code>', false);
-        $this->post('/agent/purchase', ['card_type_id' => $type->getKey(), 'quantity' => 1])->assertNotFound();
-        $this->post($action, ['action' => 'delete_card', 'confirmed' => 1])->assertNotFound();
-        $this->post($action, ['action' => 'unbind'])->assertNotFound();
-        $this->from($query)->post($action, $quote)->assertRedirect($query)->assertSessionHas('success', '续费成功，已扣除代理余额。');
+        $this->actingAs($agent, 'agent')->get('/agent/cards')->assertOk()->assertSee('共 1 张')
+            ->assertSee('<code>'.e($card->code_ciphertext).'</code>', false)
+            ->assertSee('value="renew"', false)->assertSee('确认扣除 420.00 点并续费 30 天？')
+            ->assertSee('value="unbind"', false)->assertDontSee('value="delete_card"', false);
+        $this->get('/agent/tools/query?keyword='.urlencode($card->code_ciphertext))
+            ->assertOk()->assertDontSee('value="renew"', false);
+        $this->from('/agent/cards')->post($action, ['action' => 'delete_card', 'confirmed' => 1])
+            ->assertSessionHasErrors('action');
+        $this->assertSame('active', $card->fresh()->status);
+        $this->from('/agent/cards')->post($action, $quote)->assertSessionHas('success', '续费成功，已扣除代理余额。');
         $this->assertSame(58000, $agent->fresh()->agent_balance_cents);
         $this->assertSame($expiry->copy()->addDays(30)->toDateTimeString(), $card->fresh()->expires_at->toDateTimeString());
-        $this->assertSame($admin->getKey(), $card->fresh()->batch->created_by_administrator_id);
+
+        $this->actingAs($other, 'agent')->get('/agent/cards')->assertOk()->assertSee('共 0 张');
+        $this->post($action, array_replace($quote, ['renewal_id' => (string) Str::ulid()]))->assertNotFound();
+        $this->post($action, ['action' => 'unbind'])->assertNotFound();
     }
 
     private function agent(int $balanceCents = 0, string $username = 'agent-one'): Administrator

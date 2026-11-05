@@ -25,7 +25,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'face_price_cents',
     'default_agent_price_cents',
     'renewal_price_cents',
-    'agent_sales_enabled',
     'balance_recharge_cents',
     'code_prefix',
     'code_length',
@@ -80,7 +79,7 @@ class CardType extends Model
 
     public function agentSalesEnabled(): bool
     {
-        return $this->agent_sales_enabled !== false && $this->default_agent_price_cents >= 0;
+        return $this->default_agent_price_cents >= 0;
     }
 
     protected function casts(): array
@@ -93,7 +92,6 @@ class CardType extends Model
             'face_price_cents' => 'integer',
             'default_agent_price_cents' => 'integer',
             'renewal_price_cents' => 'integer',
-            'agent_sales_enabled' => 'boolean',
             'balance_recharge_cents' => 'integer',
             'sort_order' => 'integer',
             'code_length' => 'integer',

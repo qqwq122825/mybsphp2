@@ -24,7 +24,7 @@
                 @php $activated = in_array($card->status, ['active', 'expired', 'consumed'], true); @endphp
                 <td>{{ $card->card_is_frozen ? '冻结' : '正常' }}</td>
                 <td><span class="status-tag {{ $activated ? 'status-active' : 'status-issued' }}">{{ $activated ? '已激活' : '未激活' }}</span></td>
-                <td class="agent-row-actions">@include('agent.partials.card-row-actions', ['card' => $card, 'agent' => $agent])</td>
+                <td class="agent-row-actions">@include('agent.partials.card-row-actions', ['card' => $card, 'agent' => $agent, 'renewal' => ($renewable ?? collect())->get($card->getKey()), 'purchased' => in_array((int) $card->batch_id, $purchasedBatchIds ?? [(int) $card->batch_id], true)])</td>
             </tr>
         @empty<tr><td colspan="9" class="empty-cell">暂无代理充值卡。</td></tr>@endforelse
         </tbody></table>

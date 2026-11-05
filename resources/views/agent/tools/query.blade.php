@@ -12,7 +12,7 @@
     $queryTime = \Carbon\CarbonImmutable::now();
 @endphp
 @section('content')
-<x-admin.table-shell title="卡密查询" subtitle="可查询系统内所有人制作的卡密；可为系统管理员或自己制作的符合条件的卡密续费。" panel-class="agent-query-panel">
+<x-admin.table-shell title="卡密查询" subtitle="可查询系统内所有人制作的卡密；查询结果仅供查看，续费、解绑等操作请到卡管理。" panel-class="agent-query-panel">
     <x-slot:search>
         <x-admin.filter-bar :action="route('agent.tools.query')" keyword-label="卡密：" button-label="⌕" :icon-only="true">
             <x-slot:keyword>
@@ -43,7 +43,6 @@
             <th>绑定特征</th>
             <th>卡密状态</th>
             <th>制作时间</th>
-            <th>操作</th>
         </tr>
         </thead>
         <tbody>
@@ -78,30 +77,9 @@
                     @endif
                 </td>
                 <td>{{ $card->created_at?->format('Y-m-d H:i:s') }}</td>
-                <td class="agent-row-actions">
-                    @if($renewal = ($renewable ?? collect())->get($card->getKey()))
-                        @php
-                            $priceLabel = number_format($renewal['price'] / 100, 2, '.', '');
-                            $seconds = $renewal['seconds'];
-                            $durationLabel = $seconds % 86400 === 0 ? intdiv($seconds, 86400).' 天'
-                                : ($seconds % 3600 === 0 ? intdiv($seconds, 3600).' 小时'
-                                : ($seconds % 60 === 0 ? intdiv($seconds, 60).' 分钟' : $seconds.' 秒'));
-                        @endphp
-                        <form action="{{ route('agent.cards.action', $card) }}" method="post">
-                            @csrf
-                            <input type="hidden" name="action" value="renew">
-                            <input type="hidden" name="renewal_id" value="{{ (string) \Illuminate\Support\Str::ulid() }}">
-                            <input type="hidden" name="renewal_price_cents" value="{{ $renewal['price'] }}">
-                            <input type="hidden" name="renewal_seconds" value="{{ $seconds }}">
-                            <button type="submit" onclick="return confirm('确认扣除 {{ $priceLabel }} 点并续费 {{ $durationLabel }}？')">续费</button>
-                        </form>
-                    @else
-                        —
-                    @endif
-                </td>
             </tr>
         @empty
-            <tr><td colspan="12" class="bsphp-table-empty">{{ $keyword === '' ? '请输入卡密后查询。' : '未找到充值卡。' }}</td></tr>
+            <tr><td colspan="11" class="bsphp-table-empty">{{ $keyword === '' ? '请输入卡密后查询。' : '未找到充值卡。' }}</td></tr>
         @endforelse
         </tbody>
     </table>

@@ -46,8 +46,6 @@
                         <input type="number" step="0.01" min="0" max="999999" name="price" value="{{ old('price', $type ? $type->basePriceCents() / 100 : 1) }}" required><small>购卡原价；代理按自己的折扣扣点</small></label>
                     <label class="card-type-form-row"><strong>续费价格</strong>
                         <input type="number" step="0.01" min="0" max="999999" name="renewal_price" value="{{ old('renewal_price', $type?->renewal_price_cents === null ? '' : $type->renewal_price_cents / 100) }}" placeholder="留空跟随价格"><small>每次延长本卡种期限；代理续费按自己的折扣扣点</small></label>
-                    <label class="card-type-form-row"><strong>代理购买与续费</strong>
-                        <select name="agent_sales_enabled"><option value="1" @selected((int) old('agent_sales_enabled', (int) ($type?->agentSalesEnabled() ?? true)) === 1)>允许</option><option value="0" @selected((int) old('agent_sales_enabled', (int) ($type?->agentSalesEnabled() ?? true)) === 0)>禁用</option></select><small>禁用后代理不能购卡或为该卡种续费</small></label>
                     <label class="card-type-form-row"><strong>余额充值</strong>
                         <input type="number" step="0.01" name="balance_recharge" value="{{ old('balance_recharge', $type ? $type->balance_recharge_cents / 100 : 0) }}" required><small>不需要时填 0，支持负数</small></label>
                     <label class="card-type-form-row"><strong>卡号长度</strong>
