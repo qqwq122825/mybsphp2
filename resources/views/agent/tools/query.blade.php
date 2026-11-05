@@ -3,8 +3,13 @@
 @php
     $statusNames = [
         'inventory' => '未激活', 'issued' => '未激活', 'active' => '已激活',
-        'expired' => '已到期', 'frozen' => '已冻结', 'revoked' => '已删除', 'consumed' => '已用完',
+        'expired' => '已到期', 'frozen' => '卡密已冻结', 'revoked' => '已删除', 'consumed' => '已用完',
     ];
+    $timerStatusNames = [
+        'none' => '非计时卡', 'pending' => '未开始计时', 'active' => '计时中',
+        'paused' => '计时已暂停', 'expired' => '计时已结束',
+    ];
+    $queryTime = \Carbon\CarbonImmutable::now();
 @endphp
 @section('content')
 <x-admin.table-shell title="卡密查询" subtitle="可查询系统内所有人制作的卡密；查询结果仅供查看，不提供卡密操作。" panel-class="agent-query-panel">
@@ -33,15 +38,28 @@
             <th>卡类</th>
             <th>制卡人</th>
             <th>是否激活</th>
+            <th>计时状态</th>
+            <th>卡密冻结</th>
             <th>绑定特征</th>
-            <th>冻结状态</th>
-            <th>充值状态</th>
+            <th>卡密状态</th>
             <th>制作时间</th>
         </tr>
         </thead>
         <tbody>
         @forelse($cards as $card)
-            @php($isActivated = $card->activated_at !== null || in_array($card->status, ['active', 'expired', 'consumed'], true))
+            @php
+                $isActivated = $card->activated_at !== null || in_array($card->status, ['active', 'expired', 'consumed'], true);
+                $expiresAt = $card->effectiveExpiresAt($queryTime);
+                $cardStatus = $card->status === 'active' && $expiresAt?->lte($queryTime) ? 'expired' : $card->status;
+                $timerStatus = match (true) {
+                    ! $card->is_timer => 'none',
+                    in_array($cardStatus, ['expired', 'revoked', 'consumed'], true) || $card->revoked_at !== null => 'expired',
+                    ! $isActivated || $expiresAt === null => 'pending',
+                    $card->isTimerPaused($queryTime) => 'paused',
+                    default => 'active',
+                };
+                $isCardFrozen = $card->card_is_frozen || $card->status === 'frozen';
+            @endphp
             <tr>
                 <td>{{ $card->id }}</td>
                 <td><code>{{ $card->code_ciphertext }}</code></td>
@@ -49,13 +67,19 @@
                 <td>{{ $card->cardType?->name ?: '—' }}</td>
                 <td>{{ $card->batch?->maker_reference ?: '系统管理员' }}</td>
                 <td>{{ $isActivated ? '已激活' : '未激活' }}</td>
+                <td><span class="status-tag status-{{ $timerStatus }}">{{ $timerStatusNames[$timerStatus] }}</span></td>
+                <td>{{ $isCardFrozen ? '卡密已冻结' : '卡密未冻结' }}</td>
                 <td class="bsphp-binding-value" title="{{ $isActivated ? ($card->bound_device_ciphertext ?: '') : '' }}">{{ $isActivated ? ($card->bound_device_ciphertext ?: '—') : '—' }}</td>
-                <td>{{ $card->user_status === 'frozen' ? '用户已冻结' : ($card->card_is_frozen ? '已冻结' : '正常') }}</td>
-                <td><span class="status-tag status-{{ $card->status }}">{{ $statusNames[$card->status] ?? $card->status }}</span></td>
+                <td>
+                    <span class="status-tag status-{{ $cardStatus }}">{{ $statusNames[$cardStatus] ?? $cardStatus }}</span>
+                    @if($card->user_status === 'frozen')
+                        <br><span class="status-tag status-frozen">软件用户已冻结</span>
+                    @endif
+                </td>
                 <td>{{ $card->created_at?->format('Y-m-d H:i:s') }}</td>
             </tr>
         @empty
-            <tr><td colspan="10" class="bsphp-table-empty">{{ $keyword === '' ? '请输入卡密后查询。' : '未找到充值卡。' }}</td></tr>
+            <tr><td colspan="11" class="bsphp-table-empty">{{ $keyword === '' ? '请输入卡密后查询。' : '未找到充值卡。' }}</td></tr>
         @endforelse
         </tbody>
     </table>
