@@ -598,7 +598,7 @@ class AgentPortalTest extends TestCase
             'expires_at' => $at->copy()->addHour(),
         ])->save();
         $html = $this->get('/agent/cards')->assertOk()
-            ->assertSeeInOrder(['<th>激活状态</th>', 'data-agent-sort-label>到期时间</span>', '<th>是否到期</th>', '<th>操作</th>'], false)
+            ->assertSeeInOrder(['data-agent-sort-label>激活状态</span>', 'data-agent-sort-label>到期时间</span>', 'data-agent-sort-label>是否到期</span>', '<th>操作</th>'], false)
             ->getContent();
         $dom = new \DOMDocument;
         @$dom->loadHTML('<meta http-equiv="Content-Type" content="text/html; charset=utf-8">'.$html);
@@ -666,6 +666,38 @@ class AgentPortalTest extends TestCase
         $this->assertSame($early->id, $duration->getCollection()->first()->id);
         $duration = $this->get('/agent/cards?sort=duration_desc')->assertOk()->viewData('cards');
         $this->assertNotContains($early->id, $duration->getCollection()->pluck('id')->all());
+    }
+
+    public function test_agent_card_list_sorts_number_activation_and_expiry_status(): void
+    {
+        $agent = $this->agent(100000);
+        [, $type] = $this->applicationAndType();
+        $at = now()->startOfSecond();
+        $this->travelTo($at);
+        $this->actingAs($agent, 'agent')->post('/agent/purchase', [
+            'card_type_id' => $type->getKey(), 'quantity' => 6,
+        ])->assertRedirect('/agent/purchase');
+        [$unused, $current, $past, $paused, $noDate, $expiredStatus] = Card::query()->orderBy('id')->get()->all();
+        $activated = ['status' => 'active', 'activated_at' => $at->copy()->subDay()];
+        $current->forceFill($activated + ['expires_at' => $at->copy()->addDay(), 'agent_starred' => true])->save();
+        $past->forceFill($activated + ['expires_at' => $at->copy()->subSecond()])->save();
+        $paused->forceFill($activated + [
+            'is_timer' => true, 'timer_paused_at' => $at->copy()->subHours(2), 'expires_at' => $at->copy()->subHour(),
+        ])->save();
+        $noDate->forceFill($activated)->save();
+        $expiredStatus->forceFill(['status' => 'expired', 'activated_at' => $at->copy()->subDay()])->save();
+
+        $this->get('/agent/cards')->assertOk()->assertSee('按编号升序')
+            ->assertSee('按激活状态升序')->assertSee('按是否到期升序');
+        $read = fn (string $sort) => $this->get('/agent/cards?sort='.$sort)->assertOk()->viewData('cards')->pluck('id')->all();
+        $this->assertSame([$unused->id, $current->id, $past->id, $paused->id, $noDate->id, $expiredStatus->id], $read('number_asc'));
+        $this->assertSame([$expiredStatus->id, $noDate->id, $paused->id, $past->id, $current->id, $unused->id], $read('number_desc'));
+        $this->assertSame($unused->id, $read('activation_asc')[0]);
+        $this->assertSame($unused->id, $read('activation_desc')[5]);
+        $this->assertSame([$paused->id, $current->id, $expiredStatus->id, $past->id, $noDate->id, $unused->id], $read('expiry_status_asc'));
+        $this->assertSame([$expiredStatus->id, $past->id, $paused->id, $current->id, $noDate->id, $unused->id], $read('expiry_status_desc'));
+        $this->get('/agent/cards?sort=expiry_status_asc')->assertOk()->assertSee('按是否到期降序')
+            ->assertSee('aria-sort="ascending"', false);
     }
 
     private function agent(int $balanceCents = 0, string $username = 'agent-one'): Administrator

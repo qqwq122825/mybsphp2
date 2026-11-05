@@ -16,7 +16,7 @@
             <div><a class="button" href="{{ route('agent.cards.purchase') }}">余额制卡</a></div>
             <span>共 {{ $cards->total() }} 张</span>
         </x-slot:toolbar>
-        <table class="agent-card-table"><thead><tr><th class="agent-star-cell"></th><th>编号</th><th>卡号</th><th>软件名称</th><th>卡类</th>@include('agent.partials.sort-header', ['label' => '时间', 'field' => 'duration', 'sort' => $sort ?? 'latest'])<th>锁状态</th><th>激活状态</th>@include('agent.partials.sort-header', ['label' => '到期时间', 'field' => 'expiry', 'sort' => $sort ?? 'latest'])<th>是否到期</th><th>操作</th></tr></thead><tbody>
+        <table class="agent-card-table"><thead><tr><th class="agent-star-cell"></th>@include('agent.partials.sort-header', ['label' => '编号', 'field' => 'number', 'sort' => $sort ?? 'latest'])<th>卡号</th><th>软件名称</th><th>卡类</th>@include('agent.partials.sort-header', ['label' => '时间', 'field' => 'duration', 'sort' => $sort ?? 'latest'])<th>锁状态</th>@include('agent.partials.sort-header', ['label' => '激活状态', 'field' => 'activation', 'sort' => $sort ?? 'latest'])@include('agent.partials.sort-header', ['label' => '到期时间', 'field' => 'expiry', 'sort' => $sort ?? 'latest'])@include('agent.partials.sort-header', ['label' => '是否到期', 'field' => 'expiry_status', 'sort' => $sort ?? 'latest'])<th>操作</th></tr></thead><tbody>
         @forelse($cards as $card)
             <tr>
                 <td class="agent-star-cell">

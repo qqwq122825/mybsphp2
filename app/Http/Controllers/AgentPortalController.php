@@ -85,8 +85,10 @@ final class AgentPortalController extends Controller
             $this->applyCardKeyword($query, (string) $request->input('keyword'));
         }
         $sort = $request->query('sort');
-        $sort = in_array($sort, ['latest', 'oldest', 'duration_asc', 'duration_desc', 'expiry_asc', 'expiry_desc'], true)
-            ? $sort : 'latest';
+        $sort = in_array($sort, [
+            'latest', 'oldest', 'number_asc', 'number_desc', 'duration_asc', 'duration_desc',
+            'activation_asc', 'activation_desc', 'expiry_asc', 'expiry_desc', 'expiry_status_asc', 'expiry_status_desc',
+        ], true) ? $sort : 'latest';
         $listTime = CarbonImmutable::now();
         $this->orderCardList($query, $sort, $listTime);
         $cards = $query->paginate(20)->withQueryString();
@@ -117,8 +119,42 @@ final class AgentPortalController extends Controller
         }
 
         $direction = str_ends_with($sort, '_asc') ? 'asc' : 'desc';
+        if (str_starts_with($sort, 'number_')) {
+            $query->orderBy('cards.id', $direction);
+
+            return;
+        }
+
+        // Same activation rule as the card-list labels, including legacy rows.
+        $activated = "(cards.activated_at IS NOT NULL OR cards.status IN ('active', 'expired', 'consumed'))";
+        if (str_starts_with($sort, 'activation_')) {
+            $query->orderByRaw("$activated $direction")->orderByDesc('cards.id');
+
+            return;
+        }
+
         $query->select('cards.*');
-        if (str_starts_with($sort, 'duration_')) {
+        if (str_starts_with($sort, 'expiry_status_')) {
+            // 0: not expired, 1: expired. Unactivated cards or cards with no
+            // known expiry stay last. Timers use the same paused-time credit as the view.
+            $query->selectRaw(<<<SQL
+                CASE
+                    WHEN NOT $activated THEN NULL
+                    WHEN cards.status = 'expired' THEN 1
+                    WHEN cards.expires_at IS NULL THEN NULL
+                    WHEN TIMESTAMPADD(SECOND,
+                        CASE WHEN cards.is_timer = 1 AND cards.timer_paused_at IS NOT NULL THEN
+                            GREATEST(0, TIMESTAMPDIFF(SECOND, cards.timer_paused_at,
+                                CASE WHEN COALESCE(cards.timer_pause_max_seconds, 0) > 0
+                                    THEN LEAST(TIMESTAMPADD(SECOND, cards.timer_pause_max_seconds, cards.timer_paused_at), ?)
+                                    ELSE ? END))
+                            ELSE 0 END,
+                        cards.expires_at) <= ? THEN 1
+                    ELSE 0
+                END AS agent_sort_expired
+                SQL, array_fill(0, 3, $at->toDateTimeString()))
+                ->orderByRaw('agent_sort_expired IS NULL')->orderBy('agent_sort_expired', $direction);
+        } elseif (str_starts_with($sort, 'duration_')) {
             $query->selectSub(
                 CardType::withTrashed()->selectRaw('NULLIF(card_types.duration_seconds, 0)')
                     ->whereColumn('card_types.id', 'cards.card_type_id'),
