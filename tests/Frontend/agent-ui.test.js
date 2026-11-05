@@ -59,3 +59,14 @@ test('server unbind confirmation preserves both deduction choices without invent
     assert.deepEqual(submissionFields(modal.actions[0]).at(-1), ['deduct_time', '1']);
     assert.deepEqual(submissionFields(modal.actions[1]).at(-1), ['deduct_time', '0']);
 });
+
+test('agent sortable headers keep arrow separate from label and use only same-origin links', () => {
+    const root = doc(`<main data-element-agent><table><thead><tr>
+        <th><span data-agent-sort-label>到期时间</span><a data-agent-sort href="/agent/cards?keyword=ABCD&amp;sort=expiry_desc&amp;page=1" aria-label="按到期时间降序">↑</a></th>
+        <th><span data-agent-sort-label>时间</span><a data-agent-sort href="https://example.com/">↕</a></th>
+        </tr></thead><tbody></tbody></table></main>`).querySelector('main');
+    const [expiry, time] = readAgent(root).table.columns;
+    assert.equal(expiry.label, '到期时间');
+    assert.deepEqual(expiry.sort, { href: 'http://localhost/agent/cards?keyword=ABCD&sort=expiry_desc&page=1', arrow: '↑', title: '按到期时间降序' });
+    assert.equal(time.sort, null);
+});

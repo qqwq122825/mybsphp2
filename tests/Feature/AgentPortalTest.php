@@ -598,7 +598,7 @@ class AgentPortalTest extends TestCase
             'expires_at' => $at->copy()->addHour(),
         ])->save();
         $html = $this->get('/agent/cards')->assertOk()
-            ->assertSeeInOrder(['<th>激活状态</th>', '<th>到期时间</th>', '<th>是否到期</th>', '<th>操作</th>'], false)
+            ->assertSeeInOrder(['<th>激活状态</th>', 'data-agent-sort-label>到期时间</span>', '<th>是否到期</th>', '<th>操作</th>'], false)
             ->getContent();
         $dom = new \DOMDocument;
         @$dom->loadHTML('<meta http-equiv="Content-Type" content="text/html; charset=utf-8">'.$html);
@@ -614,6 +614,58 @@ class AgentPortalTest extends TestCase
         $this->assertSame(['—', '未激活'], array_slice($row($unused), -3, 2));
         $this->get('/agent/cards?keyword=no-matching-expiry-card')
             ->assertOk()->assertSee('colspan="11"', false);
+    }
+
+    public function test_agent_card_sort_orders_all_results_before_pagination_and_puts_unknown_expiries_last(): void
+    {
+        $agent = $this->agent(100000);
+        [, $type] = $this->applicationAndType();
+        $at = now()->startOfSecond();
+        $this->travelTo($at);
+        $this->actingAs($agent, 'agent')->post('/agent/purchase', [
+            'card_type_id' => $type->getKey(), 'quantity' => 23,
+        ])->assertRedirect('/agent/purchase');
+        $owned = Card::query()->orderBy('id')->get();
+        [$early, $late, $resumed, $paused] = $owned->take(4)->all();
+        $activated = ['status' => 'active', 'activated_at' => $at->copy()->subDay()];
+        $early->forceFill($activated + ['expires_at' => $at->copy()->subDay()])->save();
+        $late->forceFill($activated + ['expires_at' => $at->copy()->addDays(3), 'agent_starred' => true])->save();
+        $resumed->forceFill($activated + [
+            'is_timer' => true, 'timer_paused_at' => $at->copy()->subHours(2),
+            'timer_pause_max_seconds' => 3600, 'expires_at' => $at->copy()->addDay(),
+        ])->save();
+        $paused->forceFill($activated + [
+            'is_timer' => true, 'timer_paused_at' => $at->copy()->subHours(2),
+            'expires_at' => $at->copy()->subHour(),
+        ])->save();
+
+        $asc = $this->get('/agent/cards?sort=expiry_asc')->assertOk()->assertSee('按到期时间降序')->assertSee('aria-sort="ascending"', false);
+        $page = $asc->viewData('cards');
+        $this->assertSame([$early->id, $resumed->id, $late->id], $page->getCollection()->take(3)->pluck('id')->all());
+        $this->assertStringContainsString('sort=expiry_asc', $page->nextPageUrl());
+        $second = $this->get($page->nextPageUrl())->assertOk()->viewData('cards');
+        $this->assertCount(3, $second->getCollection());
+        $this->assertEmpty(array_intersect($second->pluck('id')->all(), [$early->id, $resumed->id, $late->id]));
+
+        $descending = $this->get('/agent/cards?sort=expiry_desc')->assertOk()->viewData('cards');
+        $this->assertSame([$late->id, $resumed->id, $early->id], $descending->getCollection()->take(3)->pluck('id')->all());
+        $this->assertTrue($descending->getCollection()->slice(3)->every(fn (Card $c): bool => $c->agent_sort_expiry === null));
+        $latest = $this->get('/agent/cards?sort=unsupported')->assertOk()->viewData('cards');
+        $this->assertSame([$late->id, $owned->last()->id], $latest->getCollection()->take(2)->pluck('id')->all());
+        $oldest = $this->get('/agent/cards?sort=oldest')->assertOk()->viewData('cards');
+        $this->assertSame([$late->id, $early->id], $oldest->getCollection()->take(2)->pluck('id')->all());
+        $filtered = $this->get('/agent/cards?sort=expiry_desc&keyword='.urlencode($early->code_ciphertext))
+            ->assertOk()->viewData('cards');
+        $this->assertSame([$early->id], $filtered->pluck('id')->all());
+        $this->assertStringContainsString('keyword=', $this->get('/agent/cards?sort=duration_desc&keyword='.urlencode($early->code_ciphertext))->assertOk()
+            ->assertSee('按时间升序')->getContent());
+        $shortType = $type->replicate();
+        $shortType->forceFill(['public_id' => (string) Str::ulid(), 'code' => 'sort-short', 'duration_seconds' => 86400])->save();
+        $early->forceFill(['card_type_id' => $shortType->id])->save();
+        $duration = $this->get('/agent/cards?sort=duration_asc')->assertOk()->viewData('cards');
+        $this->assertSame($early->id, $duration->getCollection()->first()->id);
+        $duration = $this->get('/agent/cards?sort=duration_desc')->assertOk()->viewData('cards');
+        $this->assertNotContains($early->id, $duration->getCollection()->pluck('id')->all());
     }
 
     private function agent(int $balanceCents = 0, string $username = 'agent-one'): Administrator

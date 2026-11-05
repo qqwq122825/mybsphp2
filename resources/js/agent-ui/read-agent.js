@@ -30,7 +30,16 @@ export function readAgent(root) {
         balance: Number(root.dataset.balance || 0),
         result: text(source, '[data-generated-content]'), resultDescription: text(source, '.agent-generated-result p'),
         table: table ? {
-            columns: headers.map((header, index) => ({ key: index, label: header.textContent.trim(), star: header.classList.contains('agent-star-cell'), action: header.textContent.trim() === '操作' })),
+            columns: headers.map((header, index) => {
+                const link = header.querySelector('a[data-agent-sort]');
+                const label = text(header, '[data-agent-sort-label]') || header.textContent.trim();
+                return {
+                    key: index, label, star: header.classList.contains('agent-star-cell'), action: label === '操作',
+                    sort: link && new URL(link.href).origin === new URL(root.ownerDocument.URL).origin
+                        ? { href: link.href, arrow: link.textContent.trim(), title: link.getAttribute('aria-label') || label }
+                        : null,
+                };
+            }),
             rows: [...table.tBodies[0].rows].filter(row => !row.querySelector('.empty-cell, .bsphp-table-empty')).map((row,index) => ({
                 id: String(index), recordId: row.cells[headers.findIndex(header => header.textContent.trim() === '编号')]?.textContent.trim() || '', actions: [...row.querySelectorAll('.agent-row-actions button')].map(button => readAction(button)), star: row.querySelector('[data-agent-star]') ? { on: row.querySelector('[data-agent-star]').classList.contains('is-on'), url: row.querySelector('[data-agent-star]').dataset.starUrl } : null,
                 cells: [...row.cells].map(cell => ({ content: readContent(cell), text: contentText(readContent(cell)), money: cell.classList.contains('agent-money-in') ? 'success' : cell.classList.contains('agent-money-out') ? 'danger' : '' })),

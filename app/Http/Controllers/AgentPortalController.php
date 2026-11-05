@@ -84,16 +84,18 @@ final class AgentPortalController extends Controller
         if ($request->filled('keyword')) {
             $this->applyCardKeyword($query, (string) $request->input('keyword'));
         }
-        $query->orderByDesc('cards.agent_starred');
-        $request->input('sort') === 'oldest'
-            ? $query->orderBy('cards.id')
-            : $query->orderByDesc('cards.id');
-
+        $sort = $request->query('sort');
+        $sort = in_array($sort, ['latest', 'oldest', 'duration_asc', 'duration_desc', 'expiry_asc', 'expiry_desc'], true)
+            ? $sort : 'latest';
+        $listTime = CarbonImmutable::now();
+        $this->orderCardList($query, $sort, $listTime);
         $cards = $query->paginate(20)->withQueryString();
 
         return view('agent.cards.index', [
             ...$this->layout($agent),
             'cards' => $cards,
+            'sort' => $sort,
+            'listTime' => $listTime,
             'renewable' => $cards->getCollection()
                 ->filter(fn (Card $card): bool => $this->cardRenewable($card, $card->cardType))
                 ->mapWithKeys(fn (Card $card): array => [$card->getKey() => [
@@ -104,6 +106,44 @@ final class AgentPortalController extends Controller
             'unbindCard' => session('agent_unbind_card'),
             'deleteCard' => session('agent_delete_card'),
         ]);
+    }
+
+    private function orderCardList(Builder $query, string $sort, CarbonImmutable $at): void
+    {
+        if (in_array($sort, ['latest', 'oldest'], true)) {
+            $query->orderByDesc('cards.agent_starred')->orderBy('cards.id', $sort === 'oldest' ? 'asc' : 'desc');
+
+            return;
+        }
+
+        $direction = str_ends_with($sort, '_asc') ? 'asc' : 'desc';
+        $query->select('cards.*');
+        if (str_starts_with($sort, 'duration_')) {
+            $query->selectSub(
+                CardType::withTrashed()->selectRaw('NULLIF(card_types.duration_seconds, 0)')
+                    ->whereColumn('card_types.id', 'cards.card_type_id'),
+                'agent_sort_duration',
+            )->orderByRaw('agent_sort_duration IS NULL')->orderBy('agent_sort_duration', $direction);
+        } else {
+            // Mirror Card::effectiveExpiresAt for auto-resumed timers. A still
+            // paused timer has no fixed date and sorts last in either direction.
+            $query->selectRaw(<<<'SQL'
+                CASE
+                    WHEN cards.activated_at IS NULL AND cards.status NOT IN ('active', 'expired', 'consumed') THEN NULL
+                    WHEN cards.expires_at IS NULL THEN NULL
+                    WHEN cards.is_timer = 1 AND cards.timer_paused_at IS NOT NULL THEN
+                        CASE
+                            WHEN COALESCE(cards.timer_pause_max_seconds, 0) <= 0
+                                OR TIMESTAMPADD(SECOND, cards.timer_pause_max_seconds, cards.timer_paused_at) > ? THEN NULL
+                            ELSE TIMESTAMPADD(SECOND, cards.timer_pause_max_seconds, cards.expires_at)
+                        END
+                    ELSE cards.expires_at
+                END AS agent_sort_expiry
+                SQL, [$at->toDateTimeString()])
+                ->orderByRaw('agent_sort_expiry IS NULL')->orderBy('agent_sort_expiry', $direction);
+        }
+
+        $query->orderByDesc('cards.id');
     }
 
     public function cardAction(Request $request, Card $card): RedirectResponse|JsonResponse

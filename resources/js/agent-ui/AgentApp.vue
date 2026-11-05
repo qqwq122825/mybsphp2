@@ -143,6 +143,10 @@ function width(column) { if (mobile.value && column.label === '卡号') return 1
                             <el-space wrap style="margin-bottom:16px"><el-button v-if="page.table.create" type="primary" tag="a" :href="page.table.create" :icon="CreditCard">余额制卡</el-button><el-button :icon="Download" @click="exportRows">导出当前页</el-button><el-button @click="density = !density">{{ density ? '默认密度' : '紧凑密度' }}</el-button></el-space>
                             <el-table :data="tableRows" row-key="id" border stripe :size="density ? 'small' : 'default'" :max-height="560">
                                 <el-table-column v-for="column in tableColumns" :key="column.key" :label="column.label || '标记'" :width="column.star || column.action ? width(column) : undefined" :min-width="width(column)" :fixed="column.action ? 'right' : false" :align="column.star || column.action ? 'center' : 'left'">
+                                    <template v-if="column.sort" #header>
+                                        <span>{{ column.label }}</span>
+                                        <a class="agent-sort-arrow" :href="column.sort.href" :aria-label="column.sort.title" :title="column.sort.title">{{ column.sort.arrow }}</a>
+                                    </template>
                                     <template #default="scope"><el-button v-if="column.star && scope.row.star" :icon="scope.row.star.on ? StarFilled : Star" :type="scope.row.star.on ? 'warning' : ''" text :loading="pendingStars.has(scope.row.id)" :aria-label="scope.row.star.on ? '取消标记' : '标记'" @click="star(scope.row)" /><el-space v-else-if="mobile && column.label === '卡号'" direction="vertical" alignment="start" :size="4"><el-space><el-text size="small" type="info">#{{ scope.row.recordId }}</el-text><el-button v-if="scope.row.star" :icon="scope.row.star.on ? StarFilled : Star" :type="scope.row.star.on ? 'warning' : ''" text size="small" :loading="pendingStars.has(scope.row.id)" :aria-label="scope.row.star.on ? '取消标记' : '标记'" @click="star(scope.row)" /></el-space><div class="ep-cell"><server-content :nodes="scope.row.cells[column.key].content" /></div></el-space><el-text v-else-if="scope.row.cells[column.key].money" :type="scope.row.cells[column.key].money">{{ scope.row.cells[column.key].text }}</el-text><el-space v-else-if="column.action" wrap><el-button v-for="(action,index) in scope.row.actions" :key="index" :type="action.tone" plain :disabled="busy" @click="runAction(action)">{{ action.label }}</el-button></el-space><div v-else class="ep-cell"><server-content :nodes="scope.row.cells[column.key].content" @action="runAction" /></div></template>
                                 </el-table-column>
                                 <template #empty><el-empty :description="page.table.empty" :image-size="72" /></template>
@@ -158,6 +162,16 @@ function width(column) { if (mobile.value && column.label === '卡号') return 1
 </template>
 
 <style scoped>
+.agent-sort-arrow {
+    margin-inline-start: 4px;
+    padding: 3px 5px;
+    color: var(--el-text-color-secondary);
+    text-decoration: none;
+}
+.agent-sort-arrow:hover, .agent-sort-arrow:focus-visible {
+    color: var(--el-color-primary);
+}
+
 .agent-primary-menu :deep(.el-menu-item.is-active),
 .agent-primary-menu :deep(.el-menu-item.is-active:hover),
 .agent-primary-menu :deep(.el-menu-item.is-active:focus) {
