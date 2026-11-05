@@ -85,7 +85,7 @@ final class ProxyLinkService
                 'password' => $proxyCode,
                 'label' => $subject instanceof Card ? '卡密尾号 '.$subject->code_last4 : $subject->username,
                 'expires_at' => $expiresAt?->getTimestamp(),
-                'status' => $state, 'perm' => $link->permission, 'allow_multi' => false,
+                'status' => $state === 'paused' ? 'frozen' : $state, 'perm' => $link->permission, 'allow_multi' => false,
             ];
             if ($remaining !== null) {
                 // 仅冻结中的计时卡追加该字段，其余用户的结构保持不变。

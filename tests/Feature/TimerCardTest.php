@@ -235,7 +235,7 @@ class TimerCardTest extends TestCase
         $this->legacy('pause.ic', $code);
         $this->travel(1)->days();
         $row = $this->postJson('/'.$link->path)->assertOk()->json('data.users.0');
-        $this->assertSame('paused', $row['status']);
+        $this->assertSame('frozen', $row['status']);
         $this->assertSame(10 * 86400, $row['remaining_seconds']);
         $this->assertSame(now()->addDays(10)->getTimestamp(), $row['expires_at']);
 

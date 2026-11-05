@@ -45,7 +45,7 @@ final class AgentPreview
             $transactions = collect();
             if ($page !== 'agent-finance-empty') {
                 for ($i = 0; $i < 24; $i++) {
-                    $transactions->push((new AgentTransaction)->forceFill(['id' => $i + 1, 'created_at' => $at->subHours($i), 'type' => ['admin_recharge', 'card_purchase', 'card_refund'][$i % 3], 'amount_cents' => [10000, -1500, 1500][$i % 3], 'balance_after_cents' => 20000, 'note' => $i === 0 ? '余额充值示例' : '本地组件验收数据']));
+                    $transactions->push((new AgentTransaction)->forceFill(['id' => $i + 1, 'created_at' => $at->subHours($i), 'type' => ['admin_recharge', 'card_purchase', 'card_refund'][$i % 3], 'amount_cents' => [10000, -1500, 1500][$i % 3], 'balance_after_cents' => 20000, 'card_reference_codes' => [], 'note' => $i === 0 ? '余额充值示例' : '本地组件验收数据']));
                 }
             }
 
