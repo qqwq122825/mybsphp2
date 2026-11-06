@@ -83,21 +83,34 @@ class TimerCardTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_make_page_offers_timer_checkbox_and_creates_timer_cards(): void
+    public function test_card_type_controls_admin_issuance_and_does_not_change_existing_cards(): void
     {
         $this->actingAs($this->administrator(), 'admin');
+        $typesUrl = '/timer-console/applications/'.$this->application->public_id.'/card-types';
+        $makeUrl = '/timer-console/applications/'.$this->application->public_id.'/cards/make';
+        $updateUrl = '/timer-console/card-types/'.$this->cardType->public_id;
+        $make = ['card_type_id' => $this->cardType->getKey(), 'generation_mode' => 'automatic', 'quantity' => 1];
 
-        $this->get('/timer-console/applications/'.$this->application->public_id.'/cards/make')
-            ->assertOk()->assertSee('制作为计时卡')->assertSee('冻结次数上限')->assertSee('单次最长冻结');
+        $this->post('/timer-console/card-batches', $make + ['is_timer' => '1'])->assertRedirect();
+        $normal = Card::query()->sole();
+        $this->assertFalse($normal->is_timer);
 
-        $this->post('/timer-console/card-batches', [
-            'card_type_id' => $this->cardType->getKey(), 'generation_mode' => 'automatic', 'quantity' => 2,
+        $this->get($typesUrl.'?edit='.$this->cardType->public_id)
+            ->assertOk()->assertSee('计时规则')->assertSee('冻结次数上限')->assertSee('单次最长冻结');
+
+        $this->put($updateUrl, $this->cardTypeForm() + [
             'is_timer' => '1', 'timer_pause_limit' => 5, 'timer_pause_max_days' => 30,
-        ])->assertRedirect();
+        ])->assertRedirect($typesUrl)->assertSessionHasNoErrors();
+        $this->get($makeUrl)->assertOk()->assertSee('10 天卡（计时卡）')->assertDontSee('name="is_timer"', false);
+        $this->assertSame(['pause_limit' => 5, 'pause_max_seconds' => 30 * 86400], $this->cardType->fresh()->timerSettings());
+
+        $this->post('/timer-console/card-batches', ['quantity' => 2] + $make + [
+            'is_timer' => '0', 'timer_pause_limit' => 2, 'timer_pause_max_days' => 1,
+        ])->assertRedirect()->assertSessionHasNoErrors();
 
         $batch = CardBatch::query()->latest('id')->firstOrFail();
         $this->assertTrue($batch->is_timer);
-        $cards = Card::query()->where('batch_id', $batch->id)->get();
+        $cards = $batch->cards()->get();
         $this->assertCount(2, $cards);
         foreach ($cards as $card) {
             $this->assertTrue($card->is_timer);
@@ -105,14 +118,28 @@ class TimerCardTest extends TestCase
             $this->assertSame(30 * 86400, $card->timer_pause_max_seconds);
         }
 
-        // 不勾选时仍是普通卡。
-        $this->post('/timer-console/card-batches', [
-            'card_type_id' => $this->cardType->getKey(), 'generation_mode' => 'automatic', 'quantity' => 1,
-        ])->assertRedirect();
+        $this->put($updateUrl, $this->cardTypeForm() + ['is_timer' => '0'])
+            ->assertRedirect($typesUrl)->assertSessionHasNoErrors();
+        $this->post('/timer-console/card-batches', $make)->assertRedirect();
         $this->assertFalse(Card::query()->latest('id')->firstOrFail()->is_timer);
+        $this->assertFalse($normal->fresh()->is_timer);
+        $this->assertTrue($cards[0]->fresh()->is_timer);
+        $this->assertSame(5, $cards[0]->fresh()->timer_pause_limit);
     }
 
-    public function test_only_duration_types_can_be_made_as_timer_cards(): void
+    public function test_timer_rules_can_be_set_when_creating_a_card_type(): void
+    {
+        $this->actingAs($this->administrator(), 'admin');
+        $this->post('/timer-console/card-types', ['name' => '计时周卡'] + $this->cardTypeForm() + [
+            'is_timer' => '1', 'timer_pause_limit' => -1, 'timer_pause_max_days' => 0,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(
+            ['pause_limit' => -1, 'pause_max_seconds' => 0],
+            CardType::query()->where('name', '计时周卡')->sole()->timerSettings(),
+        );
+    }
+
+    public function test_only_duration_types_can_be_configured_as_timer_cards(): void
     {
         $this->actingAs($this->administrator(), 'admin');
         $points = $this->cardType->replicate()->fill([
@@ -120,10 +147,20 @@ class TimerCardTest extends TestCase
         ]);
         $points->save();
 
-        $this->post('/timer-console/card-batches', [
-            'card_type_id' => $points->getKey(), 'generation_mode' => 'automatic', 'quantity' => 1, 'is_timer' => '1',
+        $this->put('/timer-console/card-types/'.$points->public_id, $this->cardTypeForm() + [
+            'is_timer' => '1',
         ])->assertSessionHasErrors('is_timer');
-        $this->assertDatabaseCount('cards', 0);
+        $this->assertFalse($points->fresh()->is_timer);
+    }
+
+    private function cardTypeForm(): array
+    {
+        return [
+            'application_id' => $this->application->id, 'name' => $this->cardType->name,
+            'sort_order' => 0, 'duration_value' => 10, 'duration_unit' => 'day', 'price' => 1,
+            'balance_recharge' => 0, 'code_length' => 20, 'code_charset' => 'mixed',
+            'secret_length' => 0, 'account_concurrency_limit' => 0, 'machine_concurrency_limit' => 0,
+        ];
     }
 
     public function test_pause_stops_the_clock_and_resume_extends_expiry(): void
@@ -313,8 +350,8 @@ class TimerCardTest extends TestCase
 
     public function test_public_page_does_not_operate_cards_that_have_a_password(): void
     {
-        $this->cardType->forceFill(['secret_length' => 8])->save();
-        $credential = app(CardGenerationService::class)->generate($this->cardType, 1, null, timer: [])['credentials'][0];
+        $this->cardType->fill(['secret_length' => 8, 'is_timer' => true])->save();
+        $credential = app(CardGenerationService::class)->generate($this->cardType, 1, null)['credentials'][0];
         $card = $this->cardByCode($credential['code']);
         $card->forceFill(['status' => 'active', 'activated_at' => now(), 'expires_at' => now()->addDays(10)])->save();
 
@@ -336,7 +373,6 @@ class TimerCardTest extends TestCase
         $this->get('/timer-console/applications/'.$this->application->public_id.'/users')
             ->assertOk()
             ->assertSee('data-expires="'.$effective->format('Y-m-d\TH:i:s').'"', false)
-            ->assertSee('（冻结中）')
             ->assertDontSee('<strong>已到期</strong>', false)
             ->assertSee('data-quick-days="7"', false)->assertSee('快速加时');
 
@@ -358,11 +394,54 @@ class TimerCardTest extends TestCase
         $this->assertSame(13 * 86400, $this->cardByCode($code)->timerRemainingSeconds());
     }
 
+    public function test_timer_cards_hide_list_expiry_but_show_remaining_time(): void
+    {
+        $this->actingAs($this->administrator(), 'admin');
+        $code = app(CardGenerationService::class)->generate($this->cardType, 1, null)['credentials'][0]['code'];
+        $this->cardByCode($code)->forceFill(['is_timer' => true])->save();
+        $this->login($code)->assertOk();
+        $this->travel(10 * 86400 - (9 * 3600 + 11 * 60))->seconds();
+        $this->legacy('pause.ic', $code);
+        $url = '/timer-console/applications/'.$this->application->public_id.'/users';
+        $card = $this->cardByCode($code);
+        $this->assertSame(9 * 3600 + 11 * 60, $card->timerRemainingSeconds());
+
+        foreach ([0, 12] as $hours) {
+            $this->travel($hours)->hours();
+            $projection = $card->effectiveExpiresAt();
+            $response = $this->get($url)->assertOk()
+                ->assertSee('冻结计时中')
+                ->assertSee('<strong>9小时11分</strong>', false)
+                ->assertDontSee('<time class="bsphp-user-expiry"', false)
+                ->assertSee('data-expires="'.$projection->format('Y-m-d\TH:i:s').'"', false);
+            $this->assertMatchesRegularExpression('/<td class="bsphp-user-expiry-column">\s*--\s*<\/td>/', $response->getContent());
+        }
+
+        $this->legacy('resume.ic', $code);
+        $this->travel(1)->minutes();
+        $response = $this->get($url)->assertOk()
+            ->assertDontSee('<time class="bsphp-user-expiry"', false)
+            ->assertSee('<strong>9小时10分</strong>', false);
+        $this->assertMatchesRegularExpression('/<td class="bsphp-user-expiry-column">\s*--\s*<\/td>/', $response->getContent());
+
+        $normal = app(CardGenerationService::class)->generate($this->cardType, 1, null)['credentials'][0]['code'];
+        $this->login($normal)->assertOk();
+        $this->get($url)->assertOk()
+            ->assertSee('<time class="bsphp-user-expiry"', false)
+            ->assertSee($this->cardByCode($normal)->expires_at->format('Y-m-d H:i:s'))
+            ->assertSee('<strong>9小时10分</strong>', false);
+    }
+
     /** @param array{pause_limit?: int, pause_max_seconds?: int} $timer */
     private function timerCard(bool $isTimer = true, array $timer = []): string
     {
-        return app(CardGenerationService::class)
-            ->generate($this->cardType, 1, null, timer: $isTimer ? $timer : null)['credentials'][0]['code'];
+        $this->cardType->fill([
+            'is_timer' => $isTimer,
+            'timer_pause_limit' => $timer['pause_limit'] ?? -1,
+            'timer_pause_max_seconds' => $timer['pause_max_seconds'] ?? 0,
+        ])->save();
+
+        return app(CardGenerationService::class)->generate($this->cardType, 1, null)['credentials'][0]['code'];
     }
 
     private function cardByCode(string $code): Card

@@ -42,6 +42,26 @@
                         <div class="inline-unit-input"><input type="number" name="duration_value" min="1" value="{{ old('duration_value', $type?->duration_value ?? 1) }}" required>
                             <select name="duration_unit" aria-label="充值卡期限单位">@foreach($units as $value => $label)<option value="{{ $value }}" @selected(old('duration_unit', $type?->duration_unit ?? 'day') === $value)>{{ $label }}</option>@endforeach</select></div>
                         <small>1 分钟等于 60 秒</small></label>
+                    @if(! $type || $type->benefit_kind === 'duration')
+                        <label class="card-type-form-row">
+                            <strong>计时规则</strong>
+                            <select name="is_timer">
+                                <option value="0" @selected(! old('is_timer', $type?->is_timer))>普通卡</option>
+                                <option value="1" @selected(old('is_timer', $type?->is_timer))>计时卡</option>
+                            </select>
+                            <small>计时卡冻结期间不扣时长；本设置只影响之后制作和购买的卡</small>
+                        </label>
+                        <label class="card-type-form-row">
+                            <strong>冻结次数上限</strong>
+                            <input type="number" name="timer_pause_limit" min="-1" max="9999" value="{{ old('timer_pause_limit', $type?->timer_pause_limit ?? -1) }}">
+                            <small>仅计时卡生效；-1 不限次数，0 不允许冻结</small>
+                        </label>
+                        <label class="card-type-form-row">
+                            <strong>单次最长冻结</strong>
+                            <input type="number" name="timer_pause_max_days" min="0" max="3650" value="{{ old('timer_pause_max_days', intdiv($type?->timer_pause_max_seconds ?? 0, 86400)) }}">
+                            <small>仅计时卡生效；单位为天，0 不限，达到上限自动恢复计时</small>
+                        </label>
+                    @endif
                     <label class="card-type-form-row"><strong>价格</strong>
                         <input type="number" step="0.01" min="0" max="999999" name="price" value="{{ old('price', $type ? $type->basePriceCents() / 100 : 1) }}" required><small>购卡原价；代理按自己的折扣扣点</small></label>
                     <label class="card-type-form-row"><strong>续费价格</strong>
@@ -102,7 +122,7 @@
                         @forelse($cardTypes as $cardType)
                             <tr>
                                 <td data-label="选择"><input type="checkbox" name="card_type_ids[]" value="{{ $cardType->id }}" data-card-select></td>
-                                <td data-label="编号">{{ $cardType->id }}</td><td data-label="卡串名称">{{ $cardType->name }}</td>
+                                <td data-label="编号">{{ $cardType->id }}</td><td data-label="卡串名称">{{ $cardType->name }}@if($cardType->timerSettings() !== null) <small>（计时卡）</small>@endif</td>
                                 <td data-label="期限">{{ $cardType->duration_value }}{{ $units[$cardType->duration_unit] ?? '天' }}</td>
                                 <td data-label="价格">{{ number_format($cardType->basePriceCents() / 100, 2) }}@unless($cardType->agentSalesEnabled()) <small>（代理禁用）</small>@endunless</td><td data-label="续费价格">{{ $cardType->renewal_price_cents === null ? '同购卡价' : number_format($cardType->renewal_price_cents / 100, 2) }}</td>
                                 <td data-label="代号">{{ $cardType->code }}</td><td data-label="排序">{{ $cardType->sort_order }}</td><td data-label="软件名称">{{ $application->name }}</td>

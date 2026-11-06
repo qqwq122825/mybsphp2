@@ -7,7 +7,7 @@
 
     <form method="post" action="{{ route('agent.cards.purchase.store') }}" class="agent-business-form" data-agent-purchase-form>
         @csrf
-        <label><strong>卡串类型</strong><select name="card_type_id" required data-agent-card-type><option value="">请选择制作类型...</option>@foreach($cardTypes as $type)@php($agentPrice = (int) $agentPrices->get($type->id, $type->default_agent_price_cents))<option value="{{ $type->id }}" data-price="{{ $agentPrice }}" @selected((string)old('card_type_id') === (string)$type->id)>{{ $type->application->name }} &gt; {{ $type->name }}，价格{{ number_format($agentPrice / 100, 2) }}元</option>@endforeach</select><small>已按当前代理购卡折扣计算</small></label>
+        <label><strong>卡串类型</strong><select name="card_type_id" required data-agent-card-type><option value="">请选择制作类型...</option>@foreach($cardTypes as $type)@php($agentPrice = (int) $agentPrices->get($type->id, $type->default_agent_price_cents))<option value="{{ $type->id }}" data-price="{{ $agentPrice }}" @selected((string)old('card_type_id') === (string)$type->id)>{{ $type->application->name }} &gt; {{ $type->name }}{{ $type->timerSettings() !== null ? '（计时卡）' : '' }}，价格{{ number_format($agentPrice / 100, 2) }}元</option>@endforeach</select><small>已按当前代理购卡折扣计算</small></label>
         <label><strong>制作数量</strong><input type="number" name="quantity" value="{{ old('quantity', 1) }}" min="1" max="500" required data-agent-quantity><small>需要制卡数量</small></label>
         <label><strong>备注</strong><input name="note" value="{{ old('note') }}" maxlength="500" placeholder="自己可见"><small>选填</small></label>
         <div class="agent-balance-row"><strong>余额</strong><span>{{ number_format($agent->agent_balance_cents / 100, 2) }} 元</span><small>本次预计扣款：<b data-agent-total>0.00</b> 元</small></div>

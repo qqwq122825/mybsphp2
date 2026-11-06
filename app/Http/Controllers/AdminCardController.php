@@ -486,6 +486,7 @@ final class AdminCardController extends Controller
             'points_amount' => null,
             'fixed_expires_at' => null,
             ...$this->cardTypePrices($validated),
+            ...$this->cardTypeTimerSettings($validated),
             'balance_recharge_cents' => (int) round(((float) $validated['balance_recharge']) * 100),
             'code_prefix' => $codePrefix,
             'code_length' => (int) $validated['code_length'],
@@ -512,6 +513,9 @@ final class AdminCardController extends Controller
                 'duration_seconds',
                 'code_length',
                 'secret_length',
+                'is_timer',
+                'timer_pause_limit',
+                'timer_pause_max_seconds',
             ]),
             actorRole: $this->administrator()->role,
         ), $request);
@@ -534,12 +538,17 @@ final class AdminCardController extends Controller
             return back()->withErrors(['code_length' => '卡号长度至少需要比开头字符多 8 位。'])->withInput();
         }
 
+        if (($validated['is_timer'] ?? false) && $cardType->benefit_kind !== 'duration') {
+            return back()->withErrors(['is_timer' => '只有时长卡类型可以设为计时卡。'])->withInput();
+        }
+
         $cardType->fill([
             'name' => $validated['name'], 'note' => $validated['note'] ?? null,
             'sort_order' => (int) $validated['sort_order'],
             'duration_seconds' => $this->durationSeconds((int) $validated['duration_value'], $validated['duration_unit']),
             'duration_value' => (int) $validated['duration_value'], 'duration_unit' => $validated['duration_unit'],
             ...$this->cardTypePrices($validated),
+            ...$this->cardTypeTimerSettings($validated),
             'balance_recharge_cents' => (int) round(((float) $validated['balance_recharge']) * 100),
             'code_prefix' => $codePrefix, 'code_length' => (int) $validated['code_length'],
             'code_charset' => $validated['code_charset'], 'alphabet' => self::CARD_ALPHABETS[$validated['code_charset']],
@@ -658,6 +667,20 @@ final class AdminCardController extends Controller
         return $prices;
     }
 
+    /** @return array{is_timer?: bool, timer_pause_limit?: int, timer_pause_max_seconds?: int} */
+    private function cardTypeTimerSettings(array $validated): array
+    {
+        if (! array_key_exists('is_timer', $validated)) {
+            return [];
+        }
+
+        return [
+            'is_timer' => (bool) $validated['is_timer'],
+            'timer_pause_limit' => (int) ($validated['timer_pause_limit'] ?? -1),
+            'timer_pause_max_seconds' => (int) ($validated['timer_pause_max_days'] ?? 0) * 86400,
+        ];
+    }
+
     /** @return array<string, mixed> */
     private function validateCardType(Request $request): array
     {
@@ -680,6 +703,12 @@ final class AdminCardController extends Controller
             'secret_charset' => ['sometimes', Rule::in(array_keys(self::CARD_ALPHABETS))],
             'account_concurrency_limit' => ['required', 'integer', 'min:-1', 'max:32767'],
             'machine_concurrency_limit' => ['required', 'integer', 'min:-1', 'max:32767'],
+            'is_timer' => ['sometimes', 'required', 'boolean'],
+            'timer_pause_limit' => ['nullable', 'integer', 'min:-1', 'max:9999'],
+            'timer_pause_max_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+        ], [
+            'timer_pause_limit.min' => '冻结次数填 -1 表示不限，或填 0 以上的次数。',
+            'timer_pause_max_days.max' => '单次最长冻结天数不能超过 3650 天。',
         ]);
     }
 
@@ -693,25 +722,10 @@ final class AdminCardController extends Controller
             'note' => ['nullable', 'string', 'max:500'],
             'maker_reference' => ['nullable', 'string', 'max:120'],
             'owner_agent_id' => ['nullable', 'integer', Rule::exists('administrators', 'id')->where('role', 'agent')],
-            'is_timer' => ['nullable', 'boolean'],
-            'timer_pause_limit' => ['nullable', 'integer', 'min:-1', 'max:9999'],
-            'timer_pause_max_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
         ], [
             'owner_agent_id.exists' => '请选择有效的代理。',
-            'timer_pause_limit.min' => '冻结次数填 -1 表示不限，或填 0 以上的次数。',
-            'timer_pause_max_days.max' => '单次最长冻结天数不能超过 3650 天。',
         ]);
         $cardType = CardType::query()->findOrFail($validated['card_type_id']);
-        $timer = null;
-        if ($request->boolean('is_timer')) {
-            if ($cardType->benefit_kind !== 'duration') {
-                return back()->withErrors(['is_timer' => '只有时长卡类型可以制作计时卡。'])->withInput();
-            }
-            $timer = [
-                'pause_limit' => (int) ($validated['timer_pause_limit'] ?? -1),
-                'pause_max_seconds' => (int) ($validated['timer_pause_max_days'] ?? 0) * 86400,
-            ];
-        }
 
         try {
             $result = $this->generator->generate(
@@ -721,8 +735,7 @@ final class AdminCardController extends Controller
                 $validated['note'] ?? null,
                 $validated['sale_flag'] ?? 'normal',
                 $validated['maker_reference'] ?? null,
-                $timer,
-                isset($validated['owner_agent_id']) ? (int) $validated['owner_agent_id'] : null,
+                ownerAgentId: isset($validated['owner_agent_id']) ? (int) $validated['owner_agent_id'] : null,
             );
         } catch (RuntimeException $exception) {
             return back()->withErrors(['quantity' => $exception->getMessage()])->withInput();
@@ -738,7 +751,7 @@ final class AdminCardController extends Controller
                 'quantity' => count($result['credentials']),
                 'application_name' => $cardType->application?->name,
                 'card_type_name' => $cardType->name,
-                'is_timer' => $timer !== null,
+                'is_timer' => $result['batch']->is_timer,
                 'owner_agent_id' => $validated['owner_agent_id'] ?? null,
             ],
             actorRole: $this->administrator()->role,
@@ -755,7 +768,7 @@ final class AdminCardController extends Controller
                 'generated_at' => now()->format('Y-m-d H:i:s'),
                 'card_type' => $cardType->name,
                 'sale_flag' => $validated['sale_flag'] ?? 'normal',
-                'is_timer' => $timer !== null,
+                'is_timer' => $result['batch']->is_timer,
             ]);
     }
 

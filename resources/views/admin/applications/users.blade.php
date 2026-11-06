@@ -9,9 +9,10 @@
 @section('content')
     <div data-element-list data-list-kind="users" data-form-errors="{{ json_encode($errors->getMessages()) }}" data-user-old="{{ json_encode(collect(old())->only(['_ui_detail_target', 'expires_at', 'bound_device', 'account_concurrency_limit', 'machine_concurrency_limit', 'note'])->all()) }}">
     @php
-        $formatRemainingValidity = static function ($expiresAt): string {
+        $listTime = now()->toImmutable();
+        $formatRemainingValidity = static function ($expiresAt) use ($listTime): string {
             if (!$expiresAt) return '永久';
-            $remaining = $expiresAt->getTimestamp() - now()->getTimestamp();
+            $remaining = $expiresAt->getTimestamp() - $listTime->getTimestamp();
             if ($remaining <= 0) return '已到期';
             $days = intdiv($remaining, 86400);
             $hours = intdiv($remaining % 86400, 3600);
@@ -54,22 +55,30 @@
                         <thead><tr>
                             <th class="bsphp-user-select-column"><input type="checkbox" data-card-select-all aria-label="全选"></th>
                             <th class="bsphp-user-identity-column">充值卡号(激活码)</th><th>状态</th><th>账号多开</th><th>机器用量</th>
-                            <th class="bsphp-user-expiry-column">到期时间</th><th class="bsphp-user-validity-column">有效期</th><th class="bsphp-user-last-online-column">最后在线</th><th class="bsphp-user-binding-column">绑定特征</th><th>备注</th><th class="bsphp-user-action-column">操作</th>
+                            <th class="bsphp-user-expiry-column">到期时间</th><th class="bsphp-user-validity-column">剩余有效期</th><th class="bsphp-user-last-online-column">最后在线</th><th class="bsphp-user-binding-column">绑定特征</th><th>备注</th><th class="bsphp-user-action-column">操作</th>
                         </tr></thead>
                         <tbody>
                         @forelse($users as $card)
                             @php
                                 $accountLimit = $card->account_concurrency_limit ?: $card->cardType->account_concurrency_limit;
                                 $machineLimit = $card->machine_concurrency_limit ?: $card->cardType->machine_concurrency_limit;
+                                $cardExpiry = $card->effectiveExpiresAt($listTime);
                             @endphp
                             <tr>
                                 <td class="bsphp-user-select-column"><input type="checkbox" name="user_ids[]" value="{{ $card->id }}" data-card-select></td>
                                 <td class="bsphp-user-identity-column bsphp-user-truncate" title="{{ $card->code_ciphertext }}"><code>{{ $card->code_ciphertext }}</code></td>
                                 <td><x-admin.software-user-status :user="$card" /></td>
                                 <td>{{ $accountLimit ?: '默认' }}</td><td>{{ $machineLimit ?: '默认' }}</td>
-                                @php $cardExpiry = $card->effectiveExpiresAt(); @endphp
-                                <td class="bsphp-user-expiry-column">@if($cardExpiry)<time class="bsphp-user-expiry" datetime="{{ $cardExpiry->toIso8601String() }}" title="{{ $cardExpiry->toIso8601String() }}">{{ $cardExpiry->format('Y-m-d H:i:s') }}</time>@else 永久 @endif</td>
-                                <td class="bsphp-user-validity-column"><strong>{{ $card->isTimerPaused() ? $formatRemainingValidity($cardExpiry).'（冻结中）' : $formatRemainingValidity($cardExpiry) }}</strong></td>
+                                <td class="bsphp-user-expiry-column">
+                                    @if($card->is_timer)
+                                        --
+                                    @elseif($cardExpiry)
+                                        <time class="bsphp-user-expiry" datetime="{{ $cardExpiry->toIso8601String() }}" title="{{ $cardExpiry->toIso8601String() }}">{{ $cardExpiry->format('Y-m-d H:i:s') }}</time>
+                                    @else
+                                        永久
+                                    @endif
+                                </td>
+                                <td class="bsphp-user-validity-column"><strong>{{ $formatRemainingValidity($cardExpiry) }}</strong></td>
                                 <td class="bsphp-user-last-online-column" title="{{ $card->last_online_at?->format('Y-m-d H:i:s') }}">{{ $card->last_online_at?->diffForHumans() ?? '—' }}</td>
                                 <td class="bsphp-binding-value bsphp-user-truncate" title="{{ $card->bound_device_ciphertext ?: '' }}">{{ $card->bound_device_ciphertext ?: '—' }}</td>
                                 <td class="bsphp-user-note-column bsphp-user-truncate" title="{{ $card->user_note ?: '' }}">{{ $card->user_note ?: '—' }}</td>

@@ -20,7 +20,6 @@ final class CardGenerationService
     ) {}
 
     /**
-     * @param  array{pause_limit?: int, pause_max_seconds?: int}|null  $timer  计时卡选项；null 为普通卡
      * @return array{batch: CardBatch, credentials: list<array{code: string, secret: string}>}
      */
     public function generate(
@@ -30,16 +29,13 @@ final class CardGenerationService
         ?string $note = null,
         string $saleFlag = 'normal',
         ?string $makerReference = null,
-        ?array $timer = null,
         ?int $ownerAgentId = null,
     ): array {
-        if ($timer !== null && $cardType->benefit_kind !== 'duration') {
-            throw new InvalidArgumentException('只有时长卡类型可以制作计时卡。');
-        }
-
         if ($quantity < 1 || $quantity > 500) {
             throw new InvalidArgumentException('单批制卡数量必须在 1 到 500 之间。');
         }
+
+        $timer = $cardType->timerSettings();
 
         return DB::transaction(function () use (
             $cardType,

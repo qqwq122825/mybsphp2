@@ -20,6 +20,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'duration_seconds',
     'duration_value',
     'duration_unit',
+    'is_timer',
+    'timer_pause_limit',
+    'timer_pause_max_seconds',
     'points_amount',
     'fixed_expires_at',
     'face_price_cents',
@@ -82,11 +85,27 @@ class CardType extends Model
         return $this->default_agent_price_cents >= 0;
     }
 
+    /** @return array{pause_limit: int, pause_max_seconds: int}|null */
+    public function timerSettings(): ?array
+    {
+        if ($this->benefit_kind !== 'duration' || ! $this->is_timer) {
+            return null;
+        }
+
+        return [
+            'pause_limit' => $this->timer_pause_limit ?? -1,
+            'pause_max_seconds' => $this->timer_pause_max_seconds ?? 0,
+        ];
+    }
+
     protected function casts(): array
     {
         return [
             'duration_seconds' => 'integer',
             'duration_value' => 'integer',
+            'is_timer' => 'boolean',
+            'timer_pause_limit' => 'integer',
+            'timer_pause_max_seconds' => 'integer',
             'points_amount' => 'integer',
             'fixed_expires_at' => 'immutable_datetime',
             'face_price_cents' => 'integer',

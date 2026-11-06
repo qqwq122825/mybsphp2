@@ -405,6 +405,29 @@ class AgentPortalTest extends TestCase
         $this->post('/agent/cards/'.$card->getKey().'/action', ['action' => 'freeze'])->assertNotFound();
     }
 
+    public function test_agent_purchase_inherits_timer_settings_without_changing_billing(): void
+    {
+        $agent = $this->agent(10000);
+        [, $cardType] = $this->applicationAndType();
+        $cardType->fill(['is_timer' => true, 'timer_pause_limit' => 3, 'timer_pause_max_seconds' => 86400])->save();
+
+        $this->actingAs($agent, 'agent')->get('/agent/purchase')
+            ->assertOk()->assertSee('30天卡（计时卡），价格5.00元')->assertDontSee('name="is_timer"', false);
+
+        $this->post('/agent/purchase', [
+            'card_type_id' => $cardType->id, 'quantity' => 2, 'is_timer' => '0',
+        ])->assertRedirect('/agent/purchase')->assertSessionHasNoErrors();
+
+        $batch = CardBatch::query()->sole();
+        $this->assertTrue($batch->is_timer);
+        $this->assertSame(2, $batch->cards()->where([
+            'owner_agent_id' => $agent->id, 'status' => 'issued', 'is_timer' => true,
+            'timer_pause_limit' => 3, 'timer_pause_max_seconds' => 86400,
+        ])->count());
+        $this->assertSame(9000, $agent->fresh()->agent_balance_cents);
+        $this->assertSame(-1000, AgentTransaction::query()->where('type', 'card_purchase')->sole()->amount_cents);
+    }
+
     public function test_agent_purchase_card_types_are_sorted_by_software(): void
     {
         $agent = $this->agent();
